@@ -98,6 +98,30 @@ export async function GET(
       }));
     }
 
+    // Check if user has previously attempted or passed this quiz
+    const chapterProgress = await db.chapterProgress.findUnique({
+      where: {
+        userId_chapterId: {
+          userId: user.id,
+          chapterId: chapter.id,
+        },
+      },
+    });
+
+    const lessonProgress = await db.lessonProgress.findFirst({
+      where: {
+        userId: user.id,
+        chapterId: chapter.id,
+      },
+    });
+
+    const previousResult = {
+      hasTaken: (chapterProgress?.quizScore ?? 0) > 0 || !!chapterProgress?.isCompleted || (lessonProgress?.attempts ?? 0) > 0,
+      score: chapterProgress?.quizScore ?? (lessonProgress?.lastScore ?? 0),
+      passed: (chapterProgress?.quizScore ?? 0) >= (quizEligibility.minPassingScore || 70) || !!chapterProgress?.isCompleted,
+      attempts: lessonProgress?.attempts ?? (chapterProgress ? 1 : 0),
+    };
+
     return NextResponse.json({
       success: true,
       questions,
@@ -105,6 +129,7 @@ export async function GET(
       orderNumber: chapter.orderNumber,
       quizEligibility,
       currentChapterProgression: progression.currentChapter,
+      previousResult,
     });
   } catch (error) {
     console.error("GET Quiz Error:", error);

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { findTrainedAnswer } from "@/lib/copilot-knowledge-base";
 
 // Contextual fallback mentor if all external models are offline
 function generateContextualFallbackResponse(
@@ -7,6 +8,10 @@ function generateContextualFallbackResponse(
   language: string,
   learningLevel: string = "beginner"
 ): string {
+  // Check trained Knowledge Base first
+  const trainedAns = findTrainedAnswer(question);
+  if (trainedAns) return trainedAns;
+
   const qLower = question.toLowerCase().trim();
   const codeLines = code.split(/\r?\n/);
 
@@ -83,6 +88,19 @@ export async function POST(request: NextRequest) {
         },
         { status: 400 }
       );
+    }
+
+    // ---------------------------------------------------------
+    // Tier 0: Instant Copilot Knowledge Base (Platform / Pricing / Founder)
+    // ---------------------------------------------------------
+    const trainedResponse = findTrainedAnswer(question);
+    if (trainedResponse) {
+      console.log("[AI CHAT] Answered via Copilot Knowledge Base");
+      return NextResponse.json({
+        success: true,
+        response: trainedResponse,
+        provider: "knowledge_base",
+      });
     }
 
     // ---------------------------------------------------------
