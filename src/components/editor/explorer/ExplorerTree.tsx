@@ -176,12 +176,24 @@ const [menu, setMenu] = useState<{
 
   setSelectedFile(item);
 
+  const getCanonicalLang = (fileName: string, ext?: string): string => {
+    const fn = (fileName || "").toLowerCase();
+    if (fn.endsWith(".py")) return "python";
+    if (fn.endsWith(".java")) return "java";
+    if (fn.endsWith(".cpp") || fn.endsWith(".cc") || fn.endsWith(".cxx") || fn.endsWith(".h") || fn.endsWith(".hpp")) return "cpp";
+    if (fn.endsWith(".c")) return "c";
+    if (fn.endsWith(".js") || fn.endsWith(".jsx")) return "javascript";
+    if (fn.endsWith(".ts") || fn.endsWith(".tsx")) return "typescript";
+    if (fn.endsWith(".md")) return "markdown";
+    if (fn.endsWith(".json")) return "json";
+    return ext?.replace(".", "") || "text";
+  };
+
   openTab({
     id: item.id,
     name: item.name,
     path: item.name,
-    language:
-      item.extension?.replace(".", "") || "text",
+    language: getCanonicalLang(item.name, item.extension),
     content: item.content || "",
     isDirty: false,
     isPinned: false,

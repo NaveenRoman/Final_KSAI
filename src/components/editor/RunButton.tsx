@@ -8,7 +8,7 @@ import { useTerminal } from "./terminal/TerminalContext";
 import { useEditor } from "./EditorContext";
 import { useLanguage } from "./languages/LanguageContext";
 import { parseCompilerError } from "./monaco/ErrorParser";
-import { validateCodeBeforeRun } from "./runner/CodeValidator";
+import { validateCodeBeforeRun, validateFileExtension } from "./runner/CodeValidator";
 
 export default function RunButton() {
   const { activeTab } = useTabs();
@@ -37,33 +37,45 @@ export default function RunButton() {
     // =========================================================
     // PRE-EXECUTION VALIDATION (Language, File Match & Syntax)
     // =========================================================
-    const validation = validateCodeBeforeRun({
-      language: selectedLang,
-      fileName,
-      code: currentCode,
-    });
+    const normLang = (selectedLang || "").toLowerCase();
+    if (normLang === "c" || normLang === "cpp" || normLang === "c++") {
+      const extCheck = validateFileExtension(selectedLang, fileName);
+      if (!extCheck.valid && extCheck.error) {
+        setDiagnostics([]);
+        setProblemsText(extCheck.error);
+        setActivePanel("problems");
+        setShowTerminal(true);
+        return;
+      }
+    } else {
+      const validation = validateCodeBeforeRun({
+        language: selectedLang,
+        fileName,
+        code: currentCode,
+      });
 
-    if (!validation.valid) {
-      const errorMsg = validation.errorMessage;
-      const parsedErrors = validation.diagnostics && validation.diagnostics.length > 0
-        ? validation.diagnostics.map((d) => ({
-            file: d.file || fileName || "Main",
-            line: d.line,
-            column: d.column,
-            message: d.message,
-            severity: d.severity,
-            type: d.type,
-            explanation: d.explanation,
-            correction: d.correction,
-            code: d.code,
-          }))
-        : parseCompilerError(errorMsg, selectedLang);
+      if (!validation.valid) {
+        const errorMsg = validation.errorMessage;
+        const parsedErrors = validation.diagnostics && validation.diagnostics.length > 0
+          ? validation.diagnostics.map((d) => ({
+              file: d.file || fileName || "Main",
+              line: d.line,
+              column: d.column,
+              message: d.message,
+              severity: d.severity,
+              type: d.type,
+              explanation: d.explanation,
+              correction: d.correction,
+              code: d.code,
+            }))
+          : parseCompilerError(errorMsg, selectedLang);
 
-      setDiagnostics(parsedErrors);
-      setProblemsText(errorMsg);
-      setActivePanel("problems");
-      setShowTerminal(true);
-      return;
+        setDiagnostics(parsedErrors);
+        setProblemsText(errorMsg);
+        setActivePanel("problems");
+        setShowTerminal(true);
+        return;
+      }
     }
 
     setRunningLocal(true);

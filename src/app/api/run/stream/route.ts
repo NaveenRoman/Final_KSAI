@@ -31,20 +31,23 @@ export async function POST(request: Request) {
 
     const normLang = normalizeLanguage(language);
 
-    // Pre-execution validation
-    const validation = validateCodeBeforeRun({
-      language: normLang,
-      fileName,
-      code,
-    });
-
-    if (!validation.valid) {
-      return NextResponse.json({
-        success: false,
-        output: validation.errorMessage,
-        diagnostics: validation.diagnostics,
-        exitCode: 1,
+    // Pre-execution validation (for languages using static validation)
+    // For C / C++, execution proceeds directly to the GCC runner to preserve authentic compiler errors.
+    if (normLang !== "c" && normLang !== "cpp") {
+      const validation = validateCodeBeforeRun({
+        language: normLang,
+        fileName,
+        code,
       });
+
+      if (!validation.valid) {
+        return NextResponse.json({
+          success: false,
+          output: validation.errorMessage,
+          diagnostics: validation.diagnostics,
+          exitCode: 1,
+        });
+      }
     }
 
     // 1. Authenticate user

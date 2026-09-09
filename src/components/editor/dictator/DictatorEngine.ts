@@ -1397,7 +1397,7 @@ export function validateStudentCode(
 
     // 3. Student is currently typing through this step progressively
     const nextExpectedToken = expectedTokens[studentTokens.length]?.value || targetUnit.expectedToken;
-    const completedTokensText = studentTokens.map((t) => t.value).join(" ");
+    const completedTokensText = studentTokens.map((t: CodeToken) => t.value).join(" ");
     const lastToken = studentTokens[studentTokens.length - 1]?.value || "";
 
     let instruction = `Now type '${nextExpectedToken}'.`;

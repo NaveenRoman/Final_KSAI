@@ -42,10 +42,20 @@ export const JAVA_STANDARD_TYPES = new Set([
     "Override", "Deprecated", "SuppressWarnings", "FunctionalInterface",
     "Scanner", "Arrays", "Collections", "List", "ArrayList", "Map", "HashMap", "Set", "HashSet",
     "Queue", "LinkedList", "Stack", "Vector", "Iterator", "StringBuilder", "StringBuffer",
+    "Deque", "ArrayDeque", "PriorityQueue", "TreeSet", "TreeMap", "LinkedHashMap", "LinkedHashSet",
     "File", "FileReader", "FileWriter", "BufferedReader", "BufferedWriter", "InputStreamReader",
+    "FileInputStream", "FileOutputStream", "BufferedInputStream", "BufferedOutputStream",
+    "DataInputStream", "DataOutputStream", "InputStream", "OutputStream", "Reader", "Writer",
     "PrintStream", "PrintWriter", "Pattern", "Matcher", "Date", "Calendar", "Random",
     "BigDecimal", "BigInteger", "Optional", "Stream", "Collectors", "Objects", "Comparable", "Comparator",
-    "Main", "Number", "CharSequence", "Iterable", "AutoCloseable", "Closeable"
+    "Callable", "Future", "Executor", "ExecutorService", "Executors", "Lock", "ReentrantLock",
+    "Condition", "CountDownLatch", "Semaphore", "AtomicInteger", "AtomicBoolean", "AtomicLong",
+    "BlockingQueue", "ArrayBlockingQueue", "LinkedBlockingQueue", "ConcurrentHashMap",
+    "IOException", "FileNotFoundException", "EOFException", "NullPointerException",
+    "IllegalArgumentException", "IllegalStateException", "IndexOutOfBoundsException",
+    "NoSuchElementException", "UnsupportedOperationException", "ArithmeticException", "InterruptedException",
+    "Main", "Number", "CharSequence", "Iterable", "AutoCloseable", "Closeable",
+    "T", "E", "K", "V", "N", "R", "U", "S"
 ]);
 
 export const JAVA_BUILTIN_FUNCTIONS = new Set([
@@ -54,7 +64,7 @@ export const JAVA_BUILTIN_FUNCTIONS = new Set([
     "trim", "split", "valueOf", "parseInt", "parseDouble", "max", "min", "sqrt", "pow", "abs",
     "floor", "ceil", "round", "random", "sin", "cos", "tan", "add", "get", "set", "remove",
     "size", "clear", "isEmpty", "containsKey", "containsValue", "keySet", "values", "entrySet",
-    "main", "clone", "compareTo", "append", "insert", "delete"
+    "main", "clone", "compareTo", "append", "insert", "delete", "push", "pop", "peek", "offer", "poll"
 ]);
 
 export const JAVA_STANDARD_LIBRARY_SYMBOLS = new Set([
@@ -80,6 +90,18 @@ export const JavaRules: LanguageRuleSet = {
             const rawLine = lines[i];
             const line = rawLine.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "").trim();
             if (!line) continue;
+
+            // Match import declarations: import java.io.FileWriter; or import java.io.*;
+            const importMatch = line.match(/^import\s+(?:static\s+)?([A-Za-z0-9_.*]+);/);
+            if (importMatch) {
+                const imp = importMatch[1];
+                if (!imp.endsWith(".*")) {
+                    const lastDot = imp.lastIndexOf(".");
+                    if (lastDot !== -1) {
+                        types.add(imp.slice(lastDot + 1));
+                    }
+                }
+            }
 
             // Match class declarations: [abstract] class Circle extends Shape
             const classMatch = line.match(/\bclass\s+([A-Za-z0-9_]+)(?:\s+extends\s+([A-Za-z0-9_]+))?(?:\s+implements\s+([A-Za-z0-9_,\s]+))?/);
@@ -128,7 +150,19 @@ export const JavaRules: LanguageRuleSet = {
                 }
             }
 
-            // Match field & variable declarations: double radius; or double y = Math.pow(2, 3); or int a = 10, b = 20;
+            // Match field & variable declarations including multi-variable: double a = 10, b = 5; or int x = 1, y = 2;
+            const declMatch = line.match(/(?:(?:public|private|protected|static|final|abstract|synchronized|volatile|transient|native|strictfp|const|auto)\s+)*(?:(?:[A-Za-z0-9_]+)(?:\[\]|<[^>]+>)?)\s+([^;\{]+);?/);
+            if (declMatch) {
+                const declBody = declMatch[1];
+                const declParts = declBody.split(",");
+                for (const part of declParts) {
+                    const idMatch = part.trim().match(/^([a-zA-Z_]\w*)/);
+                    if (idMatch && !types.has(idMatch[1]) && !JAVA_RESERVED_KEYWORDS.has(idMatch[1])) {
+                        variables.add(idMatch[1]);
+                    }
+                }
+            }
+
             const typeHeaderMatches = Array.from(line.matchAll(/(?:^|[\s;\{\(]+)(?:(?:public|private|protected|static|final|abstract|synchronized|volatile|transient|native|strictfp|const|auto)\s+)*(?:(?:[A-Z][a-zA-Z0-9_]*|[a-z]+)(?:\[\]|<[^>]+>)?)\s+([^;\{=]+)(?:=|[;\{])/g));
             for (const thm of typeHeaderMatches) {
                 const declBody = thm[1];

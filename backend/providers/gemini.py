@@ -17,10 +17,9 @@ client = genai.Client(
 
 def generate_response(prompt: str):
     models_to_try = [
-        "gemini-3.6-flash",
-        "gemini-2.5-flash",
+        "gemini-flash-lite-latest",
         "gemini-3.5-flash",
-        "gemini-3.7-flash",
+        "gemini-3.8-flash",
         "gemini-3.1-flash-lite",
         "gemini-flash-latest",
     ]
@@ -54,10 +53,9 @@ def generate_teaching_response(
     max_output_tokens: int = 4000,
 ):
     models_to_try = [
-        "gemini-3.6-flash",
-        "gemini-2.5-flash",
+        "gemini-flash-lite-latest",
         "gemini-3.5-flash",
-        "gemini-3.7-flash",
+        "gemini-3.8-flash",
         "gemini-3.1-flash-lite",
         "gemini-flash-latest",
     ]

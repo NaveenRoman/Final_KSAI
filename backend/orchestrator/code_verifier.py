@@ -24,14 +24,20 @@ class CodeVerificationResult:
 
 
 def normalize_language(lang: str) -> str:
-    l = (lang or "java").lower().strip()
+    l = (lang or "python").lower().strip()
     if l in ["cpp", "c++"]:
         return "cpp"
     if l in ["c"]:
         return "c"
     if l in ["python", "py", "python3"]:
         return "python"
-    return "java"
+    if l in ["javascript", "js"]:
+        return "javascript"
+    if l in ["typescript", "ts"]:
+        return "typescript"
+    if l in ["java"]:
+        return "java"
+    return "python"
 
 
 def static_validate_bracket_balance(code: str) -> Tuple[bool, str]:
@@ -291,6 +297,24 @@ def compiler_verify_code(code: str, language: str, timeout_sec: int = 5) -> Tupl
     return True, "Verification passed."
 
 
+def contains_generic_arithmetic_fallback(code: str, project: str = "") -> bool:
+    p_lower = (project or "").lower().strip()
+    is_arithmetic_req = any(term in p_lower for term in ["arithmetic", "calculator", "calc", "addition", "add two", "sum of two", "math", "subtraction", "multiply", "square sum", "sum of squares"])
+    if is_arithmetic_req:
+        return False
+    code_lower = code.lower()
+    return bool(
+        (
+            ("int a = 25" in code or "int a = 10" in code or "a, b = 25" in code or "a, b = 10" in code or "a = 25, b = 15" in code or "a = 25" in code)
+            and ("sum = a + b" in code or "a + b" in code)
+            and ("diff = a - b" in code or "a - b" in code or "prod = a * b" in code or "product" in code_lower)
+        ) or (
+            ("i * i" in code or "i*i" in code)
+            and ("result += i * i" in code or "sum += i * i" in code or "sum += i*i" in code or "i * i for i in range" in code)
+        )
+    )
+
+
 def verify_code_completeness_and_topic(code: str, language: str, project: str) -> Tuple[bool, str]:
     p_lower = (project or "").lower().strip()
     norm = normalize_language(language)
@@ -299,43 +323,286 @@ def verify_code_completeness_and_topic(code: str, language: str, project: str) -
     if not code.strip():
         return False, "Code is completely empty."
 
-    if "todo" in code_lower or "implement this later" in code_lower or "add your logic here" in code_lower:
-        return False, "Code contains unfinished placeholder comments (TODO/implement later)."
+    # 0. ANTI-PLACEHOLDER & FAKE TEMPLATE DETECTOR
+    fake_patterns = [
+        "executing ",
+        "domain logic",
+        "solution in python",
+        "solution in c",
+        "solution in java",
+        "solution in c++",
+        "taskhandler",
+        "taskrunner",
+        "domainapp",
+    ]
+    for fp in fake_patterns:
+        if fp in code_lower:
+            lines = [line.strip() for line in code.split("\n") if line.strip() and not line.strip().startswith(("#", "//", "/*", "*"))]
+            if len(lines) <= 14 and any(fp in line.lower() for line in lines):
+                return False, f"Generated code contains placeholder template text ('{fp}') and does not implement real logic for '{project}'."
 
+    # ANTI-GENERIC-ARITHMETIC FALLBACK DETECTOR
+    if contains_generic_arithmetic_fallback(code, project):
+        return False, f"Generated code is a generic arithmetic template and does not implement '{project}'."
+
+    # Even / Odd validation
+    if "even" in p_lower or "odd" in p_lower:
+        has_even_odd = "% 2" in code or "%2" in code or "& 1" in code or "&1" in code
+        if not has_even_odd:
+            return False, "Even/Odd program must check divisibility by 2 (% 2 or & 1)."
+
+    # Set validation
+    if "set" in p_lower and "offset" not in p_lower and "subset" not in p_lower and "reset" not in p_lower and "dataset" not in p_lower:
+        has_set = "set(" in code_lower or "hashset" in code_lower or "treeset" in code_lower or "std::set" in code or "std::unordered_set" in code or "new set" in code_lower or "{" in code
+        if not has_set:
+            return False, "Set program must demonstrate set creation and operations (set(), HashSet, std::set, or Set)."
+
+    # 1. Break Statement validation
+    if "break" in p_lower and "statement" in p_lower or p_lower == "break":
+        has_loop = "for" in code_lower or "while" in code_lower or "do" in code_lower
+        has_break = "break;" in code or "break\n" in code or "break " in code or "break" in code_lower
+        if not (has_loop and has_break):
+            return False, "Break statement program must contain a loop (for/while) and an active 'break' statement."
+
+    # 2. Continue Statement validation
+    if "continue" in p_lower:
+        has_loop = "for" in code_lower or "while" in code_lower
+        has_cont = "continue;" in code or "continue\n" in code or "continue " in code
+        if not (has_loop and has_cont):
+            return False, "Continue statement program must contain a loop and a 'continue' statement."
+
+    # 3. Fibonacci validation
+    if "fibonacci" in p_lower or "fib" in p_lower:
+        has_fib = (
+            ("+" in code and ("0" in code or "1" in code) and ("for" in code or "while" in code))
+            or "fibonacci(" in code_lower
+            or "fib(" in code_lower
+            or "next = " in code_lower
+            or "c = a + b" in code_lower
+            or "n1 + n2" in code_lower
+            or "a + b" in code and "a, b = b, a + b" in code
+        )
+        if not has_fib:
+            return False, "Program does not implement Fibonacci sequence generation."
+
+    # 4. Generator / Yield validation
+    if "generator" in p_lower or "yield" in p_lower:
+        if norm in ["python", "javascript", "typescript"]:
+            if "yield" not in code:
+                return False, f"{language} generator program must use the 'yield' keyword."
+
+    # 5. Dictionary / Map validation
+    if "dictionar" in p_lower or "dict" in p_lower or ("map" in p_lower and "bitmap" not in p_lower and "hashmap" in p_lower):
+        if norm == "python":
+            has_dict = "{" in code and ":" in code or "dict(" in code_lower or "get(" in code_lower or "keys(" in code_lower or "values(" in code_lower
+            if not has_dict:
+                return False, "Python dictionary program must demonstrate key-value dictionary operations."
+        elif norm == "java":
+            has_map = "map" in code_lower or "hashmap" in code_lower or "put(" in code_lower
+            if not has_map:
+                return False, "Java Map program must use Map/HashMap with key-value operations."
+        elif norm == "cpp":
+            has_map = "std::map" in code or "unordered_map" in code or "map<" in code
+            if not has_map:
+                return False, "C++ Map program must use std::map or std::unordered_map."
+
+    # 6. Functions / Methods validation
+    if "function" in p_lower or "method" in p_lower:
+        if norm == "python" and "def " not in code:
+            return False, "Python functions program must define and invoke custom functions (def func():)."
+        if norm in ["javascript", "typescript"] and "function " not in code and "=>" not in code:
+            return False, f"{language} functions program must define and invoke custom functions."
+
+    # 7. Graph / BFS / DFS validation
+    if "graph" in p_lower or "bfs" in p_lower or "dfs" in p_lower:
+        has_graph = (
+            "adj" in code_lower
+            or "edge" in code_lower
+            or "vertex" in code_lower
+            or "vertices" in code_lower
+            or "visited" in code_lower
+            or "addedge" in code_lower
+            or "add_edge" in code_lower
+            or "bfs" in code_lower
+            or "dfs" in code_lower
+            or "neighbors" in code_lower
+            or "neighbor" in code_lower
+            or "class graph" in code_lower
+            or "struct graph" in code_lower
+        )
+        if not has_graph:
+            return False, "Graph program must implement graph representation (adjacency/nodes/edges) or graph traversal (BFS/DFS)."
+
+    # 8. Swap Two Numbers validation
+    if "swap" in p_lower:
+        has_swap = "temp" in code_lower or "swap(" in code_lower or "a, b = b, a" in code or "^=" in code or ("a = a + b" in code and "b = a - b" in code)
+        if not has_swap:
+            return False, "Swap program must implement variable swapping logic."
+
+    # 9. Sum of Digits validation
+    if "sum of digit" in p_lower or "sum_of_digit" in p_lower or "digits sum" in p_lower:
+        has_sum_digits = "%" in code and ("10" in code or "sum" in code_lower) and ("while" in code or "for" in code or "/" in code)
+        if not has_sum_digits:
+            return False, "Sum of digits program must extract digits using modulo and division inside a summation loop."
+
+    # 10. Perfect Number validation
+    if "perfect" in p_lower and "number" in p_lower or p_lower == "perfect number":
+        has_perfect = "%" in code and ("sum" in code_lower or "==" in code) and ("for" in code or "while" in code)
+        if not has_perfect:
+            return False, "Perfect number program must check proper divisors using modulo and sum equality."
+
+    # 11. Reverse Number validation
     if ("reverse" in p_lower and ("number" in p_lower or "digit" in p_lower or "int" in p_lower or "num" in p_lower)) or p_lower == "reverse":
         has_algo = ("%" in code and "10" in code) or ("[:: -1]" in code or "[::-1]" in code) or ("reverse(" in code_lower) or ("reversenumber" in code_lower)
         if not has_algo:
             return False, "Program does not implement number reversal algorithm."
 
+    # 12. Prime Number validation
     if "prime" in p_lower:
         if "%" not in code or ("for" not in code and "while" not in code):
             return False, "Program does not implement prime number checking algorithm."
 
+    # 13. Palindrome validation
+    if "palindrome" in p_lower:
+        has_palin = "==" in code and ("reverse" in code_lower or "rev" in code_lower or "[::-1]" in code or "equals" in code_lower or "charAt" in code or "length" in code_lower)
+        if not has_palin:
+            return False, "Palindrome program must check string or number symmetry/reversal."
+
+    # 14. Armstrong Number validation
+    if "armstrong" in p_lower:
+        has_armstrong = "%" in code and ("pow" in code_lower or "**" in code or "*" in code) and ("sum" in code_lower or "==" in code)
+        if not has_armstrong:
+            return False, "Armstrong program must sum the powers of its digits and check equality."
+
+    # 15. Factorial validation
     if "factorial" in p_lower:
-        if "*" not in code:
+        if "*" not in code and "factorial" not in code_lower:
             return False, "Program does not implement factorial multiplication or recursion."
 
+    # 16. Sort validation
     if "sort" in p_lower:
-        if ("for" not in code and "while" not in code and "sort" not in code_lower):
+        if "for" not in code and "while" not in code and "sort" not in code_lower:
             return False, "Program does not implement array sorting."
 
+    # 17. Binary Search validation
+    if "binary search" in p_lower or "binary_search" in p_lower:
+        has_bs = ("mid" in code_lower or "low" in code_lower or "high" in code_lower or "left" in code_lower or "right" in code_lower) and ("/" in code or ">>" in code or "//" in code)
+        if not has_bs:
+            return False, "Binary search program must calculate mid point and perform range division."
+
+    # 18. Linked List validation
     if "linked" in p_lower and "list" in p_lower:
         if "next" not in code_lower and "node" not in code_lower:
             return False, "Program does not implement linked list Node structure."
 
+    # 19. Binary Tree / BST validation
+    if "tree" in p_lower or "bst" in p_lower:
+        has_tree = "left" in code_lower or "right" in code_lower or "root" in code_lower or "tree" in code_lower or "insert" in code_lower
+        if not has_tree:
+            return False, "Program does not implement Tree / BST structure (root, left, right, or node insertion)."
+
+    # 20. Stack validation
+    if "stack" in p_lower:
+        has_stack_ops = "push" in code_lower or "pop" in code_lower or "peek" in code_lower or "stack" in code_lower or "deque" in code_lower or "lifo" in code_lower
+        if not has_stack_ops:
+            return False, "Program does not implement Stack behavior (push, pop, peek, or LIFO operations)."
+
+    # 21. Queue validation
+    if "queue" in p_lower and "stack" not in p_lower:
+        has_queue_ops = "enqueue" in code_lower or "dequeue" in code_lower or "offer" in code_lower or "poll" in code_lower or "queue" in code_lower or "fifo" in code_lower
+        if not has_queue_ops:
+            return False, "Program does not implement Queue behavior (enqueue, dequeue, offer, or poll operations)."
+
+    # 22. Multithreading validation
+    if "thread" in p_lower or "multithread" in p_lower or "concurrency" in p_lower:
+        has_thread = "thread" in code_lower or "runnable" in code_lower or "start()" in code_lower or "threading" in code_lower or "pthread" in code_lower or "worker" in code_lower
+        if not has_thread:
+            return False, "Program does not implement multithreading (Thread, Runnable, start(), or concurrency constructs)."
+
+    # 23. File Handling validation
+    if "file" in p_lower and ("handling" in p_lower or "read" in p_lower or "write" in p_lower or "io" in p_lower or "stream" in p_lower):
+        has_file = "file" in code_lower or "writer" in code_lower or "reader" in code_lower or "open(" in code_lower or "fopen" in code_lower or "fstream" in code_lower or "fs." in code_lower
+        if not has_file:
+            return False, "Program does not implement File Handling I/O operations (FileReader, FileWriter, BufferedReader, open(), or fopen)."
+
+    # 24. Tuple validation (Python)
+    if "tuple" in p_lower:
+        has_tuple = "tuple" in code_lower or ("(" in code and "," in code and ("print(" in code or "len(" in code or "[" in code))
+        if not has_tuple:
+            return False, "Program does not demonstrate Tuple data structure creation, indexing, or operations."
+
+    # 25. Exception Handling validation
+    if "exception" in p_lower or "error handling" in p_lower or "try catch" in p_lower:
+        has_exc = "try" in code_lower and ("catch" in code_lower or "except" in code_lower or "finally" in code_lower or "throw" in code_lower or "raise" in code_lower)
+        if not has_exc:
+            return False, "Program does not implement Exception Handling (try, catch/except, throw/raise)."
+
+    # 26. Recursion validation
+    if "recursi" in p_lower:
+        if "(" not in code or "return" not in code:
+            return False, "Program does not implement a recursive function with return value."
+
+    # 27. Pointer validation (C/C++)
+    if "pointer" in p_lower:
+        if "*" not in code and "&" not in code and "malloc" not in code_lower:
+            return False, "Program does not demonstrate pointer operations (*, &, or dynamic memory)."
+
+    # 28. Matrix / 2D Array validation
+    if "matrix" in p_lower or "2d array" in p_lower:
+        has_matrix = "[][" in code or "[0][" in code or ("for" in code and "for" in code[code.find("for")+3:])
+        if not has_matrix:
+            return False, "Matrix program must implement 2D array representation or nested loops."
+
+    # 29. Override / Polymorphism validation
     if "override" in p_lower or "overriding" in p_lower:
         if norm == "java" and "@override" not in code_lower and "extends" not in code_lower:
             return False, "Java overriding program must have inheritance and method overriding."
 
+    # 30. Inheritance validation
     if "inheritance" in p_lower:
         if norm == "java" and "extends" not in code_lower:
             return False, "Java inheritance program must use 'extends'."
         if norm == "cpp" and ":" not in code:
             return False, "C++ inheritance program must use derived class syntax (class Derived : public Base)."
 
+    # 31. Calculator validation
+    if "calc" in p_lower or "calculator" in p_lower:
+        has_calc = "+" in code or "-" in code or "*" in code or "/" in code
+        if not has_calc:
+            return False, "Calculator program must implement arithmetic calculations (+, -, *, /)."
+
+    # 32. ATM / Banking validation
     if "atm" in p_lower or "bank" in p_lower:
         if "balance" not in code_lower or ("deposit" not in code_lower and "withdraw" not in code_lower):
             return False, "ATM/Banking program must implement balance, deposit, or withdrawal operations."
+
+    # 33. User Input validation
+    if "user input" in p_lower or "read input" in p_lower or "interactive" in p_lower or "scanner" in p_lower:
+        if norm == "java":
+            has_input = "scanner" in code_lower or "system.in" in code_lower or "bufferedreader" in code_lower
+            if not has_input:
+                return False, "Java user input program must use Scanner or BufferedReader with System.in."
+        elif norm == "python":
+            if "input(" not in code:
+                return False, "Python user input program must use input()."
+        elif norm == "c":
+            if "scanf(" not in code and "fgets(" not in code:
+                return False, "C user input program must use scanf or fgets."
+        elif norm == "cpp":
+            if "cin" not in code and "getline(" not in code:
+                return False, "C++ user input program must use std::cin or std::getline."
+
+    # 34. Heap / Priority Queue validation
+    if "heap" in p_lower or "priority queue" in p_lower or "priorityqueue" in p_lower:
+        has_heap = "heap" in code_lower or "priorityqueue" in code_lower or "priority_queue" in code_lower or "heappush" in code_lower
+        if not has_heap:
+            return False, "Program does not implement Heap / Priority Queue data structure."
+
+    # 35. String manipulation validation
+    if "string" in p_lower and "reverse" not in p_lower and "palindrome" not in p_lower:
+        has_str = "string" in code_lower or "str" in code_lower or "char" in code_lower or "\"" in code
+        if not has_str:
+            return False, "Program does not demonstrate string operations."
 
     return True, ""
 

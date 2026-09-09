@@ -564,18 +564,188 @@ Rules:
         language: str,
         project: str,
         level: str = "beginner",
+        active_file_name: str = "",
+        active_file_content: str = "",
+        project_files: list = None,
+        learning_memory: str = "",
+        student_category: str = "",
+        practice_level: str = "",
+        iteration: int = 1,
     ):
+        norm_lang = (language or "java").lower().strip()
+        if norm_lang == "java":
+            clean_proj = (project or "Application").strip()
+            cat = (student_category or level or "beginner").lower().strip()
+            sub = str(practice_level or "1").strip()
+            program_id = f"JAVA_{clean_proj.upper().replace(' ', '_')}_{cat.upper()}_{sub}"
+
+            print()
+            print("========== JAVA DICTATOR ENGINE ==========")
+            print("Language      :", language)
+            print("Topic         :", project)
+            print("Learning Group:", cat.upper())
+            print("Practice Level:", sub)
+            print("Program ID    :", program_id)
+            print("Target File   :", active_file_name or "Main.java")
+            parsed = build_fallback_dictator_plan(
+                language=language,
+                project=project,
+                level=level,
+                student_category=student_category,
+                practice_level=practice_level,
+                iteration=iteration,
+            )
+            return {
+                "intent": "dictate",
+                "programId": program_id,
+                "program_id": program_id,
+                "language": parsed.get("language", "Java"),
+                "project": parsed.get("project", project),
+                "studentCategory": parsed.get("studentCategory", cat.upper()),
+                "learningGroup": cat.upper(),
+                "practiceLevel": f"LEVEL {sub}",
+                "primaryFile": parsed.get("primaryFile", "Main.java"),
+                "files": parsed.get("files", []),
+                "requirements": parsed.get("requirements", []),
+                "totalSteps": parsed.get("totalSteps", len(parsed.get("steps", []))),
+                "steps": parsed.get("steps", []),
+            }
+
+        elif norm_lang in ["python", "py", "python3"]:
+            clean_proj = (project or "Application").strip()
+            cat = (student_category or level or "beginner").lower().strip()
+            sub = str(practice_level or "1").strip()
+            program_id = f"PYTHON_{clean_proj.upper().replace(' ', '_')}_{cat.upper()}_{sub}"
+
+            print()
+            print("========== PYTHON DICTATOR ENGINE ==========")
+            print("Language      :", language)
+            print("Topic         :", project)
+            print("Learning Group:", cat.upper())
+            print("Practice Level:", sub)
+            print("Program ID    :", program_id)
+            print("Target File   :", active_file_name or "main.py")
+            parsed = build_fallback_dictator_plan(
+                language=language,
+                project=project,
+                level=level,
+                student_category=student_category,
+                practice_level=practice_level,
+                iteration=iteration,
+            )
+            return {
+                "intent": "dictate",
+                "programId": program_id,
+                "program_id": program_id,
+                "language": parsed.get("language", "Python"),
+                "project": parsed.get("project", project),
+                "studentCategory": parsed.get("studentCategory", cat.upper()),
+                "learningGroup": cat.upper(),
+                "practiceLevel": f"LEVEL {sub}",
+                "primaryFile": parsed.get("primaryFile", "main.py"),
+                "files": parsed.get("files", []),
+                "requirements": parsed.get("requirements", []),
+                "totalSteps": parsed.get("totalSteps", len(parsed.get("steps", []))),
+                "steps": parsed.get("steps", []),
+            }
+
+        elif norm_lang in ["c"]:
+            clean_proj = (project or "Application").strip()
+            cat = (student_category or level or "beginner").lower().strip()
+            sub = str(practice_level or "1").strip()
+            program_id = f"C_{clean_proj.upper().replace(' ', '_')}_{cat.upper()}_{sub}"
+
+            print()
+            print("========== C DICTATOR ENGINE ==========")
+            print("Language      :", language)
+            print("Topic         :", project)
+            print("Learning Group:", cat.upper())
+            print("Practice Level:", sub)
+            print("Program ID    :", program_id)
+            print("Target File   :", active_file_name or "main.c")
+            parsed = build_fallback_dictator_plan(
+                language=language,
+                project=project,
+                level=level,
+                student_category=student_category,
+                practice_level=practice_level,
+                iteration=iteration,
+            )
+            return {
+                "intent": "dictate",
+                "programId": program_id,
+                "program_id": program_id,
+                "language": parsed.get("language", "C"),
+                "project": parsed.get("project", project),
+                "studentCategory": parsed.get("studentCategory", cat.upper()),
+                "learningGroup": cat.upper(),
+                "practiceLevel": f"LEVEL {sub}",
+                "primaryFile": parsed.get("primaryFile", "main.c"),
+                "files": parsed.get("files", []),
+                "requirements": parsed.get("requirements", []),
+                "totalSteps": parsed.get("totalSteps", len(parsed.get("steps", []))),
+                "steps": parsed.get("steps", []),
+            }
+
+        elif norm_lang in ["cpp", "c++"]:
+            clean_proj = (project or "Application").strip()
+            cat = (student_category or level or "beginner").lower().strip()
+            sub = str(practice_level or "1").strip()
+            program_id = f"CPP_{clean_proj.upper().replace(' ', '_')}_{cat.upper()}_{sub}"
+
+            print()
+            print("========== C++ DICTATOR ENGINE ==========")
+            print("Language      :", language)
+            print("Topic         :", project)
+            print("Learning Group:", cat.upper())
+            print("Practice Level:", sub)
+            print("Program ID    :", program_id)
+            print("Target File   :", active_file_name or "main.cpp")
+            parsed = build_fallback_dictator_plan(
+                language=language,
+                project=project,
+                level=level,
+                student_category=student_category,
+                practice_level=practice_level,
+                iteration=iteration,
+            )
+            return {
+                "intent": "dictate",
+                "programId": program_id,
+                "program_id": program_id,
+                "language": parsed.get("language", "C++"),
+                "project": parsed.get("project", project),
+                "studentCategory": parsed.get("studentCategory", cat.upper()),
+                "learningGroup": cat.upper(),
+                "practiceLevel": f"LEVEL {sub}",
+                "primaryFile": parsed.get("primaryFile", "main.cpp"),
+                "files": parsed.get("files", []),
+                "requirements": parsed.get("requirements", []),
+                "totalSteps": parsed.get("totalSteps", len(parsed.get("steps", []))),
+                "steps": parsed.get("steps", []),
+            }
+
         prompt = build_dictator_prompt(
             language=language,
             project=project,
             level=level,
+            active_file_name=active_file_name,
+            active_file_content=active_file_content,
+            project_files=project_files,
+            learning_memory=learning_memory,
+            student_category=student_category,
+            practice_level=practice_level,
+            iteration=iteration,
         )
 
         print()
         print("========== AI DICTATOR REQUEST ==========")
-        print("Language :", language)
-        print("Project  :", project)
-        print("Level    :", level)
+        print("Language   :", language)
+        print("Project    :", project)
+        print("Category   :", student_category or level)
+        print("Level      :", practice_level or "1")
+        print("Iteration  :", iteration)
+        print("Target File:", active_file_name or "auto")
 
         dictator_system_instruction = (
             "You are Codenthra AI Dictator inside KnowledgeStream AI. "
@@ -651,13 +821,24 @@ Rules:
 
         if not parsed or not isinstance(parsed, dict) or not parsed.get("steps"):
             print("Using fallback structured Dictator plan...")
-            fallback = build_fallback_dictator_plan(language, project, level)
+            fallback = build_fallback_dictator_plan(
+                language=language,
+                project=project,
+                level=level,
+                student_category=student_category,
+                practice_level=practice_level,
+                iteration=iteration,
+            )
             parsed = fallback
 
         return {
             "intent": "dictate",
             "language": parsed.get("language", language),
             "project": parsed.get("project", project),
+            "studentCategory": parsed.get("studentCategory", (student_category or level).upper()),
+            "practiceLevel": parsed.get("practiceLevel", f"LEVEL {practice_level or '1'}"),
+            "primaryFile": parsed.get("primaryFile", active_file_name or "Main.java"),
+            "files": parsed.get("files", []),
             "requirements": parsed.get("requirements", []),
             "totalSteps": parsed.get("totalSteps", len(parsed.get("steps", []))),
             "steps": parsed.get("steps", []),

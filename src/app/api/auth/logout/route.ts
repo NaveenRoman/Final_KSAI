@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 
 export async function POST() {
@@ -11,15 +12,28 @@ export async function POST() {
       cookieStore.get("sessionToken")?.value;
 
     if (sessionToken) {
-      // Clean up the session in the database
       try {
         const rawToken = parseSessionToken(sessionToken);
         await db.session.deleteMany({
-          where: { token: rawToken },
+          where: {
+            OR: [
+              { token: rawToken },
+              { token: sessionToken },
+            ],
+          },
         });
       } catch (dbError) {
         console.error("Error deleting session from DB during logout:", dbError);
       }
+    }
+
+    // Call Better Auth signOut
+    try {
+      await auth.api.signOut({
+        headers: await headers(),
+      });
+    } catch (authErr) {
+      // Ignored if signOut fails or is not applicable
     }
 
     const response = NextResponse.json({
@@ -27,24 +41,25 @@ export async function POST() {
       message: "Logged out successfully.",
     });
 
-    // Clear the HTTP-Only cookies
-    response.cookies.set("better-auth.session_token", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      expires: new Date(0),
-      path: "/",
-    });
+    const cookieNames = [
+      "better-auth.session_token",
+      "better-auth.session_data",
+      "better-auth.csrf_token",
+      "sessionToken",
+    ];
 
-    response.cookies.set("sessionToken", "", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      expires: new Date(0),
-      path: "/",
-    });
+    for (const name of cookieNames) {
+      response.cookies.set(name, "", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        expires: new Date(0),
+        maxAge: 0,
+        path: "/",
+      });
+    }
 
-    console.log(`✅ [LOGOUT] Session cleared successfully.`);
+    console.log(`✅ [LOGOUT] All sessions and cookies cleared successfully.`);
     return response;
   } catch (error) {
     console.error("Logout API Error:", error);

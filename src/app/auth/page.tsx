@@ -7,32 +7,36 @@ import { AuthGlassCard } from "@/components/auth/AuthGlassCard";
 import { ArrowLeft, CheckCircle2, UserCheck, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+import { normalizeUserRole, getRoleDashboardPath } from "@/lib/roles";
+
 export default function AuthPage() {
   const [authUser, setAuthUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
   const [redirectPath, setRedirectPath] = useState<string>("/dashboard");
 
+  // If already authenticated, redirect to their role dashboard
+  React.useEffect(() => {
+    async function checkExistingSession() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user?.role) {
+            const dest = getRoleDashboardPath(data.user.role);
+            window.location.href = dest;
+          }
+        }
+      } catch {}
+    }
+    checkExistingSession();
+  }, []);
+
   const handleAuthSuccess = async (user: { name?: string; email?: string; role?: string }) => {
     setAuthUser(user);
-    if (user.role === "Admin") {
-      setRedirectPath("/admin");
-      window.location.href = "/admin";
-      return;
-    }
+    const normalized = normalizeUserRole(user.role);
+    const destination = getRoleDashboardPath(normalized);
 
-    try {
-      const res = await fetch(`/api/courses/my-courses?email=${encodeURIComponent(user.email || "")}`);
-      const data = await res.json();
-      if (data.enrollments && Array.isArray(data.enrollments) && data.enrollments.length > 0) {
-        setRedirectPath("/dashboard");
-        window.location.href = "/dashboard";
-      } else {
-        setRedirectPath("/courses/catalog");
-        window.location.href = "/courses/catalog";
-      }
-    } catch {
-      setRedirectPath("/courses/catalog");
-      window.location.href = "/courses/catalog";
-    }
+    setRedirectPath(destination);
+    window.location.href = destination;
   };
 
   return (
@@ -92,11 +96,17 @@ export default function AuthPage() {
                   href={redirectPath}
                   className="inline-block px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-cyan-500 glow-btn"
                 >
-                  {authUser.role === "Admin"
-                    ? "Enter Admin Dashboard →"
+                  {normalizeUserRole(authUser.role) === "SUPER_ADMIN"
+                    ? "Enter Super Admin Console →"
+                    : normalizeUserRole(authUser.role) === "COLLEGE_ADMIN"
+                    ? "Enter College Admin Dashboard →"
+                    : normalizeUserRole(authUser.role) === "DEPARTMENT_ADMIN"
+                    ? "Enter Department Admin Dashboard →"
+                    : normalizeUserRole(authUser.role) === "FACULTY"
+                    ? "Enter Faculty Portal →"
                     : redirectPath === "/courses/catalog"
                     ? "Explore Available Courses →"
-                    : "Enter Dashboard →"}
+                    : "Enter Student Dashboard →"}
                 </a>
               </motion.div>
             )}

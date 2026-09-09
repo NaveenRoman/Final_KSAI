@@ -2,6 +2,7 @@ import { exec, spawn, ChildProcess } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { resolveCompiler, getCompilerMissingMessage } from "./c-compiler";
 
 export interface SessionEvent {
   type: "stdout" | "stderr" | "exit" | "error" | "start";
@@ -25,10 +26,15 @@ export interface InteractiveSession {
   idleTimer: NodeJS.Timeout | null;
   listeners: ((event: SessionEvent) => void)[];
   broadcast: (event: SessionEvent) => void;
+  pendingInputs?: string[];
 }
 
-// Global registry for process sessions
-const sessions = new Map<string, InteractiveSession>();
+// Global registry for process sessions across all Next.js API routes
+const globalForSessions = globalThis as unknown as {
+  ksaiInteractiveSessions?: Map<string, InteractiveSession>;
+};
+export const sessions: Map<string, InteractiveSession> =
+  globalForSessions.ksaiInteractiveSessions ??= new Map<string, InteractiveSession>();
 
 const IDLE_TIMEOUT_MS = 60000; // 60 seconds idle timeout
 
@@ -39,7 +45,9 @@ function resetSessionTimeout(session: InteractiveSession) {
   session.idleTimer = setTimeout(() => {
     if (!session.isExited) {
       try {
-        session.child.kill();
+        if (session.child && typeof session.child.kill === "function") {
+          session.child.kill();
+        }
       } catch {}
       session.broadcast({
         type: "stderr",
@@ -61,7 +69,9 @@ export function cleanupSession(sessionId: string) {
   }
 
   try {
-    session.child.kill();
+    if (session.child && typeof session.child.kill === "function") {
+      session.child.kill();
+    }
   } catch {}
 
   if (session.tmpDir) {
@@ -86,8 +96,15 @@ export function sendInputToSession(sessionId: string, input: string): boolean {
   }
 
   const dataToSend = input.endsWith("\n") ? input : input + "\n";
+  if (!session.child || !session.child.stdin) {
+    if (!session.pendingInputs) session.pendingInputs = [];
+    session.pendingInputs.push(dataToSend);
+    session.lastActivity = Date.now();
+    return true;
+  }
+
   try {
-    session.child.stdin?.write(dataToSend);
+    session.child.stdin.write(dataToSend);
     session.lastActivity = Date.now();
     resetSessionTimeout(session);
     return true;
@@ -111,6 +128,30 @@ export async function createInteractiveSession({
   const normLang = (language || "java").toLowerCase().trim();
   const startTime = Date.now();
 
+  const session: InteractiveSession = {
+    id: sessionId,
+    child: null as any,
+    tmpDir: "",
+    language: normLang,
+    startTime,
+    lastActivity: Date.now(),
+    outputBuffer: "",
+    errorBuffer: "",
+    isExited: false,
+    exitCode: null,
+    idleTimer: null,
+    listeners: [onEvent],
+    pendingInputs: [],
+    broadcast(event: SessionEvent) {
+      for (const l of this.listeners) {
+        try {
+          l(event);
+        } catch {}
+      }
+    },
+  };
+  sessions.set(sessionId, session);
+
   let tmpDir = "";
   let child: ChildProcess;
 
@@ -126,24 +167,83 @@ export async function createInteractiveSession({
     });
   } else if (normLang === "c" || normLang === "cpp" || normLang === "c++") {
     const isCpp = normLang === "cpp" || normLang === "c++";
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ksai_c_int_"));
+    const compilerPath = resolveCompiler(isCpp);
+
+    // Case B: Compiler not found on system
+    if (!compilerPath) {
+      const missingMsg = getCompilerMissingMessage(isCpp);
+      session.isExited = true;
+      session.errorBuffer = missingMsg;
+      setTimeout(() => {
+        onEvent({
+          type: "stderr",
+          text: `${missingMsg}\n`,
+          sessionId,
+        });
+        onEvent({
+          type: "exit",
+          exitCode: 1,
+          executionTime: 0,
+          sessionId,
+        });
+      }, 50);
+      return session;
+    }
+
+    // Case A: Compiler found -> compile with authentic GCC/G++
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), isCpp ? "ksai_cpp_int_" : "ksai_c_int_"));
     const ext = isCpp ? "cpp" : "c";
     const srcFile = path.join(tmpDir, `main.${ext}`);
+    const initFile = path.join(tmpDir, `_ksai_init.${ext}`);
     const outFile = path.join(tmpDir, process.platform === "win32" ? "main.exe" : "main.out");
     fs.writeFileSync(srcFile, code, "utf8");
 
-    const compiler = isCpp ? "g++" : "gcc";
-    await new Promise<void>((resolve, reject) => {
-      exec(`${compiler} -O2 "${srcFile}" -o "${outFile}"`, { cwd: tmpDir, timeout: 8000 }, (err, stdout, stderr) => {
+    // Unbuffer stdout/stderr across pipes so prompts without newlines appear immediately
+    const initCode = isCpp
+      ? `#include <iostream>\n#include <cstdio>\n__attribute__((constructor)) static void __ksai_unbuffer(void) { std::setvbuf(stdout, NULL, _IONBF, 0); std::setvbuf(stderr, NULL, _IONBF, 0); }\n`
+      : `#include <stdio.h>\n__attribute__((constructor)) static void __ksai_unbuffer(void) { setvbuf(stdout, NULL, _IONBF, 0); setvbuf(stderr, NULL, _IONBF, 0); }\n`;
+    fs.writeFileSync(initFile, initCode, "utf8");
+
+    const stdFlag = isCpp ? "-std=c++17" : "-std=c11";
+    const compileCmd = `"${compilerPath}" ${stdFlag} -O2 "${srcFile}" "${initFile}" -o "${outFile}"`;
+
+    let compileFailed = false;
+    let compileErrorOutput = "";
+
+    await new Promise<void>((resolve) => {
+      exec(compileCmd, { cwd: tmpDir, timeout: 10000, env: process.env }, (err, stdout, stderr) => {
         if (err) {
-          const compileErr = stderr || err.message || "Compilation failed";
-          return reject(new Error(compileErr));
+          compileFailed = true;
+          compileErrorOutput = (stderr || err.message || "Compilation failed").trim();
         }
         resolve();
       });
     });
 
-    child = spawn(outFile, [], { cwd: tmpDir });
+    // If compilation fails, broadcast authentic GCC compiler error directly to terminal
+    if (compileFailed) {
+      session.isExited = true;
+      session.tmpDir = tmpDir;
+      session.errorBuffer = compileErrorOutput;
+      setTimeout(() => {
+        onEvent({
+          type: "stderr",
+          text: `Compilation Error:\n\n${compileErrorOutput}\n`,
+          sessionId,
+        });
+        onEvent({
+          type: "exit",
+          exitCode: 1,
+          executionTime: Date.now() - startTime,
+          sessionId,
+        });
+      }, 50);
+      cleanupSession(sessionId);
+      return session;
+    }
+
+    // Compilation succeeded -> execute compiled binary
+    child = spawn(outFile, [], { cwd: tmpDir, env: process.env });
   } else {
     // Java
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ksai_java_int_"));
@@ -163,30 +263,19 @@ export async function createInteractiveSession({
     child = spawn("java", ["-cp", tmpDir, "Main"], { cwd: tmpDir });
   }
 
-  const session: InteractiveSession & { broadcast: (event: SessionEvent) => void } = {
-    id: sessionId,
-    child,
-    tmpDir,
-    language: normLang,
-    startTime,
-    lastActivity: Date.now(),
-    outputBuffer: "",
-    errorBuffer: "",
-    isExited: false,
-    exitCode: null,
-    idleTimer: null,
-    listeners: [onEvent],
-    broadcast(event: SessionEvent) {
-      for (const l of this.listeners) {
-        try {
-          l(event);
-        } catch {}
-      }
-    },
-  };
-
-  sessions.set(sessionId, session);
+  session.child = child;
+  session.tmpDir = tmpDir;
   resetSessionTimeout(session);
+
+  // Flush any inputs that were queued while compiling
+  if (session.pendingInputs && session.pendingInputs.length > 0) {
+    for (const pInput of session.pendingInputs) {
+      try {
+        child.stdin?.write(pInput);
+      } catch {}
+    }
+    session.pendingInputs = [];
+  }
 
   child.stdout?.on("data", (chunk: Buffer) => {
     const text = chunk.toString();

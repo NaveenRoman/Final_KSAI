@@ -111,8 +111,8 @@ export const CppRules: LanguageRuleSet = {
                 }
             }
 
-            // 6. Variable declarations & STL instances: std::vector<int> numbers = {1, 2}; or BankAccount acc; or int a = 10, b = 20;
-            const typeHeaderMatches = Array.from(line.matchAll(/(?:^|[\s;\{\(]+)(?:(?:const|static|auto|std::vector<[^>]+>|vector<[^>]+>|std::string|string|std::map<[^>]+>|map<[^>]+>|std::unique_ptr<[^>]+>|unique_ptr<[^>]+>|int|double|float|char|bool|[A-Z][a-zA-Z0-9_]*)\s*\*?&?\s+)([^;\{=]+)(?:=|[;\{])/g));
+            // 6. Variable declarations & STL instances: stack<int> s; or std::vector<int> numbers = {1, 2}; or BankAccount acc; or int a = 10, b = 20;
+            const typeHeaderMatches = Array.from(line.matchAll(/(?:^|[\s;{(]+)(?:(?:const|static|auto|unsigned|signed)\s+)*(?:(?:std::)?[a-zA-Z_]\w*(?:<[^;{}]+>)?\s*[*&]?\s+)([^;{}=]+)(?:=|[;{])/g));
             for (const thm of typeHeaderMatches) {
                 const declBody = thm[1];
                 const varNames = Array.from(declBody.matchAll(/(?:^|,)\s*\*?&?\s*([a-zA-Z_]\w*)(?:\[[^\]]*\])?/g));
@@ -123,13 +123,19 @@ export const CppRules: LanguageRuleSet = {
                 }
             }
 
-            // 7. For loop declarations: for (int i = 0; i < n; i++) or for (int num : numbers)
-            const forLoopMatch = line.match(/\bfor\s*\(\s*(?:(?:const|auto|int|size_t|double|float|char|string|std::string)\s*&?\s+)+([a-zA-Z_]\w*)\s*(?:=|:)/);
-            if (forLoopMatch && forLoopMatch[1]) {
+            // 7. For loop declarations: for (int i = 0; i < n; i++) or for (std::thread& worker : workers)
+            const forLoopMatch = line.match(/\bfor\s*\(\s*(?:(?:const|auto)\s+)?(?:(?:std::)?[a-zA-Z_]\w*(?:<[^>]+>)?\s*[*&]?\s+)+([a-zA-Z_]\w*)\s*(?:=|:)/);
+            if (forLoopMatch && forLoopMatch[1] && !CPP_RESERVED_KEYWORDS.has(forLoopMatch[1])) {
                 variables.add(forLoopMatch[1]);
             }
 
-            // 8. Simple constructor instantiations: Book b1("Title", 59.99);
+            // 8. If / While condition variable declarations: if (Drone* drone = dynamic_cast<...>)
+            const condDeclMatch = line.match(/\b(?:if|while)\s*\(\s*(?:(?:const|auto|[a-zA-Z_]\w*)\s*[*&]?\s+)+([a-zA-Z_]\w*)\s*=/);
+            if (condDeclMatch && condDeclMatch[1] && !CPP_RESERVED_KEYWORDS.has(condDeclMatch[1])) {
+                variables.add(condDeclMatch[1]);
+            }
+
+            // 9. Simple constructor instantiations: Book b1("Title", 59.99);
             const objInstMatch = line.match(/(?:^|\s+)(?:[A-Z][a-zA-Z0-9_]*)\s+([a-zA-Z_]\w*)\s*\(/);
             if (objInstMatch && !CPP_RESERVED_KEYWORDS.has(objInstMatch[1])) {
                 variables.add(objInstMatch[1]);
@@ -145,7 +151,8 @@ export const CppRules: LanguageRuleSet = {
         lineIndex: number,
         defaultFile: string
     ): CodeDiagnostic | null {
-        const trimmed = line.trim();
+        // Strip comments before analyzing statement termination
+        const trimmed = line.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "").trim();
         if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
             return null;
         }
@@ -156,7 +163,32 @@ export const CppRules: LanguageRuleSet = {
             trimmed.endsWith(";") ||
             trimmed.endsWith(",") ||
             trimmed.endsWith(":") ||
-            trimmed.endsWith("\\")
+            trimmed.endsWith("\\") ||
+            trimmed.endsWith("<<") ||
+            trimmed.endsWith(">>") ||
+            trimmed.endsWith("+") ||
+            trimmed.endsWith("-") ||
+            trimmed.endsWith("*") ||
+            trimmed.endsWith("/") ||
+            trimmed.endsWith("&&") ||
+            trimmed.endsWith("||") ||
+            trimmed.endsWith(".") ||
+            trimmed.endsWith("->") ||
+            trimmed.endsWith("(") ||
+            trimmed.endsWith("[")
+        ) {
+            return null;
+        }
+
+        const rawNextLine = allLines && lineIndex + 1 < allLines.length ? allLines[lineIndex + 1] : "";
+        const nextLine = rawNextLine.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "").trim();
+        if (
+            nextLine.startsWith("{") ||
+            nextLine.startsWith(":") ||
+            nextLine.startsWith("<<") ||
+            nextLine.startsWith(">>") ||
+            nextLine.startsWith(".") ||
+            nextLine.startsWith("->")
         ) {
             return null;
         }

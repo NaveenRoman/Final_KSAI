@@ -19,7 +19,7 @@ import {
     getLanguageDisplayName,
     normalizeLanguage,
     levenshteinDistance,
-} from "./rules";
+} from "./rules/index";
 import { maskStringsAndComments } from "./lexing/CodeLexer";
 
 export type { CodeDiagnostic, CodeValidationResult, InScopeSymbols, LanguageRuleSet };
@@ -260,10 +260,12 @@ export function validateCodeBeforeRun({
     for (let i = 0; i < maskedLines.length; i++) {
         const trimmed = maskedLines[i].trim();
         if (!trimmed) continue;
+        if (normLang === "cpp" && /\boperator\s*==/.test(trimmed)) continue;
 
         const assignEqMatch = trimmed.match(/(?:^|\s+)(?:(?:public|private|protected|static|final|const|auto|unsigned|signed)\s+)*(?:int|double|float|char|long|short|String|auto|bool|let|var)\s+([a-zA-Z_]\w*)\s*==\s*([^;]+);?/);
         if (assignEqMatch) {
             const varName = assignEqMatch[1];
+            if (varName === "operator") continue;
             diagnostics.push({
                 file: defaultFile,
                 line: i + 1,
@@ -340,41 +342,33 @@ export function validateCodeBeforeRun({
                 continue;
             }
 
-            // Check if word is a close typo to declared variables
-            let closestVar = "";
-            let minDistance = 3;
-            for (const decVar of Array.from(inScope.variables)) {
-                const dist = levenshteinDistance(word.toLowerCase(), decVar.toLowerCase());
-                if (dist > 0 && dist <= 2 && dist < minDistance) {
-                    minDistance = dist;
-                    closestVar = decVar;
+            // Check if word is a close typo to declared variables (only for identifiers of length >= 3)
+            if (word.length >= 3) {
+                let closestVar = "";
+                let minDistance = 3;
+                const maxAllowedDist = word.length <= 4 ? 1 : 2;
+                for (const decVar of Array.from(inScope.variables)) {
+                    if (decVar.length < 3 || decVar === "std" || decVar === "main") continue;
+                    const dist = levenshteinDistance(word.toLowerCase(), decVar.toLowerCase());
+                    if (dist > 0 && dist <= maxAllowedDist && dist < minDistance) {
+                        minDistance = dist;
+                        closestVar = decVar;
+                    }
                 }
-            }
 
-            if (closestVar) {
-                diagnostics.push({
-                    file: defaultFile,
-                    line: i + 1,
-                    column: lines[i].indexOf(word) + 1,
-                    severity: "error",
-                    type: "Unknown Variable",
-                    message: `Unknown variable '${word}'`,
-                    explanation: `The variable '${word}' is not declared. Did you mean '${closestVar}'?`,
-                    correction: lines[i].replace(new RegExp(`\\b${word}\\b`), closestVar),
-                    code: lines[i],
-                });
-            } else if (inScope.variables.size > 0 && !rules.standardLibrarySymbols.has(word)) {
-                diagnostics.push({
-                    file: defaultFile,
-                    line: i + 1,
-                    column: lines[i].indexOf(word) + 1,
-                    severity: "error",
-                    type: "Unknown Variable",
-                    message: `Unknown variable '${word}'`,
-                    explanation: `The variable '${word}' is not declared in this scope.`,
-                    correction: lines[i],
-                    code: lines[i],
-                });
+                if (closestVar) {
+                    diagnostics.push({
+                        file: defaultFile,
+                        line: i + 1,
+                        column: lines[i].indexOf(word) + 1,
+                        severity: "error",
+                        type: "Unknown Variable",
+                        message: `Unknown variable '${word}'`,
+                        explanation: `The variable '${word}' is not declared. Did you mean '${closestVar}'?`,
+                        correction: lines[i].replace(new RegExp(`\\b${word}\\b`), closestVar),
+                        code: lines[i],
+                    });
+                }
             }
         }
     }

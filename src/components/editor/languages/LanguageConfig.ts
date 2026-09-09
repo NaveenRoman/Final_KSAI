@@ -105,6 +105,48 @@ int main() {
     autoCode: "C++ Auto Code",
     interview: "C++ Interview",
   },
+  {
+    id: "javascript",
+    name: "JavaScript",
+    extension: ".js",
+    icon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg",
+    projectName: "MyJSProject",
+    defaultFile: "main.js",
+    compiler: "node",
+    run: "node main.js",
+    monacoLanguage: "javascript",
+    starterCode: `function main() {
+    console.log("Welcome to KnowledgeStream AI");
+}
+
+main();`,
+    aiRole: "JavaScript Expert",
+    screenMentor: "JavaScript Mentor",
+    dictator: "JavaScript Dictator",
+    autoCode: "JavaScript Auto Code",
+    interview: "JavaScript Interview",
+  },
+  {
+    id: "typescript",
+    name: "TypeScript",
+    extension: ".ts",
+    icon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg",
+    projectName: "MyTSProject",
+    defaultFile: "main.ts",
+    compiler: "tsc",
+    run: "ts-node main.ts",
+    monacoLanguage: "typescript",
+    starterCode: `function main(): void {
+    console.log("Welcome to KnowledgeStream AI");
+}
+
+main();`,
+    aiRole: "TypeScript Expert",
+    screenMentor: "TypeScript Mentor",
+    dictator: "TypeScript Dictator",
+    autoCode: "TypeScript Auto Code",
+    interview: "TypeScript Interview",
+  },
 ];
 
 export const LANGUAGE_MAP = new Map<string, LanguageConfig>(
@@ -116,6 +158,8 @@ export function getLanguageConfig(langIdOrName: string): LanguageConfig {
   if (norm === "c++" || norm === "cpp") return LANGUAGE_MAP.get("cpp")!;
   if (norm === "c") return LANGUAGE_MAP.get("c")!;
   if (norm === "py" || norm === "python") return LANGUAGE_MAP.get("python")!;
+  if (norm === "js" || norm === "javascript") return LANGUAGE_MAP.get("javascript")!;
+  if (norm === "ts" || norm === "typescript") return LANGUAGE_MAP.get("typescript")!;
   if (norm === "java") return LANGUAGE_MAP.get("java")!;
   return LANGUAGES[0];
 }

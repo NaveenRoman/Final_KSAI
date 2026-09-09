@@ -35,16 +35,6 @@ export async function GET(req: Request) {
     }
 
     if (!user) {
-      const defaultUser =
-        (await db.user.findFirst({
-          where: { role: "Student" },
-        })) || (await db.user.findFirst());
-      if (defaultUser) {
-        user = defaultUser;
-      }
-    }
-
-    if (!user) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
     }
 

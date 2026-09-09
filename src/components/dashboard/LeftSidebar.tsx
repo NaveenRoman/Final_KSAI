@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { usePathname, useRouter } from "next/navigation";
+import { handleUserLogout } from "@/lib/auth-logout";
 
 interface LeftSidebarProps {
   activeTab?: string;
@@ -456,14 +457,7 @@ export function LeftSidebar({
         )}
 
         <button
-          onClick={async () => {
-            try {
-              await fetch("/api/auth/logout", { method: "POST" });
-            } catch (err) {
-              console.error("Logout failed:", err);
-            }
-            window.location.href = "/auth";
-          }}
+          onClick={handleUserLogout}
           className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs font-bold text-red-500 hover:bg-red-500/10 transition-all text-left cursor-pointer"
         >
           <LogOut size={14} className="shrink-0" />

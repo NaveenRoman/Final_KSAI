@@ -100,10 +100,12 @@ export default function AIResultPanel() {
     const [speaking, setSpeaking] = useState(false);
     const [copied, setCopied] = useState(false);
 
-    const { activeTab, updateTabContent } = useTabs();
+    const { activeTab, updateTabContent, tabs, openTab, setActiveTab } = useTabs();
 
     const [dictatorInput, setDictatorInput] = useState("");
     const [dictatorLevel, setDictatorLevel] = useState("beginner");
+    const [dictatorCategory, setDictatorCategory] = useState<"beginner" | "intermediate" | "advanced">("beginner");
+    const [dictatorPracticeLevel, setDictatorPracticeLevel] = useState<"1" | "2" | "3">("1");
 
     // =========================
     // Auto Code State
@@ -210,14 +212,34 @@ export default function AIResultPanel() {
             setResult(`Please enter what ${language.name} program you want to build.`);
             return;
         }
-        await startDictatorSession(project);
+        await startDictatorSession(
+            project,
+            `${dictatorCategory}_l${dictatorPracticeLevel}`,
+            dictatorCategory,
+            dictatorPracticeLevel
+        );
     }
 
-    async function startDictatorSession(project: string, levelOverride?: string) {
+    const [dictatorAttempts, setDictatorAttempts] = useState<Record<string, number>>({});
+
+    async function startDictatorSession(
+        project: string,
+        levelOverride?: string,
+        categoryOverride?: "beginner" | "intermediate" | "advanced",
+        practiceLevelOverride?: "1" | "2" | "3"
+    ) {
         if (!project || !project.trim()) return;
 
-        const currentLang = language?.id || activeTab?.language || "java";
-        const targetLevel = levelOverride || dictatorLevel;
+        const currentLang = language?.id || activeTab?.language || "python";
+        const cat = categoryOverride || dictatorCategory;
+        const pLevel = practiceLevelOverride || dictatorPracticeLevel;
+        const targetLevel = levelOverride || `${cat}_l${pLevel}`;
+        
+        // Track repetition / iteration attempts
+        const attemptKey = `${currentLang}_${project.toLowerCase().trim()}_${cat}_${pLevel}`;
+        const currentAttempt = (dictatorAttempts[attemptKey] || 0) + 1;
+        setDictatorAttempts((prev) => ({ ...prev, [attemptKey]: currentAttempt }));
+
         setLoading(true);
         setResult("");
 
@@ -229,9 +251,53 @@ export default function AIResultPanel() {
         // Generate brand new unique session ID
         const currentSession = incrementSessionId();
 
+        // 1. Synchronize active tab with selected language
+        let targetTabId = activeTab?.id;
+        const matchesCurrentLang =
+            activeTab &&
+            (activeTab.language === currentLang ||
+                (language.extension && activeTab.name.endsWith(language.extension)));
+
+        if (!matchesCurrentLang) {
+            const existingLangTab = tabs.find(
+                (t) =>
+                    t.language === currentLang ||
+                    (language.extension && t.name.endsWith(language.extension))
+            );
+            if (existingLangTab) {
+                setActiveTab(existingLangTab.id);
+                targetTabId = existingLangTab.id;
+            } else {
+                const defaultName = language.defaultFile || `main${language.extension || ".py"}`;
+                const newId = `file-${currentLang}-${Date.now()}`;
+                openTab({
+                    id: newId,
+                    name: defaultName,
+                    path: defaultName,
+                    language: currentLang,
+                    content: "",
+                    isDirty: false,
+                    isPinned: false,
+                });
+                targetTabId = newId;
+            }
+        }
+
         try {
-            // Fetch plan (from AI or verified local synthesizer)
-            const planRes = await fetchDictatorPlan(project, currentLang, targetLevel, String(currentSession));
+            // Fetch plan (from AI or verified local synthesizer) with full active file & multi-file context
+            const planRes = await fetchDictatorPlan(
+                project,
+                currentLang,
+                targetLevel,
+                String(currentSession),
+                activeTab?.name || language.defaultFile,
+                activeTab?.path || language.defaultFile,
+                activeTab?.content || "",
+                tabs.map((t) => ({ name: t.name, path: t.path, language: t.language })),
+                cat,
+                pLevel,
+                currentAttempt
+            );
             let units: DictatorTeachingUnit[] = [];
 
             if (planRes && planRes.steps && planRes.steps.length > 0) {
@@ -247,6 +313,31 @@ export default function AIResultPanel() {
                 setDictatorActive(false);
                 setResult(`What program would you like to build in ${language.name}?`);
                 return;
+            }
+
+            // Handle multi-file projects if returned
+            if (planRes && Array.isArray(planRes.files) && planRes.files.length > 0) {
+                const primaryFileName = planRes.primaryFile || (planRes.files[0] ? planRes.files[0].name : "");
+                for (const f of planRes.files) {
+                    if (f.name && f.content !== undefined) {
+                        const existingAuxTab = tabs.find((t) => t.name === f.name);
+                        if (existingAuxTab) {
+                            if (f.name !== primaryFileName) {
+                                updateTabContent(existingAuxTab.id, f.content);
+                            }
+                        } else if (f.name !== primaryFileName) {
+                            openTab({
+                                id: `file-${currentLang}-${f.name.replace(/[^a-zA-Z0-9_-]/g, "_")}-${Date.now()}`,
+                                name: f.name,
+                                path: f.path || f.name,
+                                language: f.language || currentLang,
+                                content: f.content,
+                                isDirty: false,
+                                isPinned: false,
+                            });
+                        }
+                    }
+                }
             }
 
             const initialMsg = createInitialDictatorMessage(units[0], 0, units.length);
@@ -268,7 +359,9 @@ export default function AIResultPanel() {
             setMode("dictator");
 
             // Reset tab content for new program
-            if (activeTab) {
+            if (targetTabId) {
+                updateTabContent(targetTabId, "");
+            } else if (activeTab) {
                 updateTabContent(activeTab.id, "");
             }
 
@@ -995,42 +1088,86 @@ export default function AIResultPanel() {
                                 Active Target File
                             </label>
                             <div
-                                className={`rounded-xl px-4 py-3 border text-sm mb-5 ${
+                                className={`rounded-xl px-4 py-3 border text-sm font-mono font-semibold mb-5 ${
                                     darkMode
-                                        ? "bg-[#11131B] border-white/10 text-slate-300"
-                                        : "bg-white border-gray-300 text-gray-700"
+                                        ? "bg-[#11131B] border-white/10 text-cyan-400"
+                                        : "bg-white border-gray-300 text-blue-600"
                                 }`}
                             >
-                                {activeTab?.name || `${language.name} Workspace`}
+                                {activeTab?.name || language.defaultFile || "main.py"}
                             </div>
 
-                            {/* Learning Level */}
+                            {/* Student Category */}
                             <label
-                                className={`block text-sm font-medium mb-2 ${
-                                    darkMode ? "text-slate-300" : "text-gray-700"
-                                }`}
+                                 className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                                     darkMode ? "text-slate-400" : "text-gray-600"
+                                 }`}
                             >
-                                Learning Level
+                                Student Category
                             </label>
-                            <select
-                                value={dictatorLevel}
-                                onChange={(e) => {
-                                    const newLvl = e.target.value;
-                                    setDictatorLevel(newLvl);
-                                    if (dictatorActive && dictatorProject) {
-                                        startDictatorSession(dictatorProject, newLvl);
-                                    }
-                                }}
-                                className={`w-full rounded-xl px-4 py-3 outline-none border mb-6 ${
-                                    darkMode
-                                        ? "bg-[#11131B] border-white/10 text-white"
-                                        : "bg-white border-gray-300 text-gray-900"
-                                }`}
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                {(["beginner", "intermediate", "advanced"] as const).map((cat) => (
+                                    <button
+                                        key={cat}
+                                        type="button"
+                                        onClick={() => {
+                                            setDictatorCategory(cat);
+                                            setDictatorLevel(`${cat}_l${dictatorPracticeLevel}`);
+                                            if (dictatorActive && dictatorProject) {
+                                                startDictatorSession(dictatorProject, `${cat}_l${dictatorPracticeLevel}`, cat, dictatorPracticeLevel);
+                                            }
+                                        }}
+                                        className={`py-2 px-3 rounded-xl text-xs font-bold capitalize transition border ${
+                                            dictatorCategory === cat
+                                                ? "bg-purple-600 border-purple-500 text-white shadow-sm"
+                                                : darkMode
+                                                ? "bg-[#11131B] border-white/10 text-slate-400 hover:text-white"
+                                                : "bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Practice Level (1, 2, 3) */}
+                            <label
+                                 className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                                     darkMode ? "text-slate-400" : "text-gray-600"
+                                 }`}
                             >
-                                <option value="beginner">Beginner (Word-by-Word Guided)</option>
-                                <option value="intermediate">Intermediate</option>
-                                <option value="advanced">Advanced</option>
-                            </select>
+                                Practice Level
+                            </label>
+                            <div className="grid grid-cols-3 gap-2 mb-6">
+                                {[
+                                    { id: "1", label: "Level 1", desc: "Foundations" },
+                                    { id: "2", label: "Level 2", desc: "Logic Shift" },
+                                    { id: "3", label: "Level 3", desc: "Challenge" },
+                                ].map((lvl) => (
+                                    <button
+                                        key={lvl.id}
+                                        type="button"
+                                        onClick={() => {
+                                            const pId = lvl.id as "1" | "2" | "3";
+                                            setDictatorPracticeLevel(pId);
+                                            setDictatorLevel(`${dictatorCategory}_l${pId}`);
+                                            if (dictatorActive && dictatorProject) {
+                                                startDictatorSession(dictatorProject, `${dictatorCategory}_l${pId}`, dictatorCategory, pId);
+                                            }
+                                        }}
+                                        className={`py-2 px-2 rounded-xl text-center transition border ${
+                                            dictatorPracticeLevel === lvl.id
+                                                ? "bg-pink-600 border-pink-500 text-white shadow-sm"
+                                                : darkMode
+                                                ? "bg-[#11131B] border-white/10 text-slate-400 hover:text-white"
+                                                : "bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        <div className="text-xs font-bold">{lvl.label}</div>
+                                        <div className="text-[10px] opacity-80">{lvl.desc}</div>
+                                    </button>
+                                ))}
+                            </div>
 
                             {/* Start Button */}
                             <button
@@ -1076,7 +1213,13 @@ export default function AIResultPanel() {
                                             <span className="text-purple-400 font-bold">
                                                 [{language.name}]
                                             </span>{" "}
-                                            {dictatorProject}
+                                            {dictatorProject}{" "}
+                                            <span className="ml-2 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 uppercase border border-purple-500/30">
+                                                {dictatorCategory}
+                                            </span>
+                                            <span className="ml-1 px-2 py-0.5 rounded text-[10px] font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                                                Level {dictatorPracticeLevel}
+                                            </span>
                                         </p>
                                     </div>
                                 </div>
@@ -1088,6 +1231,52 @@ export default function AIResultPanel() {
                                 >
                                     End Session
                                 </button>
+                            </div>
+
+                            {/* Active Session Tier Switcher Bar */}
+                            <div className={`flex flex-wrap items-center justify-between gap-2 p-2 mb-5 rounded-xl border ${
+                                darkMode ? "bg-[#11131B] border-white/10" : "bg-white border-gray-200"
+                            }`}>
+                                <div className="flex items-center gap-1">
+                                    {(["beginner", "intermediate", "advanced"] as const).map((cat) => (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            onClick={() => {
+                                                setDictatorCategory(cat);
+                                                setDictatorLevel(`${cat}_l${dictatorPracticeLevel}`);
+                                                startDictatorSession(dictatorProject, `${cat}_l${dictatorPracticeLevel}`, cat, dictatorPracticeLevel);
+                                            }}
+                                            className={`px-2.5 py-1 rounded-lg text-xs font-bold capitalize transition ${
+                                                dictatorCategory === cat
+                                                    ? "bg-purple-600 text-white shadow-sm"
+                                                    : darkMode ? "text-slate-400 hover:text-white" : "text-gray-600 hover:text-gray-900"
+                                            }`}
+                                        >
+                                            {cat}
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    {(["1", "2", "3"] as const).map((lvl) => (
+                                        <button
+                                            key={lvl}
+                                            type="button"
+                                            onClick={() => {
+                                                setDictatorPracticeLevel(lvl);
+                                                setDictatorLevel(`${dictatorCategory}_l${lvl}`);
+                                                startDictatorSession(dictatorProject, `${dictatorCategory}_l${lvl}`, dictatorCategory, lvl);
+                                            }}
+                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                                                dictatorPracticeLevel === lvl
+                                                    ? "bg-pink-600 text-white shadow-sm"
+                                                    : darkMode ? "text-slate-400 hover:text-white" : "text-gray-600 hover:text-gray-900"
+                                            }`}
+                                        >
+                                            Level {lvl}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             {/* Progress Bar & Unit Counter */}
@@ -1367,10 +1556,18 @@ export default function AIResultPanel() {
                                         <p className="font-semibold text-xs text-white">
                                             Summary of Learned Concepts:
                                         </p>
-                                        <p>• Program structure and entry points in {language.name}</p>
-                                        <p>• Data definitions, arrays, and variable declarations</p>
-                                        <p>• Loop traversal and computational logic</p>
-                                        <p>• Standard console output formatting</p>
+                                        {dictatorRequirements && dictatorRequirements.length > 0 ? (
+                                            dictatorRequirements.map((req, rIdx) => (
+                                                <p key={rIdx}>• {req}</p>
+                                            ))
+                                        ) : (
+                                            <>
+                                                <p>• Program structure and entry points in {language.name}</p>
+                                                <p>• Data definitions, arrays, and variable declarations</p>
+                                                <p>• Computational algorithm and data manipulation</p>
+                                                <p>• Standard console output formatting</p>
+                                            </>
+                                        )}
                                     </div>
                                     <p className="text-emerald-300 font-semibold">
                                         Click <strong>Run</strong> in the bottom dock to execute and test your program!

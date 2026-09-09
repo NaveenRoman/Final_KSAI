@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 
+import { normalizeUserRole, getRoleDashboardPath } from "@/lib/roles";
+
 export async function getAdminUser(req: Request) {
   try {
     const sessionData = await auth.api.getSession({ headers: req.headers });
@@ -46,7 +48,7 @@ export async function getAdminUser(req: Request) {
       select: { id: true, name: true, email: true, role: true },
     });
 
-    if (!dbUser || dbUser.role !== "Admin") {
+    if (!dbUser || normalizeUserRole(dbUser.role) !== "SUPER_ADMIN") {
       return null;
     }
 
@@ -87,8 +89,13 @@ export async function requireAdminPage() {
     select: { id: true, name: true, email: true, role: true },
   });
 
-  if (!dbUser || dbUser.role !== "Admin") {
-    redirect("/dashboard");
+  if (!dbUser) {
+    redirect("/auth");
+  }
+
+  const normRole = normalizeUserRole(dbUser.role);
+  if (normRole !== "SUPER_ADMIN") {
+    redirect(getRoleDashboardPath(normRole));
   }
 
   return dbUser;

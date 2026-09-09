@@ -14,26 +14,34 @@ export const C_RESERVED_KEYWORDS = new Set([
 
 export const C_STANDARD_TYPES = new Set([
     "int", "char", "float", "double", "void", "short", "long", "signed", "unsigned",
-    "size_t", "int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t", "uint64_t",
-    "bool", "FILE", "time_t", "clock_t", "uintptr_t", "intptr_t", "ptrdiff_t",
-    "Node", "ListNode", "TreeNode", "Stack", "Queue", "Vector", "Array", "List"
+    "size_t", "ssize_t", "int8_t", "int16_t", "int32_t", "int64_t", "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+    "bool", "FILE", "time_t", "clock_t", "uintptr_t", "intptr_t", "ptrdiff_t", "va_list",
+    "Node", "ListNode", "TreeNode", "Stack", "Queue", "Vector", "Array", "List", "Record", "StringBuffer"
 ]);
 
 export const C_BUILTIN_FUNCTIONS = new Set([
-    "printf", "scanf", "puts", "gets", "getchar", "putchar", "malloc", "calloc", "realloc",
-    "free", "main", "sizeof", "strlen", "strcpy", "strncpy", "strcat", "strncat", "strcmp",
-    "strncmp", "strchr", "strstr", "memcpy", "memset", "memmove", "memcmp", "atoi", "atof",
-    "atol", "abs", "labs", "rand", "srand", "exit", "abort", "fopen", "fclose", "fread",
-    "fwrite", "fprintf", "fscanf", "fgets", "fputs", "feof", "ferror", "fflush", "fseek",
-    "ftell", "rewind", "sqrt", "pow", "sin", "cos", "tan", "log", "exp", "ceil", "floor",
-    "isalnum", "isalpha", "isdigit", "islower", "isupper", "isspace", "tolower", "toupper",
-    "time", "clock", "qsort", "bsearch"
+    "printf", "scanf", "snprintf", "sprintf", "vsnprintf", "vsprintf",
+    "puts", "gets", "getchar", "putchar", "fgetc", "fputc", "getc", "putc", "ungetc",
+    "malloc", "calloc", "realloc", "free", "main", "sizeof",
+    "strlen", "strcpy", "strncpy", "strcat", "strncat", "strcmp", "strncmp",
+    "strchr", "strrchr", "strstr", "strtok", "strdup", "strspn", "strcspn", "strpbrk", "strerror",
+    "memcpy", "memset", "memmove", "memcmp", "memchr",
+    "atoi", "atof", "atol", "atoll", "abs", "labs", "llabs", "rand", "srand", "exit", "abort", "system", "getenv",
+    "fopen", "fclose", "fread", "fwrite", "fprintf", "fscanf", "fgets", "fputs",
+    "feof", "ferror", "fflush", "fseek", "ftell", "rewind", "remove", "rename", "perror", "clearerr",
+    "sqrt", "pow", "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh", "cosh", "tanh",
+    "log", "log10", "exp", "ceil", "floor", "fabs", "fmod", "round",
+    "isalnum", "isalpha", "isdigit", "islower", "isupper", "isspace", "isprint", "ispunct", "tolower", "toupper",
+    "time", "clock", "difftime", "mktime", "strftime",
+    "qsort", "bsearch",
+    "va_start", "va_arg", "va_end", "va_copy"
 ]);
 
 export const C_STANDARD_LIBRARY_SYMBOLS = new Set([
     "include", "define", "ifdef", "ifndef", "endif", "pragma", "undef", "NULL", "EXIT_SUCCESS", "EXIT_FAILURE",
     "SEEK_SET", "SEEK_CUR", "SEEK_END", "EOF", "CLOCKS_PER_SEC", "RAND_MAX", "INT_MAX", "INT_MIN",
-    "stdio", "stdlib", "string", "math", "time", "stdbool", "stdint", "stddef", "h"
+    "UINT_MAX", "LONG_MAX", "LONG_MIN", "ULONG_MAX", "CHAR_BIT",
+    "stdio", "stdlib", "string", "math", "time", "stdbool", "stdint", "stddef", "stdarg", "ctype", "limits", "h"
 ]);
 
 export const CRules: LanguageRuleSet = {
@@ -69,10 +77,42 @@ export const CRules: LanguageRuleSet = {
                 types.add(typedefMatch[2]);
             }
 
-            // 3. Enum declarations: enum Color { RED, GREEN, BLUE };
+            // 2b. Multi-line typedef struct closing: } Stack; or } Node, *NodePtr;
+            if (line.startsWith("}")) {
+                const closingTypedefMatch = line.match(/^\}\s*\*?\s*([a-zA-Z_]\w*)/);
+                if (closingTypedefMatch && !C_RESERVED_KEYWORDS.has(closingTypedefMatch[1])) {
+                    const parts = line.substring(1).replace(/;.*$/, "").split(",");
+                    for (const p of parts) {
+                        const clean = p.replace(/\*/g, "").trim();
+                        if (clean && !C_RESERVED_KEYWORDS.has(clean)) {
+                            types.add(clean);
+                            variables.add(clean);
+                        }
+                    }
+                }
+            }
+
+            // 2c. Macro / #define constants: #define MAX 100 or #define BUFFER_SIZE 256
+            const defineMatch = rawLine.match(/^\s*#\s*define\s+([a-zA-Z_]\w*)/);
+            if (defineMatch && defineMatch[1] && !C_RESERVED_KEYWORDS.has(defineMatch[1])) {
+                variables.add(defineMatch[1]);
+                types.add(defineMatch[1]);
+            }
+
+            // 3. Enum declarations and members: enum Color { RED, GREEN, BLUE };
             const enumMatch = line.match(/\benum\s+([a-zA-Z_]\w*)/);
             if (enumMatch) {
                 types.add(enumMatch[1]);
+            }
+            const enumMembersMatch = line.match(/\benum\s*(?:[a-zA-Z_]\w*)?\s*\{([^}]+)\}/);
+            if (enumMembersMatch) {
+                const members = enumMembersMatch[1].split(",");
+                for (const m of members) {
+                    const id = m.split("=")[0].trim();
+                    if (id && !C_RESERVED_KEYWORDS.has(id)) {
+                        variables.add(id);
+                    }
+                }
             }
 
             // 4. Function declarations and definitions: int add(int a, int b) or void printList(struct Node* head)
@@ -94,7 +134,20 @@ export const CRules: LanguageRuleSet = {
                 }
             }
 
-            // 5. Variable declarations: int a = 10, b = 20; or int numbers[5] = {10, 20}; or struct Node *head = NULL;
+            // 5. Variable declarations: int a = 10, b = 20; const char *fname = "..."; unsigned char *bytes;
+            const declMatch = line.match(/(?:(?:const|static|extern|volatile|register|unsigned|signed|short|long)\s+)*(?:struct\s+[a-zA-Z_]\w*|union\s+[a-zA-Z_]\w*|enum\s+[a-zA-Z_]\w*|[a-zA-Z_]\w*)(?:\s*\*+|\s+)([^;\{]+);?/);
+            if (declMatch && !/^(if|for|while|switch|return)\b/.test(line)) {
+                const declBody = declMatch[1];
+                const declParts = declBody.split(",");
+                for (const part of declParts) {
+                    const cleanPart = part.trim().replace(/^[*&\s]+/, "");
+                    const idMatch = cleanPart.match(/^([a-zA-Z_]\w*)/);
+                    if (idMatch && !types.has(idMatch[1]) && !C_RESERVED_KEYWORDS.has(idMatch[1])) {
+                        variables.add(idMatch[1]);
+                    }
+                }
+            }
+
             const typeHeaderMatches = Array.from(line.matchAll(/(?:^|[\s;\{\(]+)(?:(?:const|static|extern|volatile|register|unsigned|signed|struct\s+[a-zA-Z_]\w*|[a-zA-Z_]\w*)\s*\*?\s+)([^;\{=]+)(?:=|[;\{])/g));
             for (const thm of typeHeaderMatches) {
                 const declBody = thm[1];
@@ -122,25 +175,25 @@ export const CRules: LanguageRuleSet = {
         lineIndex: number,
         defaultFile: string
     ): CodeDiagnostic | null {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+        const stripped = line.replace(/\/\/.*$/, "").replace(/\/\*.*?\*\//g, "").trim();
+        if (!stripped || stripped.startsWith("#") || stripped.startsWith("*")) {
             return null;
         }
 
         if (
-            trimmed.endsWith("{") ||
-            trimmed.endsWith("}") ||
-            trimmed.endsWith(";") ||
-            trimmed.endsWith(",") ||
-            trimmed.endsWith(":") ||
-            trimmed.endsWith("\\")
+            stripped.endsWith("{") ||
+            stripped.endsWith("}") ||
+            stripped.endsWith(";") ||
+            stripped.endsWith(",") ||
+            stripped.endsWith(":") ||
+            stripped.endsWith("\\")
         ) {
             return null;
         }
 
-        if (trimmed.endsWith(")")) {
-            if (trimmed.includes("printf") || trimmed.includes("scanf") || trimmed.includes("puts") || trimmed.includes("malloc") || trimmed.includes("free") || trimmed.includes("=")) {
-                if (!/^(if|for|while|switch)\b/.test(trimmed)) {
+        if (stripped.endsWith(")")) {
+            if (stripped.includes("printf") || stripped.includes("scanf") || stripped.includes("puts") || stripped.includes("malloc") || stripped.includes("free") || stripped.includes("=")) {
+                if (!/^(if|for|while|switch)\b/.test(stripped)) {
                     return {
                         file: defaultFile,
                         line: lineIndex + 1,
@@ -149,16 +202,16 @@ export const CRules: LanguageRuleSet = {
                         type: "Missing Semicolon",
                         message: `Missing semicolon ';' at the end of statement`,
                         explanation: `In C, executable statements must end with a semicolon ';'.`,
-                        correction: trimmed + ";",
-                        code: trimmed,
+                        correction: stripped + ";",
+                        code: stripped,
                     };
                 }
             }
         }
 
         if (
-            /(\b(printf|scanf|puts|gets|return|break|continue|free|malloc)\b|=[^=]|^\s*[a-zA-Z_]\w*\s*[\+\-\*\/]?=)/.test(trimmed) &&
-            !/^(if|for|while|switch|else|struct|union|enum|typedef)\b/.test(trimmed)
+            /(\b(printf|scanf|puts|gets|return|break|continue|free|malloc)\b|=[^=]|^\s*[a-zA-Z_]\w*\s*[\+\-\*\/]?=)/.test(stripped) &&
+            !/^(if|for|while|switch|else|struct|union|enum|typedef)\b/.test(stripped)
         ) {
             return {
                 file: defaultFile,
@@ -168,8 +221,8 @@ export const CRules: LanguageRuleSet = {
                 type: "Missing Semicolon",
                 message: `Missing semicolon ';' at the end of statement`,
                 explanation: `In C, executable statements must end with a semicolon ';'.`,
-                correction: trimmed + ";",
-                code: trimmed,
+                correction: stripped + ";",
+                code: stripped,
             };
         }
 

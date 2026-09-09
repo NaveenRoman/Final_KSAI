@@ -3,7 +3,9 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useSession } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
+import { normalizeUserRole, getRoleDashboardPath } from "@/lib/roles";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
+import { handleUserLogout } from "@/lib/auth-logout";
 import { 
   BookOpen, Star, Sparkles, Trophy, Settings, LogOut, ChevronLeft, ChevronRight,
   TrendingUp, Award, Play, CheckCircle2, AlertTriangle, ArrowRight,
@@ -167,13 +169,7 @@ export default function DashboardPage() {
   }, [searchQuery]);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      window.location.href = "/auth";
-    } catch (err) {
-      console.error("Logout failed:", err);
-      window.location.href = "/auth";
-    }
+    await handleUserLogout();
   };
 
   // Heartbeat ping effect
@@ -216,6 +212,10 @@ export default function DashboardPage() {
   const fetchDashboardData = async (signal?: AbortSignal) => {
     try {
       const res = await fetch("/api/dashboard", { signal });
+      if (res.status === 401) {
+        router.replace("/auth");
+        return;
+      }
       if (!res.ok) {
         if (!signal?.aborted) {
           setError("Failed to load dashboard metrics");
@@ -224,6 +224,13 @@ export default function DashboardPage() {
       }
       const json = await res.json();
       if (json.success && !signal?.aborted) {
+        if (json.user?.role) {
+          const normRole = normalizeUserRole(json.user.role);
+          if (normRole !== "STUDENT") {
+            router.replace(getRoleDashboardPath(normRole));
+            return;
+          }
+        }
         setData(json);
       } else if (!signal?.aborted) {
         setError(json.error || "Failed to load dashboard metrics");
@@ -246,6 +253,15 @@ export default function DashboardPage() {
       if (!session) {
         router.push("/auth");
       } else {
+        // Redirect non-student roles to their specialized dashboards
+        const rawRole = (session?.user as any)?.role;
+        if (rawRole) {
+          const normRole = normalizeUserRole(rawRole);
+          if (normRole !== "STUDENT") {
+            router.replace(getRoleDashboardPath(normRole));
+            return;
+          }
+        }
         fetchDashboardData(controller.signal);
       }
     }
@@ -723,6 +739,17 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {/* Direct Header Logout Button */}
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-all cursor-pointer shadow-xs"
+              title="Logout"
+            >
+              <LogOut size={13} className="text-red-500" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
           </div>
         </div>
 

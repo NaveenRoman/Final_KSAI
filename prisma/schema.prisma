@@ -20,6 +20,8 @@ model User {
   phone           String?
   college         String?
   department      String?
+  collegeId       String?
+  departmentId    String?
   currentYear     String?
   role            String  @default("Student") // Student | Employee | Admin | Recruiter | Company
   country         String? @default("United States")
@@ -454,4 +456,86 @@ model ChapterRecap {
   @@index([userId])
   @@index([courseId])
   @@index([chapterId])
+}
+
+model College {
+  id            String                @id @default(uuid())
+  name          String                @unique
+  code          String?               @unique
+  location      String?
+  logo          String?
+  status        String                @default("ACTIVE") // ACTIVE | PENDING | INACTIVE | SUSPENDED
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  departments   Department[]
+  announcements CollegeAnnouncement[]
+  placements    PlacementBatch[]
+}
+
+model Department {
+  id            String                   @id @default(uuid())
+  name          String
+  code          String                   // e.g. "CSM", "CSE", "AI & DS", "ECE", "EEE", "MECH", "CIVIL"
+  collegeId     String
+  college       College                  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  classes       AcademicClass[]
+  announcements DepartmentAnnouncement[]
+
+  @@unique([collegeId, code])
+}
+
+model AcademicClass {
+  id            String     @id @default(uuid())
+  name          String     // e.g. "CSM 3rd Year - A"
+  subject       String     // e.g. "Data Structures & Algorithms"
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  facultyName   String?
+  facultyEmail  String?
+  avgScore      Float      @default(80.0)
+  totalStudents Int        @default(35)
+  active        Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model CollegeAnnouncement {
+  id        String   @id @default(uuid())
+  collegeId String
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  category  String   @default("GENERAL") // EXAM | EVENT | PLACEMENT | GENERAL
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model DepartmentAnnouncement {
+  id           String     @id @default(uuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  title        String
+  content      String
+  date         DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+}
+
+model PlacementBatch {
+  id               String   @id @default(uuid())
+  collegeId        String
+  college          College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  batchYear        String   // e.g. "2025 Batch", "2026 Batch"
+  totalEligible    Int      @default(320)
+  placedCount      Int      @default(160)
+  inProcessCount   Int      @default(90)
+  preparingCount   Int      @default(50)
+  notEligibleCount Int      @default(20)
+  highestPackage   Float    @default(12.5) // LPA
+  averagePackage   Float    @default(4.6)  // LPA
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([collegeId, batchYear])
 }

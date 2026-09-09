@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   const startTime = Date.now();
   try {
     const body = await request.json().catch(() => ({}));
-    const { code = "", language = "java", stdin = "" } = body;
+    const { code = "", language = "java", stdin = "", files = [] } = body;
 
     if (!code || typeof code !== "string" || !code.trim()) {
       return NextResponse.json({
@@ -36,19 +36,22 @@ export async function POST(request: Request) {
     const fileName = body.fileName || "";
 
     // Pre-execution validation check
-    const validation = validateCodeBeforeRun({
-      language: normLang,
-      fileName,
-      code,
-    });
-
-    if (!validation.valid) {
-      return NextResponse.json({
-        success: false,
-        output: validation.errorMessage,
-        executionTime: 0,
-        exitCode: 1,
+    // For C / C++, allow the real GCC compiler to provide authentic compilation diagnostics.
+    if (normLang !== "c" && normLang !== "cpp") {
+      const validation = validateCodeBeforeRun({
+        language: normLang,
+        fileName,
+        code,
       });
+
+      if (!validation.valid) {
+        return NextResponse.json({
+          success: false,
+          output: validation.errorMessage,
+          executionTime: 0,
+          exitCode: 1,
+        });
+      }
     }
 
     // 1. Authenticate user session
@@ -136,6 +139,7 @@ export async function POST(request: Request) {
       code,
       language: normLang,
       stdin,
+      files,
     });
 
     const duration = Date.now() - startTime;

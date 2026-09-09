@@ -79,20 +79,21 @@ export async function GET(req: Request) {
           enrolledLanguageIds.add("c");
         } else if (langNorm === "python" || langNorm === "py") {
           enrolledLanguageIds.add("python");
+        } else if (langNorm === "javascript" || langNorm === "js") {
+          enrolledLanguageIds.add("javascript");
+        } else if (langNorm === "typescript" || langNorm === "ts") {
+          enrolledLanguageIds.add("typescript");
         } else if (langNorm === "java") {
           enrolledLanguageIds.add("java");
         }
       }
     }
 
-    // If user has no enrollments yet, provide java/python as default preview or enrolled languages
-    if (enrolledLanguageIds.size === 0) {
-      enrolledLanguageIds.add("java");
-    }
-
-    const accessibleLanguageConfigs = LANGUAGES.filter((lang) =>
-      enrolledLanguageIds.has(lang.id)
-    );
+    // In open editor mode, provide all available languages
+    const accessibleLanguageConfigs =
+      enrolledLanguageIds.size > 0
+        ? LANGUAGES.filter((lang) => enrolledLanguageIds.has(lang.id))
+        : LANGUAGES;
 
     return NextResponse.json({
       success: true,

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { parseSessionToken } from "@/lib/auth-cookie";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
@@ -51,6 +52,31 @@ export async function POST(req: Request) {
       );
     }
 
+    // Purge any existing/stale sessions for this user or the incoming cookie to prevent role leakage
+    try {
+      const cookieHeader = req.headers.get("cookie") || "";
+      const match = cookieHeader.match(/(?:better-auth\.session_token|sessionToken)=([^;]+)/);
+      if (match) {
+        const oldRawToken = parseSessionToken(decodeURIComponent(match[1]));
+        if (oldRawToken) {
+          await db.session.deleteMany({
+            where: {
+              OR: [
+                { token: oldRawToken },
+                { userId: user.id },
+              ],
+            },
+          });
+        }
+      } else {
+        await db.session.deleteMany({
+          where: { userId: user.id },
+        });
+      }
+    } catch (cleanErr) {
+      console.warn("Stale session cleanup warning on login:", cleanErr);
+    }
+
     // Sync Account table password hash for Better Auth compatibility
     await db.account.updateMany({
       where: { userId: user.id },
@@ -88,8 +114,19 @@ export async function POST(req: Request) {
         if (typeof getSetCookieFn === "function") {
           const cookiesArr = sessionResponse.headers.getSetCookie();
           if (cookiesArr.length > 0) {
-            cookiesArr.forEach((c) => {
+            cookiesArr.forEach((c: string) => {
               response.headers.append("set-cookie", c);
+              const tokenMatch = c.match(/better-auth\.session_token=([^;]+)/);
+              if (tokenMatch) {
+                const parsed = parseSessionToken(tokenMatch[1]);
+                response.cookies.set("sessionToken", parsed, {
+                  httpOnly: true,
+                  secure: process.env.NODE_ENV === "production",
+                  sameSite: "lax",
+                  path: "/",
+                  expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                });
+              }
             });
             sessionCreated = true;
           }
@@ -97,6 +134,17 @@ export async function POST(req: Request) {
           const setCookieHeader = sessionResponse.headers.get("set-cookie");
           if (setCookieHeader) {
             response.headers.set("set-cookie", setCookieHeader);
+            const tokenMatch = setCookieHeader.match(/better-auth\.session_token=([^;]+)/);
+            if (tokenMatch) {
+              const parsed = parseSessionToken(tokenMatch[1]);
+              response.cookies.set("sessionToken", parsed, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                path: "/",
+                expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              });
+            }
             sessionCreated = true;
           }
         }

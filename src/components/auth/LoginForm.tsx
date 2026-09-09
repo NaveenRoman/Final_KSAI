@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, Loader2, KeyRound, RotateCcw, Edit2 } from "lucide-react";
 
@@ -13,6 +13,8 @@ interface LoginFormProps {
     googleId?: string;
     emailVerified?: boolean;
   }) => void;
+  prefillEmail?: string;
+  prefillPassword?: string;
 }
 
 function validatePassword(password: string) {
@@ -30,9 +32,21 @@ function validatePassword(password: string) {
   };
 }
 
-export function LoginForm({ onSubmitSuccess, onSwitchToSignUp, onGooglePrefill }: LoginFormProps) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+export function LoginForm({
+  onSubmitSuccess,
+  onSwitchToSignUp,
+  onGooglePrefill,
+  prefillEmail,
+  prefillPassword,
+}: LoginFormProps) {
+  const [email, setEmail] = useState(prefillEmail || "");
+  const [password, setPassword] = useState(prefillPassword || "");
+
+  useEffect(() => {
+    if (prefillEmail !== undefined) setEmail(prefillEmail);
+    if (prefillPassword !== undefined) setPassword(prefillPassword);
+  }, [prefillEmail, prefillPassword]);
+
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);

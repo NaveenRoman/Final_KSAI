@@ -31,7 +31,7 @@ export interface InScopeSymbols {
 }
 
 export interface LanguageRuleSet {
-    name: "java" | "python" | "c" | "cpp";
+    name: "java" | "python" | "c" | "cpp" | "javascript" | "typescript";
     displayName: string;
     defaultFileName: string;
     validExtensions: string[];
