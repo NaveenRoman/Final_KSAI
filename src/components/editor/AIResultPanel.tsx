@@ -23,6 +23,7 @@ import { useTabs } from "./tabs/TabContext";
 import { useEditorTheme } from "./EditorTheme";
 import { useAIResult } from "./AIResultContext";
 import { useLanguage } from "./languages/LanguageContext";
+import { useEditor } from "./EditorContext";
 
 import {
     fetchDictatorPlan,
@@ -45,6 +46,7 @@ import { cleanTextForSpeech } from "./voice/VoiceDictatorEngine";
 export default function AIResultPanel() {
     const { darkMode } = useEditorTheme();
     const { language } = useLanguage();
+    const { editor } = useEditor();
 
     const {
         result,
@@ -574,6 +576,91 @@ export default function AIResultPanel() {
         setDictatorInput("");
     }
 
+    const [insertedStatus, setInsertedStatus] = useState<"idle" | "inserted" | "replaced">("idle");
+
+    function applyCodeToEditor(codeToApply: string, createNewTab: boolean = false) {
+        if (!codeToApply) return;
+
+        const currentLang = language?.id || activeTab?.language || "java";
+        const langExt =
+            currentLang === "python" ? ".py" :
+            currentLang === "cpp" ? ".cpp" :
+            currentLang === "c" ? ".c" :
+            currentLang === "javascript" ? ".js" :
+            currentLang === "typescript" ? ".ts" : ".java";
+
+        const defaultFileName =
+            currentLang === "python" ? "main.py" :
+            currentLang === "cpp" ? "main.cpp" :
+            currentLang === "c" ? "main.c" :
+            currentLang === "javascript" ? "main.js" :
+            currentLang === "typescript" ? "main.ts" : "Main.java";
+
+        if (createNewTab) {
+            const newId = `file-${currentLang}-${Date.now()}`;
+            openTab({
+                id: newId,
+                name: defaultFileName,
+                path: defaultFileName,
+                language: currentLang,
+                content: codeToApply,
+                isDirty: false,
+                isPinned: false,
+            });
+            setActiveTab(newId);
+            if (editor) {
+                editor.setValue(codeToApply);
+            }
+            setInsertedStatus("inserted");
+            setTimeout(() => setInsertedStatus("idle"), 3500);
+            return;
+        }
+
+        // Check if active tab matches language
+        const matchesCurrentLang =
+            activeTab &&
+            (activeTab.language === currentLang ||
+                activeTab.name.endsWith(langExt));
+
+        if (matchesCurrentLang && activeTab) {
+            if (editor) {
+                editor.setValue(codeToApply);
+            }
+            updateTabContent(activeTab.id, codeToApply);
+            setInsertedStatus("replaced");
+            setTimeout(() => setInsertedStatus("idle"), 3500);
+        } else {
+            // Find an existing tab for this language or open new
+            const existingTab = tabs.find(
+                (t) => t.language === currentLang || t.name.endsWith(langExt)
+            );
+            if (existingTab) {
+                setActiveTab(existingTab.id);
+                updateTabContent(existingTab.id, codeToApply);
+                if (editor) {
+                    editor.setValue(codeToApply);
+                }
+            } else {
+                const newId = `file-${currentLang}-${Date.now()}`;
+                openTab({
+                    id: newId,
+                    name: defaultFileName,
+                    path: defaultFileName,
+                    language: currentLang,
+                    content: codeToApply,
+                    isDirty: false,
+                    isPinned: false,
+                });
+                setActiveTab(newId);
+                if (editor) {
+                    editor.setValue(codeToApply);
+                }
+            }
+            setInsertedStatus("inserted");
+            setTimeout(() => setInsertedStatus("idle"), 3500);
+        }
+    }
+
     /*
      * Auto Code Generator
      */
@@ -608,21 +695,43 @@ export default function AIResultPanel() {
 
                 if (response.ok) {
                     const data = await response.json();
-                    const aiResponse = data?.data?.response ?? data?.response ?? data?.data ?? null;
 
-                    if (aiResponse) {
-                        let generated: any;
-                        if (typeof aiResponse === "string") {
-                            try {
-                                generated = JSON.parse(aiResponse);
-                            } catch {
-                                generated = { code: aiResponse, explanation: "Auto Code generated successfully." };
+                    // 1. Direct code property
+                    if (data?.data?.code && typeof data.data.code === "string") {
+                        generatedCode = data.data.code;
+                        explanation = data.data.explanation || "";
+                    } else {
+                        // 2. Structured response field
+                        const aiResponse = data?.data?.response ?? data?.response ?? data?.data ?? null;
+
+                        if (aiResponse) {
+                            if (typeof aiResponse === "object" && aiResponse.code) {
+                                generatedCode = String(aiResponse.code);
+                                explanation = String(aiResponse.explanation || "");
+                            } else if (typeof aiResponse === "string") {
+                                let cleaned = aiResponse.trim();
+                                if (cleaned.startsWith("```")) {
+                                    cleaned = cleaned
+                                        .replace(/^```(?:json)?\s*/i, "")
+                                        .replace(/\s*```$/, "")
+                                        .trim();
+                                }
+
+                                try {
+                                    const parsed = JSON.parse(cleaned);
+                                    if (parsed && typeof parsed === "object" && parsed.code) {
+                                        generatedCode = String(parsed.code);
+                                        explanation = String(parsed.explanation || "");
+                                    } else {
+                                        generatedCode = cleaned;
+                                        explanation = `Complete ${project} program generated for ${language.name}.`;
+                                    }
+                                } catch {
+                                    generatedCode = cleaned;
+                                    explanation = `Complete ${project} program generated for ${language.name}.`;
+                                }
                             }
-                        } else {
-                            generated = aiResponse;
                         }
-                        generatedCode = generated?.code ?? "";
-                        explanation = generated?.explanation ?? "";
                     }
                 }
             } catch (fetchErr) {
@@ -657,8 +766,12 @@ export default function AIResultPanel() {
             setAutoCodeResult(resultObj);
             setResult(resultObj.explanation);
 
-            if (activeTab) {
-                updateTabContent(activeTab.id, generatedCode);
+            // If editor is empty or default starter code, auto-insert safely
+            const currentEditorText = (editor ? editor.getValue() : activeTab?.content) || "";
+            const isEditorEmpty = !currentEditorText.trim() || currentEditorText.trim() === (language?.starterCode || "").trim();
+
+            if (isEditorEmpty) {
+                applyCodeToEditor(generatedCode, false);
             }
         } catch (error) {
             console.error("Auto Code error:", error);
@@ -807,6 +920,26 @@ export default function AIResultPanel() {
                             }`}
                         >
                             {result}
+                        </div>
+                    )}
+
+                    {!loading && !result && mode !== "dictator" && mode !== "autocode" && (
+                        <div
+                            className={`p-8 text-center rounded-2xl border ${
+                                darkMode
+                                    ? "bg-[#181B23]/40 border-white/5 text-slate-400"
+                                    : "bg-slate-50 border-slate-200 text-slate-500"
+                            }`}
+                        >
+                            <div className="w-12 h-12 mx-auto mb-3 rounded-2xl bg-gradient-to-tr from-violet-500/20 to-purple-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                                <Sparkles size={22} />
+                            </div>
+                            <h4 className={`font-semibold text-sm mb-1 ${darkMode ? "text-slate-200" : "text-slate-800"}`}>
+                                Code Explanation Ready
+                            </h4>
+                            <p className="text-xs opacity-75 max-w-xs mx-auto">
+                                Click <strong>Explain</strong> in the bottom dock or select code to generate a complete step-by-step breakdown.
+                            </p>
                         </div>
                     )}
 
@@ -968,14 +1101,35 @@ export default function AIResultPanel() {
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        if (activeTab && autoCodeResult.code) {
-                                                            updateTabContent(activeTab.id, autoCodeResult.code);
+                                                        if (autoCodeResult?.code) {
+                                                            applyCodeToEditor(autoCodeResult.code, false);
                                                         }
                                                     }}
                                                     className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1 transition"
+                                                    title={activeTab?.content?.trim() ? `Replace contents of ${activeTab.name}` : "Insert code into editor"}
                                                 >
                                                     <Edit3 size={12} />
-                                                    <span>Insert Code</span>
+                                                    <span>
+                                                        {insertedStatus === "replaced"
+                                                            ? "Replaced!"
+                                                            : insertedStatus === "inserted"
+                                                            ? "Inserted!"
+                                                            : activeTab?.content?.trim()
+                                                            ? `Replace in ${activeTab.name}`
+                                                            : "Insert Code"}
+                                                    </span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (autoCodeResult?.code) {
+                                                            applyCodeToEditor(autoCodeResult.code, true);
+                                                        }
+                                                    }}
+                                                    className="px-2.5 py-1 rounded bg-white/10 hover:bg-white/20 text-white text-xs flex items-center gap-1 transition"
+                                                    title="Open code in a new file tab without touching active file"
+                                                >
+                                                    <span>+ New Tab</span>
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1004,7 +1158,12 @@ export default function AIResultPanel() {
 
                                     {/* Hint to Run Code */}
                                     <p className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
-                                        <CheckCircle size={14} /> Code placed in editor. Click <strong>Run</strong> in the bottom dock to execute!
+                                        <CheckCircle size={14} />{" "}
+                                        {insertedStatus === "replaced"
+                                            ? `Code placed in ${activeTab?.name || "editor"}. Click Run in the bottom dock to execute!`
+                                            : insertedStatus === "inserted"
+                                            ? "Code placed in editor! Click Run in the bottom dock to execute."
+                                            : "Code generated. Click 'Replace' or '+ New Tab' to apply to editor, then click Run."}
                                     </p>
                                 </div>
                             )}

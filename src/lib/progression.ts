@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
+import { extractLessonTitles } from "@/lib/curriculum-parser";
 
 /**
  * Standard Python & Java Chapter Section Maps
@@ -237,6 +238,21 @@ export const DEFAULT_CHAPTER_SECTIONS: Record<string, Record<number, string[]>> 
   },
 };
 
+function safeReadFile(targetPath: string): string | null {
+  if (typeof window !== "undefined") return null;
+  try {
+    const fsMod = eval("require")("fs");
+    const pathMod = eval("require")("path");
+    const fullPath = pathMod.isAbsolute(targetPath) ? targetPath : pathMod.join(process.cwd(), targetPath);
+    if (fsMod.existsSync(fullPath)) {
+      return fsMod.readFileSync(fullPath, "utf8");
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 /**
  * Extract topic headings from chapter markdown or default section maps
  */
@@ -246,27 +262,40 @@ export function extractChapterTopics(
   markdownContent?: string | null
 ): string[] {
   const normSlug = courseSlug.toLowerCase();
+
+  // 1. If markdown content or file path provided, resolve and extract
+  if (markdownContent && typeof markdownContent === "string") {
+    let content = markdownContent;
+    if (content.endsWith(".md") || content.includes("/") || content.includes("\\")) {
+      const diskContent = safeReadFile(content);
+      if (diskContent) {
+        content = diskContent;
+      }
+    }
+    const extracted = extractLessonTitles(content, chapterOrder);
+    if (extracted.length > 0) return extracted;
+  }
+
+  // 2. Check predefined fallback maps
   const predefined = DEFAULT_CHAPTER_SECTIONS[normSlug]?.[chapterOrder];
   if (predefined && predefined.length > 0) {
     return predefined;
   }
 
-  if (markdownContent && typeof markdownContent === "string") {
-    const lines = markdownContent.split("\n");
-    const extracted: string[] = [];
-    for (const line of lines) {
-      const trimmed = line.trim();
-      const match = trimmed.match(/^##\s+((?:[0-9]+\.|\d+\))\s*.+)/);
-      if (match) {
-        extracted.push(match[1].trim());
-      } else {
-        const h1Match = trimmed.match(/^#\s+([0-9]+\.\s*.+)/);
-        if (h1Match) {
-          extracted.push(h1Match[1].trim());
-        }
-      }
+  // 3. Fallback: check standard markdown path on disk
+  const candidateDirs: Record<string, string> = {
+    python: "content/python",
+    c: "content/c",
+    cpp: "cpp",
+    java: "java",
+  };
+  const dir = candidateDirs[normSlug];
+  if (dir) {
+    const diskContent = safeReadFile(`${dir}/chapter${chapterOrder}.md`);
+    if (diskContent) {
+      const extracted = extractLessonTitles(diskContent, chapterOrder);
+      if (extracted.length > 0) return extracted;
     }
-    if (extracted.length > 0) return extracted;
   }
 
   return [

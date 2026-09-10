@@ -12,6 +12,11 @@ import LiveTeacher, {
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { renderMarkdown } from "@/lib/markdown";
+import {
+  extractLessonTitles as parseLessonTitles,
+  getFirstUncompletedLesson,
+  isLessonUnlocked,
+} from "@/lib/curriculum-parser";
 
 
 import {
@@ -70,37 +75,8 @@ interface QuizQuestion {
   options: string[];
 }
 
-function extractLessonTitles(content: string): string[] {
-  if (!content?.trim()) return [];
-
-  const headings: string[] = [];
-  const headingRegex = /^\s{0,3}#{1,4}\s+(.+?)\s*#*\s*$/gm;
-  let match: RegExpExecArray | null;
-
-  while ((match = headingRegex.exec(content)) !== null) {
-    const title = stripMarkdown(match[1]).trim();
-    if (
-      title &&
-      /^\d+[\.\)]\s+/.test(title) &&
-      !/^quiz( assessment)?$/i.test(title) &&
-      !/^chapter assessment/i.test(title) &&
-      !/^by the end of this chapter/i.test(title)
-    ) {
-      headings.push(title);
-    }
-  }
-
-  const unique = Array.from(new Set(headings));
-  if (unique.length > 0) return unique;
-
-  // Fallback for Java notes that use numbered/plain-text section titles.
-  return content
-    .split(/\\n\\s*\\n/)
-    .map((block) => stripMarkdown(block).trim())
-    .filter((block) => /^\\d+(?:\\.\\d+)*[.)]?\\s+/.test(block))
-    .map((block) => block.split(/\\n/)[0].trim())
-    .filter(Boolean)
-    .filter((value, index, arr) => arr.indexOf(value) === index);
+function extractLessonTitles(content: string, order?: number): string[] {
+  return parseLessonTitles(content, order);
 }
 
 function getChapterSectionsForSidebar(
@@ -703,7 +679,7 @@ const initializeLessonProgress = () => {
 
 
 const getLessons = () => {
-  return extractLessonTitles(currentChapter?.content || "");
+  return extractLessonTitles(currentChapter?.content || "", chapterOrder);
 };
 
 const totalLessons = getLessons().length;
@@ -815,19 +791,12 @@ const loadLessonProgress = async () => {
     );
 
     const lessons = getLessons();
+    const resumeLesson = getFirstUncompletedLesson(lessons, mastered);
 
-const nextLesson = lessons.find(
-  (lesson) =>
-    progressMap[lesson]?.status !== "MASTERED" &&
-    progressMap[lesson]?.status !== "PRACTICED"
-);
-
-if (nextLesson) {
-  setCurrentLesson(nextLesson);
-  setCurrentLessonIndex(
-    lessons.indexOf(nextLesson)
-  );
-}
+    if (resumeLesson && lessons.includes(resumeLesson)) {
+      setCurrentLesson(resumeLesson);
+      setCurrentLessonIndex(lessons.indexOf(resumeLesson));
+    }
   } catch (error) {
     console.error(
       "Lesson progress loading error:",
@@ -1443,16 +1412,24 @@ const startMentorListening = () => {
 
   const isTopicUnlocked = (secIdx: number, sectionsList: string[]) => {
     if (secIdx === 0) return true;
-    const prevSec = sectionsList[secIdx - 1];
-    if (!prevSec || prevSec === "Quiz Assessment") return true;
-    const prevStatus = lessonProgress[prevSec]?.status;
-    return prevStatus === "MASTERED";
+    for (let i = 0; i < secIdx; i++) {
+      const prevSec = sectionsList[i];
+      if (!prevSec || prevSec === "Quiz Assessment") continue;
+      const prevStatus = lessonProgress[prevSec]?.status;
+      if (prevStatus !== "MASTERED" && prevStatus !== "PRACTICED") {
+        return false;
+      }
+    }
+    return true;
   };
 
   const isQuizUnlocked = (sectionsList: string[]) => {
     const topicsOnly = sectionsList.filter((s) => s !== "Quiz Assessment");
     if (topicsOnly.length === 0) return true;
-    return topicsOnly.every((s) => lessonProgress[s]?.status === "MASTERED");
+    return topicsOnly.every((s) => {
+      const st = lessonProgress[s]?.status;
+      return st === "MASTERED" || st === "PRACTICED";
+    });
   };
 
   return (

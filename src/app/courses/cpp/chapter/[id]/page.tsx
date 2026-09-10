@@ -10,6 +10,11 @@ import { VisionAttachment } from "@/components/learning/VisionAttachment";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 import { CheckpointEvaluation, parseCheckpointEvaluation } from "@/types/teaching-types";
 import {
+  extractLessonTitles as parseLessonTitles,
+  getFirstUncompletedLesson,
+  isLessonUnlocked,
+} from "@/lib/curriculum-parser";
+import {
   AlertCircle,
   Clock,
   ArrowLeft,
@@ -82,36 +87,8 @@ function stripMarkdown(md: string): string {
     .trim();
 }
 
-function extractLessonTitles(content: string): string[] {
-  if (!content?.trim()) return [];
-
-  const headings: string[] = [];
-  const headingRegex = /^\s{0,3}#{1,4}\s+(.+?)\s*#*\s*$/gm;
-  let match: RegExpExecArray | null;
-
-  while ((match = headingRegex.exec(content)) !== null) {
-    const title = stripMarkdown(match[1]).trim();
-    if (
-      title &&
-      /^\d+[\.\)]\s+/.test(title) &&
-      !/^quiz( assessment)?$/i.test(title) &&
-      !/^chapter assessment/i.test(title) &&
-      !/^by the end of this chapter/i.test(title)
-    ) {
-      headings.push(title);
-    }
-  }
-
-  const unique = Array.from(new Set(headings));
-  if (unique.length > 0) return unique;
-
-  return content
-    .split(/\n\s*\n/)
-    .map((block) => stripMarkdown(block).trim())
-    .filter((block) => /^\d+(?:\.\d+)*[.)]?\s+/.test(block))
-    .map((block) => block.split(/\n/)[0].trim())
-    .filter(Boolean)
-    .filter((value, index, arr) => arr.indexOf(value) === index);
+function extractLessonTitles(content: string, order?: number): string[] {
+  return parseLessonTitles(content, order);
 }
 
 export default function CppChapterPage() {
@@ -210,9 +187,15 @@ export default function CppChapterPage() {
 
   const isTopicUnlocked = (topicIndex: number, allTopics: string[]) => {
     if (topicIndex === 0) return true;
-    const prevTopic = allTopics[topicIndex - 1];
-    const prevStatus = lessonProgress[prevTopic]?.status;
-    return prevStatus === "MASTERED" || prevStatus === "PRACTICED";
+    for (let i = 0; i < topicIndex; i++) {
+      const prevTopic = allTopics[i];
+      if (prevTopic === "Quiz Assessment") continue;
+      const prevStatus = lessonProgress[prevTopic]?.status;
+      if (prevStatus !== "MASTERED" && prevStatus !== "PRACTICED") {
+        return false;
+      }
+    }
+    return true;
   };
 
   const isQuizUnlocked = (allTopics: string[]) => {
@@ -503,7 +486,7 @@ ${getLessons()
 
   const getLessons = () => {
     if (currentChapter?.content) {
-      const extracted = extractLessonTitles(currentChapter.content);
+      const extracted = extractLessonTitles(currentChapter.content, chapterOrder);
       if (extracted.length > 0) return extracted;
     }
     return [];
@@ -573,28 +556,12 @@ ${getLessons()
       const lessons = getLessons();
       if (lessons.length === 0) return;
 
-      // Restore last studied topic
-      const localKey = `ksai_last_lesson_${userEmail}_cpp_${currentChapter.id}`;
-      const savedLocalLesson = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
-
-      let resumeLesson: string | null = null;
-      if (savedLocalLesson && lessons.includes(savedLocalLesson)) {
-        resumeLesson = savedLocalLesson;
-      } else if (data.lastStudiedLesson && lessons.includes(data.lastStudiedLesson)) {
-        resumeLesson = data.lastStudiedLesson;
-      } else {
-        const inProgress = lessons.find(
-          (l) => progressMap[l]?.status === "LEARNING" || progressMap[l]?.status === "NEEDS_REVIEW"
-        );
-        if (inProgress) {
-          resumeLesson = inProgress;
-        } else {
-          const nextUnfinished = lessons.find(
-            (l) => progressMap[l]?.status !== "MASTERED" && progressMap[l]?.status !== "PRACTICED"
-          );
-          resumeLesson = nextUnfinished || lessons[0];
-        }
-      }
+      // Curriculum-first resume logic:
+      // Always resume at the FIRST uncompleted lesson in sequential curriculum order.
+      const firstUncompleted = lessons.find(
+        (l) => progressMap[l]?.status !== "MASTERED" && progressMap[l]?.status !== "PRACTICED"
+      );
+      const resumeLesson = firstUncompleted || lessons[lessons.length - 1] || lessons[0];
 
       if (resumeLesson && lessons.includes(resumeLesson)) {
         setCurrentLesson(resumeLesson);

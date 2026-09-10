@@ -79,7 +79,7 @@ export function ProctoredExamPlayer({
   onBackToLesson,
   onNextChapter,
   onStartCodingRound,
-  minPassingScore = 70,
+  minPassingScore = 75,
   themeColor = "blue",
 }: ProctoredExamPlayerProps) {
   const router = useRouter();
@@ -646,7 +646,7 @@ export function ProctoredExamPlayer({
                     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                     : "bg-rose-50 text-rose-700 border-rose-200"
                 }`}>
-                  {examResult.passed ? "🎉 Chapter Exam Passed!" : "⚠️ Exam Failed (Score Below 70%)"}
+                  {examResult.passed ? "🎉 Chapter Exam Passed!" : `⚠️ Exam Failed (Score Below ${minPassingScore}%)`}
                 </span>
 
                 <h2 className="text-3xl sm:text-4xl font-black text-slate-900 pt-1">

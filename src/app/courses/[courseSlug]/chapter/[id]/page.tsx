@@ -13,6 +13,11 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { renderMarkdown } from "@/lib/markdown";
 import { DEFAULT_CHAPTER_SECTIONS, extractChapterTopics } from "@/lib/progression";
+import {
+  extractLessonTitles as parseLessonTitles,
+  getFirstUncompletedLesson,
+  isLessonUnlocked,
+} from "@/lib/curriculum-parser";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 import { VisionAttachment } from "@/components/learning/VisionAttachment";
 
@@ -102,36 +107,8 @@ function stripMarkdown(md: string): string {
     .trim();
 }
 
-function extractLessonTitles(content: string): string[] {
-  if (!content?.trim()) return [];
-
-  const headings: string[] = [];
-  const headingRegex = /^\s{0,3}#{1,4}\s+(.+?)\s*#*\s*$/gm;
-  let match: RegExpExecArray | null;
-
-  while ((match = headingRegex.exec(content)) !== null) {
-    const title = stripMarkdown(match[1]).trim();
-    if (
-      title &&
-      /^\d+[\.\)]\s+/.test(title) &&
-      !/^quiz( assessment)?$/i.test(title) &&
-      !/^chapter assessment/i.test(title) &&
-      !/^by the end of this chapter/i.test(title)
-    ) {
-      headings.push(title);
-    }
-  }
-
-  const unique = Array.from(new Set(headings));
-  if (unique.length > 0) return unique;
-
-  return content
-    .split(/\n\s*\n/)
-    .map((block) => stripMarkdown(block).trim())
-    .filter((block) => /^\d+(?:\.\d+)*[.)]?\s+/.test(block))
-    .map((block) => block.split(/\n/)[0].trim())
-    .filter(Boolean)
-    .filter((value, index, arr) => arr.indexOf(value) === index);
+function extractLessonTitles(content: string, order?: number): string[] {
+  return parseLessonTitles(content, order);
 }
 
 export default function CourseChapterPage() {
@@ -739,7 +716,7 @@ const initializeLessonProgress = () => {
 
 const getLessons = () => {
   if (currentChapter?.content) {
-    const extracted = extractLessonTitles(currentChapter.content);
+    const extracted = extractLessonTitles(currentChapter.content, chapterOrder);
     if (extracted.length > 0) {
       return extracted.filter((section) => section !== "Quiz Assessment");
     }
@@ -848,28 +825,9 @@ const loadLessonProgress = async () => {
     const lessons = getLessons();
     if (lessons.length === 0) return;
 
-    // Restore last studied topic
-    const localKey = `ksai_last_lesson_${userEmail}_${courseSlug}_${currentChapter.id}`;
-    const savedLocalLesson = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
-
-    let resumeLesson: string | null = null;
-    if (savedLocalLesson && lessons.includes(savedLocalLesson)) {
-      resumeLesson = savedLocalLesson;
-    } else if (data.lastStudiedLesson && lessons.includes(data.lastStudiedLesson)) {
-      resumeLesson = data.lastStudiedLesson;
-    } else {
-      const inProgress = lessons.find(
-        (l) => progressMap[l]?.status === "LEARNING" || progressMap[l]?.status === "NEEDS_REVIEW"
-      );
-      if (inProgress) {
-        resumeLesson = inProgress;
-      } else {
-        const nextUnfinished = lessons.find(
-          (l) => progressMap[l]?.status !== "MASTERED" && progressMap[l]?.status !== "PRACTICED"
-        );
-        resumeLesson = nextUnfinished || lessons[0];
-      }
-    }
+    // Sequential curriculum order: Resume at first uncompleted lesson in the chapter
+    const firstUncompleted = getFirstUncompletedLesson(lessons, mastered);
+    const resumeLesson = firstUncompleted || lessons[lessons.length - 1] || lessons[0];
 
     if (resumeLesson && lessons.includes(resumeLesson)) {
       setCurrentLesson(resumeLesson);
@@ -1463,6 +1421,28 @@ const startMentorListening = () => {
     return !!prevProgress?.isCompleted;
   };
 
+  const isTopicUnlocked = (secIdx: number, sectionsList: string[]) => {
+    if (secIdx === 0) return true;
+    for (let i = 0; i < secIdx; i++) {
+      const priorSec = sectionsList[i];
+      if (!priorSec || priorSec === "Quiz Assessment") continue;
+      const priorStatus = lessonProgress[priorSec]?.status;
+      if (priorStatus !== "MASTERED" && priorStatus !== "PRACTICED") {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const isQuizUnlocked = (sectionsList: string[]) => {
+    const topicsOnly = sectionsList.filter((s) => s !== "Quiz Assessment");
+    if (topicsOnly.length === 0) return true;
+    return topicsOnly.every((s) => {
+      const st = lessonProgress[s]?.status;
+      return st === "MASTERED" || st === "PRACTICED";
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col selection:bg-cyan-500 selection:text-black overflow-hidden h-screen">
       {/* Custom Top Bar */}
@@ -1584,42 +1564,60 @@ const startMentorListening = () => {
                         courseSlug,
                         ch.orderNumber,
                         ch.orderNumber === chapterOrder ? currentChapter?.content : undefined
-                      ).map((sec, secIdx) => {
+                      ).map((sec, secIdx, arr) => {
                         const isQuiz = sec === "Quiz Assessment";
                         const status = isQuiz
                           ? "NOT_STARTED"
                           : getLessonStatus(sec);
+                        const isUnlocked = isQuiz ? isQuizUnlocked(arr) : isTopicUnlocked(secIdx, arr);
                         return (
                           <button
                             key={secIdx}
                             onClick={() => {
-  if (isQuiz) {
-    router.push(`/courses/${courseSlug}/chapter/${ch.orderNumber}/quiz`);
-    return;
-  }
+                              if (!isUnlocked) {
+                                if (isQuiz) {
+                                  alert("🔒 Complete and master all chapter topics with your AI Teacher before taking the Chapter Assessment Quiz.");
+                                } else {
+                                  alert(`🔒 Topic is locked. Please master "${arr[secIdx - 1]}" first.`);
+                                }
+                                return;
+                              }
 
-  setCurrentLesson(sec);
-  setCurrentLessonIndex(secIdx);
-}}
+                              if (isQuiz) {
+                                router.push(`/courses/${courseSlug}/chapter/${ch.orderNumber}/quiz`);
+                                return;
+                              }
+
+                              setCurrentLesson(sec);
+                              setCurrentLessonIndex(secIdx);
+                            }}
                             className={`w-full text-left text-[11px] leading-relaxed flex items-center gap-1.5 py-0.5 transition-all ${
-                              isQuiz
+                              !isUnlocked
+                                ? "opacity-50 cursor-not-allowed text-slate-400"
+                                : isQuiz
                                 ? "text-purple-600 font-bold hover:underline"
+                                : currentLesson === sec
+                                ? "text-blue-600 font-bold"
                                 : "text-slate-500 hover:text-slate-800"
                             }`}
                           >
-                            <span
-  className={`w-2 h-2 rounded-full shrink-0 ${
-    status === "MASTERED"
-      ? "bg-emerald-500"
-      : status === "PRACTICED"
-      ? "bg-blue-500"
-      : status === "LEARNING"
-      ? "bg-amber-500"
-      : status === "NEEDS_REVIEW"
-      ? "bg-red-500"
-      : "bg-slate-300"
-  }`}
-/>
+                            {!isUnlocked ? (
+                              <Lock size={11} className="text-slate-400 shrink-0" />
+                            ) : (
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  status === "MASTERED"
+                                    ? "bg-emerald-500"
+                                    : status === "PRACTICED"
+                                    ? "bg-blue-500"
+                                    : status === "LEARNING"
+                                    ? "bg-amber-500"
+                                    : status === "NEEDS_REVIEW"
+                                    ? "bg-red-500"
+                                    : "bg-slate-300"
+                                }`}
+                              />
+                            )}
                             <span className="truncate flex-1">
                               {sec}
                             </span>

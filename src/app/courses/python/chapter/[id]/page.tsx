@@ -12,6 +12,11 @@ import LiveTeacher, {
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { renderMarkdown } from "@/lib/markdown";
+import {
+  extractLessonTitles as parseLessonTitles,
+  getFirstUncompletedLesson,
+  isLessonUnlocked,
+} from "@/lib/curriculum-parser";
 
 
 import {
@@ -77,36 +82,8 @@ interface QuizQuestion {
   options: string[];
 }
 
-function extractLessonTitles(content: string): string[] {
-  if (!content?.trim()) return [];
-
-  const headings: string[] = [];
-  const headingRegex = /^\s{0,3}#{1,4}\s+(.+?)\s*#*\s*$/gm;
-  let match: RegExpExecArray | null;
-
-  while ((match = headingRegex.exec(content)) !== null) {
-    const title = stripMarkdown(match[1]).trim();
-    if (
-      title &&
-      /^\d+[\.\)]\s+/.test(title) &&
-      !/^quiz( assessment)?$/i.test(title) &&
-      !/^chapter assessment/i.test(title) &&
-      !/^by the end of this chapter/i.test(title)
-    ) {
-      headings.push(title);
-    }
-  }
-
-  const unique = Array.from(new Set(headings));
-  if (unique.length > 0) return unique;
-
-  return content
-    .split(/\n\s*\n/)
-    .map((block) => stripMarkdown(block).trim())
-    .filter((block) => /^\d+(?:\.\d+)*[.)]?\s+/.test(block))
-    .map((block) => block.split(/\n/)[0].trim())
-    .filter(Boolean)
-    .filter((value, index, arr) => arr.indexOf(value) === index);
+function extractLessonTitles(content: string, order?: number): string[] {
+  return parseLessonTitles(content, order);
 }
 
 const CHAPTER_SECTIONS: Record<number, string[]> = {
@@ -834,7 +811,7 @@ const getLessons = () => {
     );
   }
   if (currentChapter?.content) {
-    const extracted = extractLessonTitles(currentChapter.content);
+    const extracted = extractLessonTitles(currentChapter.content, chapterOrder);
     if (extracted.length > 0) return extracted;
   }
   return [];
@@ -947,29 +924,9 @@ const loadLessonProgress = async () => {
     const lessons = getLessons();
     if (lessons.length === 0) return;
 
-    // Restore last actively studied topic
-    const localKey = `ksai_last_lesson_${userEmail}_python_${currentChapter.id}`;
-    const savedLocalLesson = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
-
-    let resumeLesson: string | null = null;
-
-    if (savedLocalLesson && lessons.includes(savedLocalLesson)) {
-      resumeLesson = savedLocalLesson;
-    } else if (data.lastStudiedLesson && lessons.includes(data.lastStudiedLesson)) {
-      resumeLesson = data.lastStudiedLesson;
-    } else {
-      const inProgress = lessons.find(
-        (l) => progressMap[l]?.status === "LEARNING" || progressMap[l]?.status === "NEEDS_REVIEW"
-      );
-      if (inProgress) {
-        resumeLesson = inProgress;
-      } else {
-        const nextUnfinished = lessons.find(
-          (l) => progressMap[l]?.status !== "MASTERED" && progressMap[l]?.status !== "PRACTICED"
-        );
-        resumeLesson = nextUnfinished || lessons[0];
-      }
-    }
+    // Sequential curriculum order: Resume at the first uncompleted lesson in the chapter
+    const firstUncompleted = getFirstUncompletedLesson(lessons, mastered);
+    const resumeLesson = firstUncompleted || lessons[lessons.length - 1] || lessons[0];
 
     if (resumeLesson && lessons.includes(resumeLesson)) {
       setCurrentLesson(resumeLesson);
@@ -1584,16 +1541,24 @@ const startMentorListening = () => {
 
   const isTopicUnlocked = (secIdx: number, sectionsList: string[]) => {
     if (secIdx === 0) return true;
-    const prevSec = sectionsList[secIdx - 1];
-    if (!prevSec || prevSec === "Quiz Assessment") return true;
-    const prevStatus = lessonProgress[prevSec]?.status;
-    return prevStatus === "MASTERED";
+    for (let i = 0; i < secIdx; i++) {
+      const priorSec = sectionsList[i];
+      if (!priorSec || priorSec === "Quiz Assessment") continue;
+      const priorStatus = lessonProgress[priorSec]?.status;
+      if (priorStatus !== "MASTERED" && priorStatus !== "PRACTICED") {
+        return false;
+      }
+    }
+    return true;
   };
 
   const isQuizUnlocked = (sectionsList: string[]) => {
     const topicsOnly = sectionsList.filter((s) => s !== "Quiz Assessment");
     if (topicsOnly.length === 0) return true;
-    return topicsOnly.every((s) => lessonProgress[s]?.status === "MASTERED");
+    return topicsOnly.every((s) => {
+      const st = lessonProgress[s]?.status;
+      return st === "MASTERED" || st === "PRACTICED";
+    });
   };
 
   return (

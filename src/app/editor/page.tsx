@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 import nextDynamic from "next/dynamic";
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import EditorNavbar from "@/components/editor/EditorNavbar";
 import ExplorerSidebar from "@/components/editor/ExplorerSidebar";
@@ -71,6 +71,17 @@ function EditorLayout() {
   const { darkMode } = useEditorTheme();
   const { showTerminal, setShowTerminal } = useTerminal();
   const [rightPanelTab, setRightPanelTab] = useState<"chat" | "explanation">("explanation");
+
+  useEffect(() => {
+    const handleSwitch = (e: Event) => {
+      const customEvent = e as CustomEvent<"chat" | "explanation">;
+      if (customEvent.detail === "chat" || customEvent.detail === "explanation") {
+        setRightPanelTab(customEvent.detail);
+      }
+    };
+    window.addEventListener("editor-switch-right-tab", handleSwitch);
+    return () => window.removeEventListener("editor-switch-right-tab", handleSwitch);
+  }, []);
 
   return (
     <div className={`h-screen flex overflow-hidden font-sans antialiased ${darkMode ? "bg-[#09090B] text-white" : "bg-slate-100 text-slate-900"}`}>

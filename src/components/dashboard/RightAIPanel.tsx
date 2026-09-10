@@ -68,7 +68,7 @@ export function RightAIPanel({ isLight = true }: RightAIPanelProps) {
     {
       id: "1",
       sender: "ai",
-      text: "👋 Hi Chandu! I'm Codenthra AI. Ready to continue your Java & SQL learning path today?",
+      text: "👋 Hello! I'm KnowledgeStream AI Copilot. How can I help you with your courses, concepts, or code today?",
       time: "Just now"
     }
   ]);

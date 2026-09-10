@@ -80,6 +80,11 @@ export default function BottomDock() {
         setMode("guide");
         setLoading(true);
         setResult("");
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(
+                new CustomEvent("editor-switch-right-tab", { detail: "explanation" })
+            );
+        }
 
         try {
             const response = await fetch("/api/ai/guide", {
@@ -128,24 +133,26 @@ export default function BottomDock() {
     }
 
     function handleDictator() {
-
-    console.log("Dictator button clicked");
-
-    setMode("dictator");
-
-    setLoading(false);
-
-    setResult("");
-}
+        setMode("dictator");
+        setLoading(false);
+        setResult("");
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(
+                new CustomEvent("editor-switch-right-tab", { detail: "explanation" })
+            );
+        }
+    }
 
     function handleAutoCode() {
-
-    console.log("Auto Code button clicked");
-
-    setMode("autocode");
-    setLoading(false);
-    setResult("");
-}
+        setMode("autocode");
+        setLoading(false);
+        setResult("");
+        if (typeof window !== "undefined") {
+            window.dispatchEvent(
+                new CustomEvent("editor-switch-right-tab", { detail: "explanation" })
+            );
+        }
+    }
 
     return (
         <div

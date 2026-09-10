@@ -118,7 +118,7 @@ export async function GET(
     const previousResult = {
       hasTaken: (chapterProgress?.quizScore ?? 0) > 0 || !!chapterProgress?.isCompleted || (lessonProgress?.attempts ?? 0) > 0,
       score: chapterProgress?.quizScore ?? (lessonProgress?.lastScore ?? 0),
-      passed: (chapterProgress?.quizScore ?? 0) >= (quizEligibility.minPassingScore || 70) || !!chapterProgress?.isCompleted,
+      passed: (chapterProgress?.quizScore ?? 0) >= (quizEligibility.minPassingScore || 75) || !!chapterProgress?.isCompleted,
       attempts: lessonProgress?.attempts ?? (chapterProgress ? 1 : 0),
     };
 
