@@ -35,6 +35,8 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { ChapterLearningAnalysis } from "@/lib/adaptive/types";
+import { LockedChapterCard } from "@/components/learning/LockedChapterCard";
 
 interface ChapterItem {
   id: string;
@@ -90,6 +92,38 @@ function stripMarkdown(md: string): string {
 function extractLessonTitles(content: string, order?: number): string[] {
   return parseLessonTitles(content, order);
 }
+
+function findLessonIndex(lessons: string[], current: string | null | undefined): number {
+  if (!current || !lessons || lessons.length === 0) return -1;
+  const exact = lessons.indexOf(current);
+  if (exact !== -1) return exact;
+
+  const normCurrent = current.trim().toLowerCase();
+  const caseMatch = lessons.findIndex((l) => l.trim().toLowerCase() === normCurrent);
+  if (caseMatch !== -1) return caseMatch;
+
+  const cleanCurrent = current.replace(/^(\d+(\.\d+)*|[a-z]\.)\s*[-:.)]?\s*/i, "").trim().toLowerCase();
+  if (cleanCurrent) {
+    const cleanMatch = lessons.findIndex((l) => {
+      const cl = l.replace(/^(\d+(\.\d+)*|[a-z]\.)\s*[-:.)]?\s*/i, "").trim().toLowerCase();
+      return cl === cleanCurrent || cl.includes(cleanCurrent) || cleanCurrent.includes(cl);
+    });
+    if (cleanMatch !== -1) return cleanMatch;
+  }
+  return -1;
+}
+
+const safeJson = async (res: Response) => {
+  const contentType = res.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
 
 export default function CppChapterPage() {
   const chatScrollRef = useRef<HTMLDivElement | null>(null);
@@ -162,6 +196,9 @@ export default function CppChapterPage() {
   const [lessonProgress, setLessonProgress] = useState<Record<string, LessonProgress>>({});
   const [currentLessonIndex, setCurrentLessonIndex] = useState(0);
   const [autoResumeTopic, setAutoResumeTopic] = useState<string | undefined>(undefined);
+  const [chapterAnalysis, setChapterAnalysis] = useState<ChapterLearningAnalysis | null>(null);
+  const [shouldAutoChapterRecap, setShouldAutoChapterRecap] = useState(false);
+  const [lockedInfo, setLockedInfo] = useState<any>(null);
 
   const isCompleted = progresses.some((p) => p.chapterId === currentChapter?.id && p.isCompleted);
 
@@ -282,9 +319,43 @@ Concise classroom voice.
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.message || "Live teaching failed.");
-      return data.data?.response || data.response || "Let's understand this C++ concept step by step.";
+      let data = await safeJson(response);
+      if (!response.ok || !data?.success) {
+        try {
+          const fallbackRes = await fetch("/api/teach", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              course: "C++",
+              chapter: currentChapter?.title || `Chapter ${chapterOrder}`,
+              topic: title,
+              content,
+              learning_memory: learningMemory || "",
+              question: `
+You are a live interactive teacher explaining this C++ unit.
+TOPIC: ${title}
+CONTENT: ${content}
+
+Teach this C++ section step-by-step:
+1. Core idea in simple terms.
+2. Why it matters in C++ software design.
+3. One small practical code example.
+4. Key takeaway for C++ developers.
+Concise classroom voice.
+`,
+              mode: "live-teaching",
+              history: [],
+            }),
+          });
+          const fbData = await safeJson(fallbackRes);
+          if (fbData?.success) data = fbData;
+        } catch {}
+      }
+
+      if (data?.success) {
+        return data.data?.response || data.response || "Let's understand this C++ concept step by step.";
+      }
+      return "Let's understand this C++ concept step by step. Focus on syntax rules, types, and object-oriented principles.";
     } catch (error) {
       console.error("Live Teacher AI error:", error);
       return "Let's understand this C++ concept step by step. Focus on syntax rules, types, and object-oriented principles.";
@@ -293,9 +364,28 @@ Concise classroom voice.
 
   const reteachLiveTeacherSection = async (
     content: string,
-    title: string
+    title: string,
+    adaptiveContext?: string,
+    attemptNumber: number = 2,
+    previousAnswer?: string
   ): Promise<string> => {
     try {
+      let reteachInstruction = "";
+      if (attemptNumber === 2) {
+        reteachInstruction = `Explain this concept in simpler language with shorter sentences and a clear everyday real-world analogy. Avoid complex jargon. Connect the analogy directly to the core idea.`;
+      } else if (attemptNumber === 3) {
+        reteachInstruction = `Explain this concept in very simple terms with a concrete, 2-line practical code example and a step-by-step trace. Make it impossible to misunderstand.`;
+      } else {
+        reteachInstruction = `Provide the simplest possible direct explanation addressing the specific misunderstanding. Focus directly on: ${adaptiveContext || "the core principle"}. Keep it concise and crystal clear.`;
+      }
+
+      if (adaptiveContext) {
+        reteachInstruction += `\nStudent context: ${adaptiveContext}`;
+      }
+      if (previousAnswer) {
+        reteachInstruction += `\nStudent's previous answer was: "${previousAnswer}". Gently correct this without shaming.`;
+      }
+
       const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -304,19 +394,37 @@ Concise classroom voice.
           chapter: currentChapter?.title || `Chapter ${chapterOrder}`,
           topic: title,
           content,
-          question: `
-Simplify this C++ explanation for a student who needed clarification.
-TOPIC: ${title}
-Use a real-world analogy, step-by-step intuition, and a crystal-clear short code example.
-`,
+          question: reteachInstruction,
           mode: "reteach",
           history: [],
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.message || "Reteach failed.");
-      return data.data?.response || data.response || "Let's look at this concept with a simpler analogy.";
+      let data = await safeJson(response);
+      if (!response.ok || !data?.success) {
+        try {
+          const fallbackRes = await fetch("/api/teach", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              course: "C++",
+              chapter: currentChapter?.title || `Chapter ${chapterOrder}`,
+              topic: title,
+              content,
+              question: reteachInstruction,
+              mode: "reteach",
+              history: [],
+            }),
+          });
+          const fbData = await safeJson(fallbackRes);
+          if (fbData?.success) data = fbData;
+        } catch {}
+      }
+
+      if (data?.success) {
+        return data.data?.response || data.response || "Let's look at this concept with a simpler analogy.";
+      }
+      return "Let's break this down even simpler: think of it step by step from first principles.";
     } catch (error) {
       console.error("Live Teacher Reteach error:", error);
       return "Let's break this down even simpler: think of it step by step from first principles.";
@@ -327,6 +435,51 @@ Use a real-world analogy, step-by-step intuition, and a crystal-clear short code
     question: string,
     answer: string
   ): Promise<CheckpointEvaluation> => {
+    try {
+      const adaptiveRes = await fetch("/api/adaptive/evaluate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          course: "cpp",
+          chapter: currentChapter?.title || `Chapter ${chapterOrder}`,
+          chapterId: currentChapter?.id || "general",
+          topic: currentLesson || "C++ Concept",
+          question,
+          studentAnswer: answer,
+          topicContent: getLessonContent(),
+          userEmail,
+          recordEvidence: true,
+        }),
+      });
+
+      if (adaptiveRes.ok) {
+        const data = await safeJson(adaptiveRes);
+        if (data?.success && data?.evaluation) {
+          const ev = data.evaluation;
+          return {
+            score: ev.score,
+            result: ev.correct ? (ev.score >= 90 ? "CORRECT" : "GOOD") : (ev.score >= 50 ? "PARTIAL" : "INCORRECT"),
+            appreciation: ev.appreciation,
+            whatWasCorrect: ev.whatWasCorrect,
+            whatIsMissing: ev.whatIsMissing,
+            explanation: ev.explanation,
+            example: ev.example || "",
+            needsFollowUp: ev.needsFollowUp,
+            followUpQuestion: ev.followUpQuestion || "",
+            understood: ev.correct,
+            feedback: `${ev.appreciation} ${ev.whatWasCorrect ? `What you got right: ${ev.whatWasCorrect} ` : ""}${ev.whatIsMissing ? `What needs attention: ${ev.whatIsMissing}` : ""}`.trim(),
+            misconceptions: ev.misconceptions || [],
+            missingConcepts: ev.missingConcepts || [],
+            reason: ev.reason,
+            understandingLevel: ev.understandingLevel,
+            recommendedDifficulty: ev.recommendedDifficulty,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Adaptive evaluate route notice, falling back to teach engine:", err);
+    }
+
     try {
       const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
         method: "POST",
@@ -348,8 +501,34 @@ ${answer}
         }),
       });
 
-      const data = await response.json();
-      const rawText = data.data?.response || data.response || "";
+      let data = await safeJson(response);
+      if (!response.ok || !data?.success) {
+        try {
+          const fallbackRes = await fetch("/api/teach", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              course: "C++",
+              chapter: currentChapter?.title || `Chapter ${chapterOrder}`,
+              topic: currentLesson || "C++ Concept",
+              content: getLessonContent(),
+              question: `
+QUESTION:
+${question}
+
+STUDENT ANSWER:
+${answer}
+`,
+              mode: "evaluate",
+              history: [],
+            }),
+          });
+          const fbData = await safeJson(fallbackRes);
+          if (fbData?.success) data = fbData;
+        } catch {}
+      }
+
+      const rawText = data?.data?.response || data?.response || "";
       return parseCheckpointEvaluation(rawText, question, answer);
     } catch (error) {
       console.error("Checkpoint evaluation error:", error);
@@ -533,8 +712,8 @@ ${getLessons()
         )}`
       );
       if (!response.ok) return;
-      const data = await response.json();
-      if (!data.success) return;
+      const data = await safeJson(response);
+      if (!data || !data.success) return;
 
       const progressMap: Record<string, LessonProgress> = {};
       for (const item of data.progress || []) {
@@ -566,20 +745,47 @@ ${getLessons()
       if (resumeLesson && lessons.includes(resumeLesson)) {
         setCurrentLesson(resumeLesson);
         setCurrentLessonIndex(lessons.indexOf(resumeLesson));
+      }
 
-        const resumeIdx = lessons.indexOf(resumeLesson);
-        const isReturning = Boolean(
-          (data.progress && data.progress.length > 0) ||
-          (progressMap[resumeLesson] && progressMap[resumeLesson].attempts > 0) ||
-          resumeIdx > 0
-        );
+      // Call adaptive resume state API to determine genuine last meaningful topic & chapter completion
+      try {
+        const resumeRes = await fetch("/api/adaptive/resume-state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            course: "CPP",
+            chapterId: currentChapter.id,
+            chapterTitle: currentChapter.title,
+            lessons,
+            userEmail,
+          }),
+        });
 
-        const recapKey = `ksai_quick_recap_${userEmail}_cpp_${currentChapter.id}_${resumeLesson}`;
-        const recapDone = typeof window !== "undefined" && sessionStorage.getItem(recapKey) === "done";
+        if (resumeRes.ok) {
+          const resumeData = await resumeRes.json();
+          if (resumeData.success) {
+            if (resumeData.chapterAnalysis) {
+              setChapterAnalysis(resumeData.chapterAnalysis);
+            }
 
-        if (isReturning && !recapDone) {
-          setAutoResumeTopic(resumeLesson);
+            if (resumeData.shouldChapterRecap) {
+              const chapterRecapKey = `ksai_chapter_recap_${userEmail}_cpp_${currentChapter.id}`;
+              const chapterRecapDone = typeof window !== "undefined" && sessionStorage.getItem(chapterRecapKey) === "done";
+              if (!chapterRecapDone) {
+                setShouldAutoChapterRecap(true);
+              }
+            } else if (resumeData.shouldQuickRecap && resumeData.lastMeaningfulTopic) {
+              const recapTopic = resumeData.lastMeaningfulTopic;
+              const recapKey = `ksai_quick_recap_${userEmail}_cpp_${currentChapter.id}_${recapTopic}`;
+              const recapAlreadyDone = typeof window !== "undefined" && sessionStorage.getItem(recapKey) === "done";
+              if (!recapAlreadyDone) {
+                setAutoResumeTopic(recapTopic);
+              }
+            }
+          }
         }
+      } catch (resumeErr) {
+        console.warn("Adaptive resume state check notice:", resumeErr);
       }
     } catch (e) {
       console.error("Lesson progress load error:", e);
@@ -651,13 +857,37 @@ ${getLessons()
       const userParam = userEmail ? `?userEmail=${encodeURIComponent(userEmail)}` : "";
       const res = await fetch(`/api/courses/cpp/chapters/${chapterOrder}${userParam}`);
       if (!res.ok) {
+        let errData: any = null;
+        try {
+          errData = await res.json();
+        } catch {}
+
+        if (res.status === 403 || errData?.locked) {
+          setLockedInfo(
+            errData || {
+              locked: true,
+              orderNumber: chapterOrder,
+              message: `Chapter ${chapterOrder} is locked. Complete Chapter ${chapterOrder - 1} and pass its required assessment to continue.`,
+            }
+          );
+          setLoading(false);
+          return;
+        }
+
         throw new Error(`Failed to load C++ chapter ${chapterOrder}`);
       }
 
       const data = await res.json();
       if (!data.success) {
+        if (data.locked) {
+          setLockedInfo(data);
+          setLoading(false);
+          return;
+        }
         throw new Error(data.error || "Failed to load chapter.");
       }
+
+      setLockedInfo(null);
 
       const chapterObj = data.currentChapter || data.chapter;
       setCurrentChapter(chapterObj);
@@ -948,6 +1178,16 @@ ${getLessons()
               <div className="w-12 h-12 rounded-full border-4 border-blue-500/20 border-t-blue-600 animate-spin" />
               <div className="text-slate-400 text-sm font-mono">Initializing Learning Chapter...</div>
             </div>
+          ) : lockedInfo ? (
+            <LockedChapterCard
+              courseSlug="cpp"
+              courseTitle="C++ Object-Oriented Mastery"
+              chapterOrder={chapterOrder}
+              chapterTitle={lockedInfo.chapterTitle}
+              previousChapter={lockedInfo.previousChapter}
+              message={lockedInfo.message}
+              onRetry={loadPageData}
+            />
           ) : error ? (
             <div className="bg-white p-10 rounded-2xl border border-red-200 text-center space-y-4 max-w-md mx-auto shadow-sm">
               <AlertCircle size={24} className="text-red-500 mx-auto" />
@@ -974,33 +1214,83 @@ ${getLessons()
                 userEmail={userEmail}
                 activeTopic={currentLesson || undefined}
                 autoResumeTopic={autoResumeTopic}
+                chapterAnalysis={chapterAnalysis}
+                shouldAutoChapterRecap={shouldAutoChapterRecap}
                 allTopics={getLessons()}
                 onActiveTopicChange={(topic) => {
                   setCurrentLesson((prev) => (prev === topic ? prev : topic));
                   const lessons = getLessons();
-                  const idx = lessons.indexOf(topic);
+                  const idx = findLessonIndex(lessons, topic);
                   if (idx >= 0) setCurrentLessonIndex(idx);
                 }}
                 isFinalTopic={
                   getLessons().length > 0 &&
-                  getLessons().indexOf(currentLesson || "") === getLessons().length - 1
+                  (
+                    getLessons().indexOf(currentLesson || "") === getLessons().length - 1 ||
+                    findLessonIndex(getLessons(), currentLesson) === getLessons().length - 1
+                  )
                 }
                 onNextTopic={() => {
                   const lessons = getLessons();
-                  const idx = lessons.indexOf(currentLesson || "");
+                  let idx = findLessonIndex(lessons, currentLesson);
+                  if (idx === -1 && currentLessonIndex >= 0 && currentLessonIndex < lessons.length) {
+                    idx = currentLessonIndex;
+                  }
+
                   if (idx >= 0 && idx < lessons.length - 1) {
                     const next = lessons[idx + 1];
+                    const current = lessons[idx] || currentLesson;
+
+                    // 1. Mark current lesson completed
+                    if (current) {
+                      setCompletedLessons((prev) => (prev.includes(current) ? prev : [...prev, current]));
+                      setLessonProgress((prev) => ({
+                        ...prev,
+                        [current]: {
+                          ...(prev[current] || {
+                            lesson: current,
+                            score: 90,
+                            attempts: 1,
+                            questionsAsked: 1,
+                            correctAnswers: 1,
+                          }),
+                          status: "MASTERED",
+                        },
+                      }));
+                      void saveLessonProgress(current, { status: "MASTERED" });
+                    }
+
+                    // 2. Set next active lesson
                     setCurrentLesson(next);
                     setCurrentLessonIndex(idx + 1);
 
+                    // 3. Mark next lesson as LEARNING
+                    setLessonProgress((prev) => ({
+                      ...prev,
+                      [next]: {
+                        ...(prev[next] || {
+                          lesson: next,
+                          score: 0,
+                          attempts: 0,
+                          questionsAsked: 0,
+                          correctAnswers: 0,
+                        }),
+                        status: "LEARNING",
+                      },
+                    }));
+                    void saveLessonProgress(next, { status: "LEARNING" });
+
+                    // 4. Smooth scroll to the target heading in textbook
                     setTimeout(() => {
                       const headings = Array.from(document.querySelectorAll("h1, h2, h3, h4, h5, h6"));
-                      const targetEl = headings.find((h) =>
-                        h.textContent?.trim().toLowerCase().includes(next.toLowerCase())
-                      );
+                      const targetEl = headings.find((h) => {
+                        const txt = h.textContent?.trim().toLowerCase() || "";
+                        const nextClean = next.replace(/^(\d+(\.\d+)*|[a-z]\.)\s*[-:.)]?\s*/i, "").trim().toLowerCase();
+                        return txt.includes(next.toLowerCase()) || (nextClean && txt.includes(nextClean));
+                      });
                       targetEl?.scrollIntoView({ behavior: "smooth", block: "start" });
                     }, 100);
-                  } else if (idx === lessons.length - 1) {
+                  } else if (idx >= lessons.length - 1) {
                     void handleMarkChapterComplete();
                     router.push(`/courses/cpp/chapter/${chapterOrder}/quiz`);
                   }
@@ -1012,9 +1302,12 @@ ${getLessons()
                 onReteach={reteachLiveTeacherSection}
                 onEvaluateCheckpoint={evaluateCheckpointAnswer}
                 onLessonComplete={(title: string, performance, sessionData) => {
-                  const lesson = getLessons().find(
-                    (item) => item.trim().toLowerCase() === title.trim().toLowerCase()
-                  );
+                  const lessons = getLessons();
+                  const matchedIdx = findLessonIndex(lessons, title) !== -1
+                    ? findLessonIndex(lessons, title)
+                    : findLessonIndex(lessons, currentLesson);
+                  const lesson = matchedIdx >= 0 ? lessons[matchedIdx] : (currentLesson || title);
+
                   if (!lesson) return;
 
                   const calculatedStatus =
@@ -1024,7 +1317,7 @@ ${getLessons()
                       ? "PRACTICED"
                       : performance?.understanding === "Needs Practice"
                       ? "NEEDS_REVIEW"
-                      : "PRACTICED";
+                      : "MASTERED";
 
                   setLessonProgress((prev) => ({
                     ...prev,

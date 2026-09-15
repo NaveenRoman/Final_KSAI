@@ -6,6 +6,7 @@ import { parseSessionToken } from "@/lib/auth-cookie";
 import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
 import { getAuthoritativeProgression, logUserActivity } from "@/lib/progression";
+import { checkChapterCompletion } from "@/lib/adaptive/unlock-service";
 
 export async function POST(
   req: Request,
@@ -75,37 +76,23 @@ export async function POST(
     const progression = await getAuthoritativeProgression(user.id, courseSlug, orderNum);
     const currCh = progression.currentChapter;
 
-    // Update progress in database
-    const existingProgress = await db.chapterProgress.findUnique({
-      where: {
-        userId_chapterId: {
-          userId: user.id,
-          chapterId: chapter.id,
-        },
-      },
+    // Authoritatively check 3-gate completion requirements
+    const completionResult = await checkChapterCompletion({
+      userId: user.id,
+      courseId: course.id,
+      chapterId: chapter.id,
     });
 
-    const finalScore = existingProgress?.quizScore && existingProgress.quizScore >= 75
-      ? existingProgress.quizScore
-      : 100;
-
-    if (existingProgress) {
-      await db.chapterProgress.update({
-        where: { id: existingProgress.id },
-        data: {
-          isCompleted: true,
-          quizScore: finalScore,
+    if (!completionResult.isCompleted) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Chapter completion requirements not satisfied.",
+          requirements: completionResult.requirements,
+          missingRequirements: completionResult.missingRequirements,
         },
-      });
-    } else {
-      await db.chapterProgress.create({
-        data: {
-          userId: user.id,
-          chapterId: chapter.id,
-          isCompleted: true,
-          quizScore: finalScore,
-        },
-      });
+        { status: 400 }
+      );
     }
 
     // Award XP and update daily streak

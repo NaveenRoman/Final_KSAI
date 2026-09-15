@@ -6,6 +6,12 @@ import { parseSessionToken } from "@/lib/auth-cookie";
 import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
 import { logUserActivity } from "@/lib/progression";
+import {
+  getChapterUnlockStatus,
+  checkChapterCompletion,
+  QUIZ_PASS_THRESHOLD,
+} from "@/lib/adaptive/unlock-service";
+import { recordStudentEvidence } from "@/lib/adaptive/profile-service";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +84,25 @@ export async function POST(
       return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
     }
 
+    // Authoritative check: ensure chapter is unlocked before allowing quiz submission
+    const unlockStatus = await getChapterUnlockStatus({
+      userId: user.id,
+      courseSlug,
+      chapterOrderOrId: orderNum,
+    });
+
+    if (!unlockStatus.isUnlocked) {
+      return NextResponse.json(
+        {
+          error: "Chapter is locked. Cannot submit quiz for a locked chapter.",
+          locked: true,
+          lockReason: unlockStatus.lockReason,
+          previousChapter: unlockStatus.previousChapter,
+        },
+        { status: 403 }
+      );
+    }
+
     if (!chapter.quizData) {
       return NextResponse.json({ error: "No quiz data found for this chapter" }, { status: 400 });
     }
@@ -131,60 +156,64 @@ export async function POST(
     let currentStreak = (user as any).currentStreak ?? 0;
     let longestStreak = (user as any).longestStreak ?? 0;
 
-    // Update progress in database if passed
-    if (passed) {
-      const existingProgress = await db.chapterProgress.findUnique({
-        where: {
-          userId_chapterId: {
-            userId: user.id,
-            chapterId: chapter.id,
-          },
-        },
-      });
-
-      if (existingProgress) {
-        await db.chapterProgress.update({
-          where: { id: existingProgress.id },
-          data: {
-            isCompleted: true,
-            quizScore: Math.max(scorePercentage, existingProgress.quizScore),
-          },
-        });
-      } else {
-        await db.chapterProgress.create({
-          data: {
-            userId: user.id,
-            chapterId: chapter.id,
-            isCompleted: true,
-            quizScore: scorePercentage,
-          },
-        });
-      }
-
-      // Update enrollment progress
-      const totalChapters = course.chapters.length;
-      const completedProgresses = await db.chapterProgress.findMany({
-        where: {
+    // Always record or update quiz score in chapter progress
+    const existingProgress = await db.chapterProgress.findUnique({
+      where: {
+        userId_chapterId: {
           userId: user.id,
-          chapter: { courseId: course.id },
-          isCompleted: true,
-          quizScore: { gte: 75 },
+          chapterId: chapter.id,
         },
-      });
-      const newProgressPct = totalChapters > 0
-        ? Math.round((completedProgresses.length / totalChapters) * 100)
-        : 100;
+      },
+    });
 
-      await db.enrollment.updateMany({
-        where: {
-          userId: user.id,
-          courseId: course.id,
-        },
+    const bestScore = existingProgress
+      ? Math.max(scorePercentage, existingProgress.quizScore)
+      : scorePercentage;
+
+    if (existingProgress) {
+      await db.chapterProgress.update({
+        where: { id: existingProgress.id },
         data: {
-          progress: newProgressPct,
+          quizScore: bestScore,
         },
       });
+    } else {
+      await db.chapterProgress.create({
+        data: {
+          userId: user.id,
+          chapterId: chapter.id,
+          isCompleted: false,
+          quizScore: bestScore,
+        },
+      });
+    }
 
+    // Feed quiz assessment evidence into genuine Step 14 adaptive learning profile
+    try {
+      await recordStudentEvidence({
+        userId: user.id,
+        course: courseSlug,
+        chapterId: chapter.id,
+        source: "QUIZ",
+        topic: chapter.title,
+        score: scorePercentage,
+        correct: passed,
+        question: `Chapter ${chapter.orderNumber} Assessment Quiz (${totalCount} questions)`,
+        answer: `Student scored ${correctCount}/${totalCount} (${scorePercentage}%)`,
+        summary: `Chapter Quiz completed with ${scorePercentage}% (${correctCount}/${totalCount})`,
+      });
+    } catch (evErr) {
+      console.warn("recordStudentEvidence notice in quiz submit:", evErr);
+    }
+
+    // Authoritatively evaluate 3-gate chapter completion
+    const completionResult = await checkChapterCompletion({
+      userId: user.id,
+      courseId: course.id,
+      chapterId: chapter.id,
+    });
+
+    if (passed) {
       // Award base quiz pass XP & update daily streak
       const passResult = await awardXpAndStreak({
         userId: user.id,
@@ -208,7 +237,6 @@ export async function POST(
         xpEarned += XP_CONFIG.ACCURACY_BONUS_PERFECT_QUIZ;
       }
 
-      // Log user activity notification
       await logUserActivity(user.id, "QUIZ_SUBMIT", {
         passed: true,
         score: scorePercentage,
@@ -240,7 +268,17 @@ export async function POST(
       console.error("Knowledge Graph import error:", graphErr);
     }
 
+    // Authoritative next chapter unlock check
     const nextChapter = course.chapters.find((c) => c.orderNumber === chapter.orderNumber + 1);
+    let nextChapterUnlocked = false;
+    if (nextChapter) {
+      const nextStatus = await getChapterUnlockStatus({
+        userId: user.id,
+        courseSlug,
+        chapterOrderOrId: nextChapter.orderNumber,
+      });
+      nextChapterUnlocked = nextStatus.isUnlocked;
+    }
 
     return NextResponse.json({
       success: true,
@@ -250,23 +288,27 @@ export async function POST(
         correctCount,
         totalCount,
         breakdown,
-        minPassingScore: 75,
+        minPassingScore: QUIZ_PASS_THRESHOLD,
       },
       score: scorePercentage,
       passed,
-      minPassingScore: 75,
+      minPassingScore: QUIZ_PASS_THRESHOLD,
       correctCount,
       totalCount,
       breakdown,
       xpEarned,
       currentStreak,
       longestStreak,
-      nextChapter: nextChapter ? {
-        id: nextChapter.id,
-        orderNumber: nextChapter.orderNumber,
-        title: nextChapter.title,
-        isUnlocked: passed,
-      } : null,
+      isChapterCompleted: completionResult.isCompleted,
+      chapterCompletion: completionResult,
+      nextChapter: nextChapter
+        ? {
+            id: nextChapter.id,
+            orderNumber: nextChapter.orderNumber,
+            title: nextChapter.title,
+            isUnlocked: nextChapterUnlocked,
+          }
+        : null,
     });
   } catch (error) {
     console.error("POST Quiz Submit Error:", error);

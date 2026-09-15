@@ -86,6 +86,19 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    let chapterAnalysis = null;
+    try {
+      const { getChapterLearningAnalysis } = await import("@/lib/adaptive/resume-service");
+      chapterAnalysis = await getChapterLearningAnalysis({
+        userId: user.id,
+        courseId: existing?.course?.language || "python",
+        chapterId,
+        chapterLessons: [],
+      });
+    } catch (e) {
+      console.warn("getChapterLearningAnalysis notice:", e);
+    }
+
     if (existing) {
       return NextResponse.json({
         success: true,
@@ -105,6 +118,7 @@ export async function GET(request: NextRequest) {
             ? JSON.parse(existing.revisionPoints)
             : [],
         },
+        chapterAnalysis,
       });
     }
 
@@ -175,6 +189,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       recap: synthesized,
+      chapterAnalysis,
       isSynthesized: true,
     });
   } catch (error) {

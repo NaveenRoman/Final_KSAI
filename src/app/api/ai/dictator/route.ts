@@ -33,6 +33,24 @@ export async function POST(request: Request) {
         }
 
         if (user) {
+          const lang = (body.language || "python").toLowerCase();
+          const topicName = body.topic || body.project || "";
+
+          const topicProfile = await db.topicProgress.findFirst({
+            where: {
+              userId: user.id,
+              courseId: lang,
+              ...(topicName ? { topic: { contains: topicName.replace(/^[\d\.\-\s:]+/, "").trim() } } : {}),
+            },
+            orderBy: { updatedAt: "desc" },
+          });
+
+          if (topicProfile && topicProfile.recommendedDifficulty) {
+            body.studentCategory = body.studentCategory || topicProfile.recommendedDifficulty;
+            body.learningGroup = (body.studentCategory || topicProfile.recommendedDifficulty).toUpperCase();
+            body.practiceLevel = body.practiceLevel || (topicProfile.recommendedDifficulty === "ADVANCED" ? "3" : topicProfile.recommendedDifficulty === "INTERMEDIATE" ? "2" : "1");
+          }
+
           const progress = await db.topicProgress.findMany({
             where: { userId: user.id },
             take: 5,

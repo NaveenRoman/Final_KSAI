@@ -63,24 +63,41 @@ export async function GET(request: NextRequest) {
 
     // If user is authenticated and topic is not explicitly provided, detect last studied topic
     if (user && (!topic || topic === "auto" || topic === "undefined")) {
-      const latestNote = await db.learningNote.findFirst({
-        where: {
+      try {
+        const { getLastMeaningfulTopic } = await import("@/lib/adaptive/resume-service");
+        const meaningfulTopic = await getLastMeaningfulTopic({
           userId: user.id,
-          course: { language },
-          type: "NOTEBOOK",
-        },
-        include: {
-          chapter: { select: { id: true, orderNumber: true } },
-          course: { select: { id: true } },
-        },
-        orderBy: { updatedAt: "desc" },
-      });
+          courseId: language,
+          chapterId: resolvedChapterId,
+          chapterLessons: [],
+        });
+        if (meaningfulTopic) {
+          topic = meaningfulTopic;
+        }
+      } catch (e) {
+        console.warn("getLastMeaningfulTopic fallback notice:", e);
+      }
 
-      if (latestNote) {
-        topic = latestNote.topic;
-        chapterOrder = latestNote.chapter?.orderNumber ?? chapterOrder;
-        resolvedCourseId = latestNote.courseId;
-        resolvedChapterId = latestNote.chapterId;
+      if (!topic || topic === "auto" || topic === "undefined") {
+        const latestNote = await db.learningNote.findFirst({
+          where: {
+            userId: user.id,
+            course: { language },
+            type: "NOTEBOOK",
+          },
+          include: {
+            chapter: { select: { id: true, orderNumber: true } },
+            course: { select: { id: true } },
+          },
+          orderBy: { updatedAt: "desc" },
+        });
+
+        if (latestNote) {
+          topic = latestNote.topic;
+          chapterOrder = latestNote.chapter?.orderNumber ?? chapterOrder;
+          resolvedCourseId = latestNote.courseId;
+          resolvedChapterId = latestNote.chapterId;
+        }
       }
     }
 
@@ -94,8 +111,32 @@ export async function GET(request: NextRequest) {
         : "1. What is Python & Setting Up Your Environment";
     }
 
-    const quickRecap = generateQuickRecap(language, chapterOrder, topic);
-    const question = generateCheckpointQuestionForTopic(language, topic);
+    let quickRecap = generateQuickRecap(language, chapterOrder, topic);
+    let question = generateCheckpointQuestionForTopic(language, topic);
+
+    // If profile exists, generate genuinely adaptive quick recap tailored to student
+    if (user) {
+      try {
+        const { getTopicLearningProfile } = await import("@/lib/adaptive/profile-service");
+        const { buildAdaptiveQuickRecap } = await import("@/lib/adaptive/teaching-adapter");
+        const profile = await getTopicLearningProfile(user.id, language, topic);
+        if (profile) {
+          const adapted = buildAdaptiveQuickRecap({
+            topic,
+            course: language,
+            profile,
+          });
+          if (adapted.recapText) {
+            quickRecap.whatWeLearned = adapted.recapText;
+          }
+          if (adapted.question) {
+            question = adapted.question;
+          }
+        }
+      } catch (err) {
+        console.warn("Adaptive quick recap enrichment notice:", err);
+      }
+    }
 
     return NextResponse.json({
       success: true,

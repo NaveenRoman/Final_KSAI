@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { getAuthoritativeProgression } from "@/lib/progression";
+import { getChapterUnlockStatus } from "@/lib/adaptive/unlock-service";
 import fs from "fs";
 import path from "path";
 
@@ -109,6 +110,48 @@ export async function GET(
         chapterId: { in: chapters.map((c: { id: string }) => c.id) },
       },
     });
+
+    // Authoritative sequential chapter unlock verification
+    const unlockStatus = await getChapterUnlockStatus({
+      userId: user.id,
+      courseSlug,
+      chapterOrderOrId: currentChapter.orderNumber,
+    });
+
+    if (!unlockStatus.isUnlocked) {
+      return NextResponse.json(
+        {
+          success: false,
+          locked: true,
+          isUnlocked: false,
+          lockReason: unlockStatus.lockReason,
+          chapterTitle: currentChapter.title,
+          orderNumber: currentChapter.orderNumber,
+          previousChapter: unlockStatus.previousChapter,
+          requirements: unlockStatus.requirements,
+          quizStatus: unlockStatus.quizStatus,
+          message: unlockStatus.previousChapter
+            ? `Chapter ${currentChapter.orderNumber} is locked. Complete Chapter ${unlockStatus.previousChapter.orderNumber} and pass its required assessment to continue.`
+            : `Chapter ${currentChapter.orderNumber} is locked. Complete previous chapter requirements first.`,
+          courseTitle: course.title,
+          courseSlug: course.language || courseSlug,
+          courseId: course.id,
+          isEnrolled: !!enrollment,
+          userEmail: user.email,
+          chapters: chapters.map((c: { id: string; title: string; orderNumber: number }) => ({
+            id: c.id,
+            title: c.title,
+            orderNumber: c.orderNumber,
+          })),
+          progresses: progresses.map((p: { chapterId: string; isCompleted: boolean; quizScore: number }) => ({
+            chapterId: p.chapterId,
+            isCompleted: p.isCompleted,
+            quizScore: p.quizScore,
+          })),
+        },
+        { status: 403 }
+      );
+    }
 
     // Extract raw markdown explanation
     let notesContent = currentChapter.explanation;

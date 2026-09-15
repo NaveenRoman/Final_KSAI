@@ -393,6 +393,11 @@ export interface CheckpointEvaluation {
   followUpQuestion: string;
   understood: boolean;
   feedback: string;
+  misconceptions?: string[];
+  missingConcepts?: string[];
+  reason?: string;
+  understandingLevel?: string;
+  recommendedDifficulty?: string;
 }
 
 export function parseCheckpointEvaluation(
@@ -427,6 +432,10 @@ export function parseCheckpointEvaluation(
       followUpQuestion: "Would you like a simple real-world analogy to help explain this?",
       understood: false,
       feedback: "That's completely okay. 👍 Let's build the concept from the beginning.",
+      misconceptions: [],
+      missingConcepts: ["Foundational concept"],
+      understandingLevel: "NEEDS_SUPPORT",
+      recommendedDifficulty: "BEGINNER",
     };
   }
 
@@ -472,6 +481,15 @@ export function parseCheckpointEvaluation(
       const followUpQuestion = parsed.followUpQuestion || "";
       const understood = typeof parsed.understood === "boolean" ? parsed.understood : score >= 70;
 
+      const misconceptions = Array.isArray(parsed.misconceptions)
+        ? parsed.misconceptions.map(String).filter(Boolean)
+        : [];
+      const missingConcepts = Array.isArray(parsed.missingConcepts)
+        ? parsed.missingConcepts.map(String).filter(Boolean)
+        : whatIsMissing
+        ? [whatIsMissing]
+        : [];
+
       // Construct spoken / summary feedback
       let feedback = `${appreciation} `;
       if (whatWasCorrect) feedback += `What you got right: ${whatWasCorrect} `;
@@ -490,6 +508,11 @@ export function parseCheckpointEvaluation(
         followUpQuestion,
         understood,
         feedback: feedback.trim() || "Good answer! That captures the concept.",
+        misconceptions,
+        missingConcepts,
+        reason: parsed.reason,
+        understandingLevel: parsed.understandingLevel || (score >= 90 ? "ADVANCED" : score >= 75 ? "STRONG" : score >= 50 ? "DEVELOPING" : "NEEDS_SUPPORT"),
+        recommendedDifficulty: parsed.recommendedDifficulty || (score >= 75 ? "ADVANCED" : score >= 50 ? "INTERMEDIATE" : "BEGINNER"),
       };
     }
   } catch (e) {
@@ -498,9 +521,20 @@ export function parseCheckpointEvaluation(
 
   // 3. Robust Text Fallback Classifier
   const lower = rawText.toLowerCase();
-  let score = 75;
-  let result: "CORRECT" | "GOOD" | "PARTIAL" | "WEAK" | "INCORRECT" | "NO_ANSWER" = "GOOD";
-  let appreciation = "Great job! 👍";
+  const lowerAns = cleanAnswer.toLowerCase();
+
+  const isExplicitlyNegative =
+    lowerAns.includes("not sure") ||
+    lowerAns.includes("no idea") ||
+    lowerAns.includes("dont know") ||
+    lowerAns.includes("don't know") ||
+    lowerAns.includes("wrong") ||
+    lowerAns.includes("nothing") ||
+    lowerAns.length < 4;
+
+  let score = isExplicitlyNegative ? 25 : 75;
+  let result: "CORRECT" | "GOOD" | "PARTIAL" | "WEAK" | "INCORRECT" | "NO_ANSWER" = isExplicitlyNegative ? "INCORRECT" : "GOOD";
+  let appreciation = isExplicitlyNegative ? "Good attempt — let's review the concept." : "Great job! 👍";
 
   if (lower.includes("correct") || lower.includes("excellent") || lower.includes("spot on") || lower.includes("✅")) {
     score = 95;
@@ -510,24 +544,33 @@ export function parseCheckpointEvaluation(
     score = 65;
     result = "PARTIAL";
     appreciation = "You're on the right track. 👍";
-  } else if (lower.includes("incorrect") || lower.includes("not quite") || lower.includes("misconception") || lower.includes("❌")) {
+  } else if (
+    lower.includes("incorrect") ||
+    lower.includes("not quite") ||
+    lower.includes("misconception") ||
+    lower.includes("❌") ||
+    lower.includes("wrong") ||
+    isExplicitlyNegative
+  ) {
     score = 25;
     result = "INCORRECT";
     appreciation = "Good attempt — let's look at the correct concept.";
   }
 
+  const isUnderstood = score >= 70;
+
   return {
     score,
     result,
     appreciation,
-    whatWasCorrect: result === "CORRECT" || result === "GOOD" ? "Accurately answered the core question." : "",
-    whatIsMissing: result === "PARTIAL" || result === "INCORRECT" ? "Some details require clarification." : "",
-    explanation: rawText || "Good answer! That captures the core concept.",
+    whatWasCorrect: isUnderstood ? "Accurately answered the core question." : "",
+    whatIsMissing: !isUnderstood ? "Some key conceptual details require clarification." : "",
+    explanation: rawText || (isUnderstood ? "Good answer! That captures the core concept." : "Let's review this concept with a simpler breakdown."),
     example: "",
-    needsFollowUp: score < 70,
-    followUpQuestion: score < 70 ? "Let's check one key part: can you explain what happens next?" : "",
-    understood: score >= 70,
-    feedback: rawText || `${appreciation} That captures the core concept.`,
+    needsFollowUp: !isUnderstood,
+    followUpQuestion: !isUnderstood ? "Can you explain what happens in this step?" : "",
+    understood: isUnderstood,
+    feedback: rawText || `${appreciation} ${isUnderstood ? "That captures the core concept." : "Let's make sure you have this down."}`,
   };
 }
 

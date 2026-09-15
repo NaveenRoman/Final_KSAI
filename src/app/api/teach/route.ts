@@ -26,7 +26,21 @@ export async function POST(request: Request) {
       }
     );
 
-    const data = await response.json();
+    const isJson = response.headers.get("content-type")?.includes("application/json");
+    let data: any = {};
+    if (isJson) {
+      data = await response.json();
+    } else {
+      const text = await response.text();
+      console.warn("Django Teaching Engine returned non-JSON response:", text.slice(0, 200));
+      return NextResponse.json(
+        {
+          success: false,
+          message: "AI Teaching Engine returned an invalid response. Please try again.",
+        },
+        { status: 502 }
+      );
+    }
 
     console.log(
       "Django Teaching Status:",

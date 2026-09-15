@@ -45,6 +45,11 @@ import {
   generateCheckpointQuestionForTopic,
   CHAPTER_RECAP_BANK,
 } from "@/lib/recap-bank";
+import { ChapterLearningAnalysis } from "@/lib/adaptive/types";
+import {
+  buildAdaptiveQuickRecap,
+  buildAdaptiveChapterRecap,
+} from "@/lib/adaptive/teaching-adapter";
 
 export interface SectionPerformance {
   topic: string;
@@ -112,7 +117,9 @@ interface LiveTeacherProps {
   onReteach?: (
     content: string,
     title: string,
-    adaptiveContext?: string
+    adaptiveContext?: string,
+    attemptNumber?: number,
+    previousAnswer?: string
   ) => Promise<string>;
 
   onEvaluateCheckpoint?: (
@@ -146,6 +153,8 @@ interface LiveTeacherProps {
   onResumeRecap?: (topic: string) => Promise<{ recap: string; questions: string[] } | string>;
   onEvaluateResumeAnswer?: (question: string, answer: string) => Promise<string | boolean>;
   autoResumeTopic?: string;
+  chapterAnalysis?: ChapterLearningAnalysis | null;
+  shouldAutoChapterRecap?: boolean;
 }
 
 export interface LiveTeacherHandle {
@@ -202,11 +211,14 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       onResumeRecap,
       onEvaluateResumeAnswer,
       autoResumeTopic,
+      chapterAnalysis,
+      shouldAutoChapterRecap,
     },
     ref
   ) => {
     // Core Teacher Execution State
     const [state, setState] = useState<TeacherState>("IDLE");
+    const [localChapterAnalysis, setLocalChapterAnalysis] = useState<ChapterLearningAnalysis | null>(null);
     const [teacherText, setTeacherText] = useState<string>("");
     const [currentTitle, setCurrentTitle] = useState<string>("");
     const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
@@ -249,6 +261,8 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
     const activeSessionKeyRef = useRef<string>("");
     const checkpointContinueRef = useRef<boolean>(false);
     const hasTriggeredAutoResumeRef = useRef<boolean>(false);
+    const hasTriggeredAutoChapterRecapRef = useRef<boolean>(false);
+    const isAdvancingRef = useRef<boolean>(false);
 
     // Safe In-Memory Deduplication & Cache (scoped to course + chapter + topic)
     const topicCacheRef = useRef<Record<string, string>>({});
@@ -673,7 +687,11 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
           }).catch((err) => console.error("Knowledge Graph checkpoint evidence error:", err));
         }
 
-        speakText(`${evalResult.appreciation} ${evalResult.feedback} Have you understood this topic clearly?`);
+        if (evalResult.understood) {
+          speakText(`${evalResult.appreciation} ${evalResult.feedback} You have understood this topic! Click continue to proceed.`);
+        } else {
+          speakText(`${evalResult.appreciation} ${evalResult.feedback} Click teach again to review with a simpler explanation.`);
+        }
       } catch (error) {
         console.error("Checkpoint evaluation error:", error);
         setCheckpointError("I couldn't check your answer right now. Please check your connection and click retry.");
@@ -743,9 +761,16 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
           const recapKey = `ksai_quick_recap_${userEmail}_${(course || "python").toLowerCase()}_${chapterId}_${activeTopic || currentTitle}`;
           sessionStorage.setItem(recapKey, "done");
         }
+        setUnderstandingStep("EXPLAINING");
+        checkpointContinueRef.current = true;
+        return;
       }
+
       setUnderstandingStep("EXPLAINING");
       checkpointContinueRef.current = true;
+
+      const topicTitle = activeTopic || currentTitle || "Current Topic";
+      completeAndAdvanceTopic(topicTitle);
     };
 
     const handleReteachAgain = async () => {
@@ -757,18 +782,36 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       const sessionKey = `${course || "course"}_${chapterTitle || "chapter"}_${topicTitle}_reteach_${Date.now()}`;
       activeSessionKeyRef.current = sessionKey;
 
-      setReteachCount((prev) => prev + 1);
+      const newReteachCount = reteachCount + 1;
+      setReteachCount(newReteachCount);
+      const attemptNum = newReteachCount + 1; // Attempt 2, 3, 4+
+
       setState("RETEACHING");
       setUnderstandingStep("RETEACHING");
       setCurrentUnitSentences([]);
       setActiveSentenceIndex(-1);
+      checkpointContinueRef.current = false;
 
       const sourceContent = extractTopicSourceContent(topicTitle);
 
       try {
         let simplifiedExplanation = "";
         if (onReteach) {
-          simplifiedExplanation = await onReteach(sourceContent, topicTitle);
+          const misconceptionText = checkpointEvaluation?.misconceptions && checkpointEvaluation.misconceptions.length > 0
+            ? `Specific Misconception to Correct: ${checkpointEvaluation.misconceptions.join("; ")}`
+            : "";
+          const adaptiveContext = [
+            misconceptionText,
+            checkpointEvaluation?.whatIsMissing ? `Student struggled with: ${checkpointEvaluation.whatIsMissing}` : "",
+            checkpointEvaluation?.feedback || "",
+          ].filter(Boolean).join(". ");
+          simplifiedExplanation = await onReteach(
+            sourceContent,
+            topicTitle,
+            adaptiveContext,
+            attemptNum,
+            checkpointAnswer
+          );
         } else {
           simplifiedExplanation = `Let's make ${topicTitle} super simple.\n\nThink of it from first principles: step by step with a concrete example, everything connects easily!`;
         }
@@ -780,15 +823,39 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         await deliverExplanation(simplifiedExplanation, sessionKey);
 
         if (activeSessionKeyRef.current !== sessionKey) return;
-        setUnderstandingStep("ASK_UNDERSTANDING");
-        speakText("Have you understood this topic clearly now?");
+
+        // Ask a NEW, simpler understanding-check question!
+        const newSimplerQuestion = generateCheckpointQuestionForTopic(
+          course || "python",
+          topicTitle,
+          attemptNum
+        );
+        setCheckpointQuestion(newSimplerQuestion);
+        setCheckpointAnswer("");
+        setCheckpointEvaluation(null);
+        setCheckpointError(null);
+        setFollowUpAnswer("");
+        setState("CHECKPOINT");
+        setUnderstandingStep("KNOWLEDGE_CHECK");
+        speakText(`Let's check with a simpler question: ${newSimplerQuestion}`);
       } catch (err) {
         console.error("Reteach error:", err);
         if (activeSessionKeyRef.current !== sessionKey) return;
         const fallback = `Let's trace ${topicTitle} with a clear intuition and example.`;
         setTeacherText(fallback);
         await deliverExplanation(fallback, sessionKey);
-        setUnderstandingStep("ASK_UNDERSTANDING");
+        const newSimplerQuestion = generateCheckpointQuestionForTopic(
+          course || "python",
+          topicTitle,
+          attemptNum
+        );
+        setCheckpointQuestion(newSimplerQuestion);
+        setCheckpointAnswer("");
+        setCheckpointEvaluation(null);
+        setCheckpointError(null);
+        setFollowUpAnswer("");
+        setState("CHECKPOINT");
+        setUnderstandingStep("KNOWLEDGE_CHECK");
       }
     };
 
@@ -897,8 +964,8 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       setUnderstandingStep("QUICK_RECAP_CHECK");
       setCurrentTitle(`Resume Checkpoint: ${resumeTopicTitle}`);
 
-      let recapText = `Welcome back! You were learning ${resumeTopicTitle}. Let's quickly review where you left off.`;
-      let recapQuestion = `What is the key takeaway from ${resumeTopicTitle}?`;
+      let recapText = "";
+      let recapQuestion = "";
 
       if (onResumeRecap) {
         try {
@@ -913,6 +980,29 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
           }
         } catch (e) {
           console.error("Resume recap error:", e);
+        }
+      }
+
+      // If no custom resume recap was provided, generate adaptive quick recap from student's profile
+      if (!recapText || !recapQuestion) {
+        try {
+          const profRes = await fetch(
+            `/api/adaptive/profile?course=${encodeURIComponent(course || "python")}&topic=${encodeURIComponent(resumeTopicTitle)}&userEmail=${encodeURIComponent(userEmail || "")}`
+          );
+          const profData = await profRes.json();
+          const profile = profData?.profile || null;
+
+          const adapted = buildAdaptiveQuickRecap({
+            topic: resumeTopicTitle,
+            course: course || "python",
+            chapterTitle,
+            profile,
+          });
+          recapText = adapted.recapText;
+          recapQuestion = adapted.question;
+        } catch {
+          recapText = `Welcome back! You were learning ${resumeTopicTitle}. Let's quickly review where you left off.`;
+          recapQuestion = `What is the key takeaway from ${resumeTopicTitle}?`;
         }
       }
 
@@ -941,6 +1031,15 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
 
       if (activeSessionKeyRef.current !== sessionKey || stopRef.current) return;
 
+      if (typeof window !== "undefined" && userEmail && chapterId && resumeTopicTitle) {
+        try {
+          sessionStorage.setItem(
+            `ksai_quick_recap_${userEmail}_${(course || "python").toLowerCase()}_${chapterId}_${resumeTopicTitle}`,
+            "done"
+          );
+        } catch {}
+      }
+
       // Transition to normal teaching of the current topic
       setState("IDLE");
       void startTeaching();
@@ -956,24 +1055,59 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
 
       setState("CHAPTER_RECAP");
       setUnderstandingStep("CHAPTER_RECAP_CHECK");
-      setCurrentTitle(`Chapter Recap: ${chapterTitle}`);
+      setCurrentTitle(`Chapter Learning Analysis & Recap: ${chapterTitle}`);
 
-      const langKey = (course || "python").toLowerCase();
-      const orderNum = parseInt(chapterId.replace(/[^0-9]/g, ""), 10) || 0;
-      const bankData = CHAPTER_RECAP_BANK[langKey]?.[orderNum];
+      let analysis = chapterAnalysis || localChapterAnalysis;
+      if (!analysis && userEmail && chapterId) {
+        try {
+          const res = await fetch("/api/adaptive/chapter-analysis", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              course,
+              chapterId,
+              chapterTitle,
+              lessons: allTopics || [],
+              userEmail,
+            }),
+          });
+          const data = await res.json();
+          if (data?.success && data?.analysis) {
+            analysis = data.analysis;
+            setLocalChapterAnalysis(data.analysis);
+          }
+        } catch (err) {
+          console.warn("Fetch chapter analysis notice:", err);
+        }
+      }
 
-      const recapText =
-        bankData?.summary ||
-        `Congratulations on completing all topics in ${chapterTitle}! Let's do a brief recap of key principles and syntax before your assessment.`;
+      let recapText = "";
+      let q = "";
+
+      if (analysis) {
+        const recapObj = buildAdaptiveChapterRecap({
+          chapterTitle: chapterTitle || "Chapter Overview",
+          course: course || "python",
+          analysis,
+        });
+        recapText = recapObj.recapText;
+        q = recapObj.question;
+      } else {
+        const langKey = (course || "python").toLowerCase();
+        const orderNum = parseInt(chapterId.replace(/[^0-9]/g, ""), 10) || 0;
+        const bankData = CHAPTER_RECAP_BANK[langKey]?.[orderNum];
+        recapText =
+          bankData?.summary ||
+          `Congratulations on completing all topics in ${chapterTitle}! Let's do a brief recap of key principles and syntax before your assessment.`;
+        q =
+          bankData?.revisionPoints?.[0] ||
+          `How do the concepts in ${chapterTitle} connect together to solve real problems?`;
+      }
 
       setTeacherText(recapText);
       await deliverExplanation(recapText, sessionKey);
 
       if (activeSessionKeyRef.current !== sessionKey || stopRef.current) return;
-
-      const q =
-        bankData?.revisionPoints?.[0] ||
-        `How do the concepts in ${chapterTitle} connect together to solve real problems?`;
 
       setCheckpointQuestion(q);
       setCheckpointAnswer("");
@@ -993,12 +1127,111 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
 
       if (activeSessionKeyRef.current !== sessionKey || stopRef.current) return;
 
-      // Final complete state
+      // Final complete state: save to sessionStorage and persist to Server DB
+      if (typeof window !== "undefined" && userEmail && chapterId) {
+        try {
+          sessionStorage.setItem(
+            `ksai_chapter_recap_${userEmail}_${(course || "python").toLowerCase()}_${chapterId}`,
+            "done"
+          );
+        } catch {}
+      }
+
+      // Persist Chapter Recap to Server DB
+      try {
+        await fetch("/api/recap/chapter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: (course || "python").toLowerCase(),
+            chapterId,
+            summary: recapText || `Chapter Recap for ${chapterTitle}`,
+            keyConcepts: analysis?.strongTopics?.map((t) => t.topic) || [],
+            understandingDecision: "READY_FOR_QUIZ",
+          }),
+        });
+      } catch (err) {
+        console.warn("Failed to persist chapter recap to server DB:", err);
+      }
+
       setState("COMPLETED");
       const summary = computeChapterSummary(sectionPerformances);
       setChapterSummary(summary);
       onChapterComplete?.(summary);
     };
+
+    // --------------------------------------------------
+    // Complete Current Topic and Advance to Next Topic
+    // --------------------------------------------------
+    function completeAndAdvanceTopic(topicTitle: string) {
+      if (isAdvancingRef.current) return;
+      isAdvancingRef.current = true;
+
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      clearHighlight();
+
+      // Evaluate performance
+      const perf = evaluateSectionPerformance(topicTitle);
+
+      const sessionLearningData: SessionLearningData = {
+        topic: topicTitle,
+        explanations: sessionExplanationsRef.current,
+        whatILearned: sessionExplanationsRef.current.join("\n\n") || teacherText,
+        coreConcepts: [topicTitle],
+        importantPoints: perf.strengths || [],
+        examples: [],
+        codeSnippets: [],
+        teacherQuestions: sessionCheckpointsRef.current.map((c) => ({
+          question: c.question,
+          answer: c.answer,
+          feedback: c.feedback,
+          result: c.result,
+          score: c.score,
+          whatWasCorrect: c.whatWasCorrect,
+          whatIsMissing: c.whatIsMissing,
+        })),
+        reteachNotes: sessionReteachRef.current,
+      };
+
+      onLessonComplete?.(topicTitle, perf, sessionLearningData);
+
+      // Check if this was the last topic in the chapter
+      const topicIndex = allTopics && allTopics.length > 0
+        ? allTopics.findIndex((t) => {
+            const nt = t.trim().toLowerCase();
+            const ntt = topicTitle.trim().toLowerCase();
+            if (nt === ntt) return true;
+            const c1 = nt.replace(/^(\d+(\.\d+)*|[a-z]\.)\s*[-:.)]?\s*/i, "").trim();
+            const c2 = ntt.replace(/^(\d+(\.\d+)*|[a-z]\.)\s*[-:.)]?\s*/i, "").trim();
+            return Boolean(c1 && c2 && (c1 === c2 || c1.includes(c2) || c2.includes(c1)));
+          })
+        : -1;
+
+      const isLast = Boolean(
+        isFinalTopic ||
+        (allTopics && allTopics.length > 0 && topicIndex === allTopics.length - 1)
+      );
+
+      if (isLast) {
+        void executeChapterRecap();
+      } else {
+        setState("IDLE");
+        setTeacherText("");
+        setCheckpointQuestion("");
+        setCheckpointAnswer("");
+        setCheckpointEvaluation(null);
+        setCheckpointError(null);
+        setFollowUpAnswer("");
+        onNextTopic?.();
+      }
+
+      setTimeout(() => {
+        isAdvancingRef.current = false;
+      }, 500);
+    }
 
     // --------------------------------------------------
     // Core Topic Teaching Execution (Optimized, Single-Request)
@@ -1054,7 +1287,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       // STEP 3: Mandatory Interactive Understanding Checkpoint
       setState("CHECKPOINT");
       setUnderstandingStep("KNOWLEDGE_CHECK");
-      const q = generateCheckpointQuestionForTopic(course || "python", topicTitle);
+      const q = generateCheckpointQuestionForTopic(course || "python", topicTitle, 1);
       setCheckpointQuestion(q);
       setCheckpointAnswer("");
       setCheckpointEvaluation(null);
@@ -1075,43 +1308,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       if (stopRef.current || !isMountedRef.current || activeSessionKeyRef.current !== sessionKey) return;
 
       clearHighlight();
-
-      // Evaluate performance
-      const perf = evaluateSectionPerformance(topicTitle);
-      const sessionLearningData: SessionLearningData = {
-        topic: topicTitle,
-        explanations: sessionExplanationsRef.current,
-        whatILearned: sessionExplanationsRef.current.join("\n\n") || teacherText,
-        coreConcepts: [topicTitle],
-        importantPoints: perf.strengths || [],
-        examples: [],
-        codeSnippets: [],
-        teacherQuestions: sessionCheckpointsRef.current.map((c) => ({
-          question: c.question,
-          answer: c.answer,
-          feedback: c.feedback,
-          result: c.result,
-          score: c.score,
-          whatWasCorrect: c.whatWasCorrect,
-          whatIsMissing: c.whatIsMissing,
-        })),
-        reteachNotes: sessionReteachRef.current,
-      };
-
-      onLessonComplete?.(topicTitle, perf, sessionLearningData);
-
-      // STEP 4: Check if final topic -> triggers Automatic Chapter Recap
-      const isLastTopic = Boolean(
-        isFinalTopic ||
-        (allTopics && allTopics.length > 0 && allTopics.indexOf(topicTitle) === allTopics.length - 1)
-      );
-
-      if (isLastTopic) {
-        void executeChapterRecap();
-      } else {
-        setState("SECTION_COMPLETED");
-        setCurrentTitle(`${topicTitle} completed`);
-      }
+      completeAndAdvanceTopic(topicTitle);
     };
 
     // Auto-start teaching on topic change
@@ -1157,6 +1354,24 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         return () => clearTimeout(timer);
       }
     }, [autoResumeTopic, allTopics, state]);
+
+    // Auto-trigger Chapter Recap if whole chapter is genuinely completed
+    useEffect(() => {
+      if (
+        shouldAutoChapterRecap &&
+        !hasTriggeredAutoChapterRecapRef.current &&
+        allTopics &&
+        allTopics.length > 0
+      ) {
+        hasTriggeredAutoChapterRecapRef.current = true;
+        const timer = setTimeout(() => {
+          if (isMountedRef.current && (state === "IDLE" || state === "EXPLAINING")) {
+            void executeChapterRecap();
+          }
+        }, 250);
+        return () => clearTimeout(timer);
+      }
+    }, [shouldAutoChapterRecap, allTopics, state]);
 
     // Imperative methods for external controls
     useImperativeHandle(ref, () => ({
@@ -1455,6 +1670,119 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                     </span>
                   </div>
 
+                  {/* CHAPTER LEARNING ANALYSIS CARD */}
+                  {state === "CHAPTER_RECAP" && (chapterAnalysis || localChapterAnalysis) && (
+                    <div className="p-3.5 rounded-2xl bg-white border border-indigo-200/80 shadow-xs space-y-2.5">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                        <div>
+                          <h4 className="text-[11px] font-black uppercase tracking-wider text-indigo-700">
+                            Chapter Learning Analysis
+                          </h4>
+                          <p className="text-[10px] text-slate-500 font-medium">{chapterTitle}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-indigo-700 font-mono">
+                            {(chapterAnalysis || localChapterAnalysis)?.overallMasteryScore}% Mastery
+                          </span>
+                          <span className="block text-[9px] font-bold text-slate-500">
+                            {(chapterAnalysis || localChapterAnalysis)?.overallLevel}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* STRONG AREAS */}
+                      {((chapterAnalysis || localChapterAnalysis)?.strongTopics?.length ?? 0) > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[10px] font-black text-emerald-700 uppercase tracking-wider flex items-center gap-1">
+                            <span>✓</span> Strong Areas
+                          </div>
+                          <div className="space-y-1">
+                            {(chapterAnalysis || localChapterAnalysis)!.strongTopics.map((t, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[11px] p-1.5 rounded-lg bg-emerald-50/70 border border-emerald-200/60">
+                                <span className="font-semibold text-emerald-950 flex items-center gap-1">
+                                  <span>✓</span> {t.topic}
+                                </span>
+                                <span className="font-mono text-[10px] font-bold text-emerald-800">
+                                  {t.masteryScore}% — {t.level}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* DEVELOPING */}
+                      {((chapterAnalysis || localChapterAnalysis)?.developingTopics?.length ?? 0) > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[10px] font-black text-blue-700 uppercase tracking-wider flex items-center gap-1">
+                            <span>△</span> Developing
+                          </div>
+                          <div className="space-y-1">
+                            {(chapterAnalysis || localChapterAnalysis)!.developingTopics.map((t, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[11px] p-1.5 rounded-lg bg-blue-50/70 border border-blue-200/60">
+                                <span className="font-semibold text-blue-950 flex items-center gap-1">
+                                  <span>△</span> {t.topic}
+                                </span>
+                                <span className="font-mono text-[10px] font-bold text-blue-800">
+                                  {t.masteryScore}% — {t.level}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* NEEDS SUPPORT */}
+                      {((chapterAnalysis || localChapterAnalysis)?.needsSupportTopics?.length ?? 0) > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[10px] font-black text-amber-700 uppercase tracking-wider flex items-center gap-1">
+                            <span>!</span> Needs Support
+                          </div>
+                          <div className="space-y-1">
+                            {(chapterAnalysis || localChapterAnalysis)!.needsSupportTopics.map((t, idx) => (
+                              <div key={idx} className="p-2 rounded-lg bg-amber-50/80 border border-amber-200 text-[11px] space-y-1">
+                                <div className="flex items-center justify-between font-semibold text-amber-950">
+                                  <span className="flex items-center gap-1">
+                                    <span>!</span> {t.topic}
+                                  </span>
+                                  <span className="font-mono text-[10px] font-bold text-amber-900">
+                                    {t.masteryScore}% — {t.level}
+                                  </span>
+                                </div>
+                                {t.reason && (
+                                  <div className="text-[10px] text-amber-900/90 pl-2.5 border-l-2 border-amber-400">
+                                    <span className="font-bold">Why: </span>{t.reason}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* NOT ENOUGH DATA */}
+                      {((chapterAnalysis || localChapterAnalysis)?.notEnoughDataTopics?.length ?? 0) > 0 && (
+                        <div className="space-y-1">
+                          <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                            <span>?</span> Insufficient Data
+                          </div>
+                          <div className="space-y-1">
+                            {(chapterAnalysis || localChapterAnalysis)!.notEnoughDataTopics.map((t, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-[11px] p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
+                                <span className="font-medium flex items-center gap-1">
+                                  <span>?</span> {t.topic}
+                                </span>
+                                <span className="font-mono text-[10px] text-slate-500">
+                                  {t.level} (&lt; 2 interactions)
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Question Box */}
                   <div className="p-3 rounded-xl bg-white border border-blue-200/80 shadow-2xs">
                     <div className="text-[10px] font-black uppercase tracking-wider text-blue-600 mb-1">
@@ -1630,26 +1958,36 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                       {/* Final Understanding Confirmation */}
                       <div className="p-3 rounded-xl bg-white border border-blue-200/80 shadow-2xs text-center space-y-2">
                         <p className="text-xs font-black text-slate-900">
-                          Have you understood this topic clearly?
+                          {checkpointEvaluation.understood
+                            ? "🎉 Concept Understood! You're ready to continue."
+                            : "💡 Still unclear? Let's reteach it with a simpler approach."}
                         </p>
 
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={handleUserUnderstandsYes}
-                            className="flex-1 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20 cursor-pointer"
+                            className={`flex-1 py-2.5 px-3 rounded-xl text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer ${
+                              checkpointEvaluation.understood
+                                ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20"
+                                : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/20"
+                            }`}
                           >
                             <CheckCircle2 size={14} />
-                            <span>✓ Yes, Continue Learning</span>
+                            <span>✓ Continue</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={handleReteachAgain}
-                            className="flex-1 py-2.5 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer ${
+                              !checkpointEvaluation.understood
+                                ? "border-2 border-amber-400 bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20 font-black"
+                                : "border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900"
+                            }`}
                           >
                             <RotateCcw size={14} />
-                            <span>🔄 No, Teach Again</span>
+                            <span>🔄 {checkpointEvaluation.understood ? "Review Again" : "No, Teach Again"}</span>
                           </button>
                         </div>
                       </div>
@@ -1722,8 +2060,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                   <button
                     type="button"
                     onClick={() => {
-                      setState("IDLE");
-                      onNextTopic();
+                      completeAndAdvanceTopic(activeTopic || currentTitle || "Current Topic");
                     }}
                     className="flex-1 py-2 px-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/20 cursor-pointer"
                   >

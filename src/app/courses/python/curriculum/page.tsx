@@ -180,19 +180,20 @@ export default function PythonCurriculumPage() {
     }
   };
 
-  // Lock State Logic
+  // Lock State Logic: Strict sequential chapter unlocking
   const isChapterUnlocked = (order: number) => {
     if (order === 0) return true; // Chapter 0 is always unlocked
-    
-    // Check previous chapter completion state
-    const prevChapter = chapters.find((c) => c.orderNumber === order - 1);
-    if (!prevChapter) return false;
-    
-    const prevProgress = progresses.find((p) => p.chapterId === prevChapter.id);
-    const prevCompleted = !!prevProgress?.isCompleted;
+    if (order === 1) return true; // Chapter 1 is unlocked by default
 
     // Check if enrolled for chapters > 0
     if (order > 0 && !isEnrolled) return false;
+
+    // Check previous chapter completion state (all topics + recap + quiz >= 75%)
+    const prevChapter = chapters.find((c) => c.orderNumber === order - 1);
+    if (!prevChapter) return false;
+
+    const prevProgress = progresses.find((p) => p.chapterId === prevChapter.id);
+    const prevCompleted = !!prevProgress?.isCompleted && (prevProgress?.quizScore ?? 0) >= 75;
 
     return prevCompleted;
   };

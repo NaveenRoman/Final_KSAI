@@ -191,21 +191,22 @@ export default function CourseCurriculumPage() {
     }
   };
 
-  // Lock State Logic
+  // Lock State Logic: Strict sequential chapter unlocking
   const isChapterUnlocked = (order: number) => {
     const firstChapterOrder = (courseSlug === "cpp" || courseSlug === "java") ? 1 : 0;
     if (order === firstChapterOrder) return true; // first chapter is always unlocked
-    
-    // Check previous chapter completion state
-    const prevChapter = chapters.find((c) => c.orderNumber === order - 1);
-    if (!prevChapter) return false;
-    
-    const prevProgress = progresses.find((p) => p.chapterId === prevChapter.id);
-    const prevCompleted = !!prevProgress?.isCompleted;
+    if (order === 1) return true; // Chapter 1 is unlocked by default
 
     const freeLimit = courseSlug === "python" ? 0 : 1;
     // Check if enrolled for chapters > freeLimit
     if (order > freeLimit && !isEnrolled) return false;
+
+    // Check previous chapter completion state (topics + recap + quiz >= 75%)
+    const prevChapter = chapters.find((c) => c.orderNumber === order - 1);
+    if (!prevChapter) return false;
+
+    const prevProgress = progresses.find((p) => p.chapterId === prevChapter.id);
+    const prevCompleted = !!prevProgress?.isCompleted && (prevProgress?.quizScore ?? 0) >= 75;
 
     return prevCompleted;
   };

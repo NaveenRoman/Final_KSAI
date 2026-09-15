@@ -367,6 +367,21 @@ model TopicProgress {
 
   masteryScore Int @default(0)
 
+  // Genuine Adaptive Mastery & Learning Profile fields
+  masteryLevel          String?   @default("NOT_ENOUGH_DATA")
+  recommendedDifficulty String?   @default("INTERMEDIATE")
+  understandingScore    Float?    @default(0)
+  assessmentScore       Float?    @default(0)
+  codingScore           Float?    @default(0)
+  recentPerformance     Float?    @default(0)
+  consistencyScore      Float?    @default(0)
+  evidenceCount         Int       @default(0)
+  reteachCount          Int       @default(0)
+  strengths             String?   // JSON array of verified conceptual strengths
+  weaknesses            String?   // JSON array of areas needing practice
+  misconceptions        String?   // JSON array of detected misconceptions
+  lastEvaluated         DateTime?
+
   lastActivity DateTime @default(now())
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

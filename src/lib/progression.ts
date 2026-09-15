@@ -424,13 +424,15 @@ export async function getAuthoritativeProgression(
     let isUnlocked = false;
     if (ch.orderNumber === 0) {
       isUnlocked = true;
-    } else if (idx === 0) {
-      isUnlocked = isEnrolled;
+    } else if (ch.orderNumber === 1 || idx === 0) {
+      isUnlocked = true;
     } else {
-      const prevCh = course.chapters[idx - 1];
-      const prevProg = progressMap.get(prevCh.id);
+      const prevCh =
+        course.chapters.find((c) => c.orderNumber === ch.orderNumber - 1) ||
+        course.chapters[idx - 1];
+      const prevProg = prevCh ? progressMap.get(prevCh.id) : undefined;
       const prevCompleted = !!prevProg?.isCompleted && (prevProg?.quizScore ?? 0) >= 75;
-      isUnlocked = isEnrolled && prevCompleted;
+      isUnlocked = prevCompleted;
     }
 
     return {

@@ -179,7 +179,19 @@ export default function CCurriculumPage() {
           {chapters.map((ch) => {
             const prog = progresses.find((p) => p.chapterId === ch.id);
             const isCompleted = prog?.isCompleted;
-            const isLocked = ch.orderNumber > 0 && !isEnrolled;
+
+            // Strict sequential lock: Chapter 0 unlocked; Chapter 1 unlocked by default; Chapter N requires Chapter N-1 complete with quiz >= 75
+            let isLocked = false;
+            if (ch.orderNumber > 0 && !isEnrolled) {
+              isLocked = true;
+            } else if (ch.orderNumber >= 2) {
+              const prevCh = chapters.find((c) => c.orderNumber === ch.orderNumber - 1);
+              if (prevCh) {
+                const prevProg = progresses.find((p) => p.chapterId === prevCh.id);
+                const prevCompleted = !!prevProg?.isCompleted && (prevProg?.quizScore ?? 0) >= 75;
+                if (!prevCompleted) isLocked = true;
+              }
+            }
 
             return (
               <div

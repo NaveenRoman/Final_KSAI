@@ -63,6 +63,11 @@ export default function ChapterSummary({
         }
       );
 
+      const isJson = response.headers.get("content-type")?.includes("application/json");
+      if (!isJson) {
+        throw new Error("Invalid response from chapter summary server.");
+      }
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {

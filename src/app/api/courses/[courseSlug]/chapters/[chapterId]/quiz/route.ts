@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { getAuthoritativeProgression } from "@/lib/progression";
+import { getChapterUnlockStatus } from "@/lib/adaptive/unlock-service";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,25 @@ export async function GET(
 
     if (!chapter) {
       return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
+    }
+
+    // Check authoritative chapter unlock status
+    const unlockStatus = await getChapterUnlockStatus({
+      userId: user.id,
+      courseSlug,
+      chapterOrderOrId: orderNum,
+    });
+
+    if (!unlockStatus.isUnlocked) {
+      return NextResponse.json(
+        {
+          error: "Chapter is locked. Complete previous chapter requirements first.",
+          locked: true,
+          lockReason: unlockStatus.lockReason,
+          previousChapter: unlockStatus.previousChapter,
+        },
+        { status: 403 }
+      );
     }
 
     // Calculate authoritative progression & quiz eligibility
