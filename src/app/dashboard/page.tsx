@@ -510,24 +510,24 @@ export default function DashboardPage() {
         fullHeight={true}
       />
 
-      {/* Main Right Area — Exactly 100% Viewport Height (Zero Scroll) */}
-      <main className="flex-1 h-full flex flex-col justify-between overflow-hidden p-4 gap-3 w-full min-w-0">
+      {/* Main Right Area — Single-Screen Viewport Fit Dashboard */}
+      <main className="flex-1 h-full flex flex-col justify-between overflow-hidden p-2.5 sm:p-3 xl:p-3.5 gap-1.5 sm:gap-2 xl:gap-2.5 w-full min-w-0">
         
         {/* Header Row */}
-        <div className="flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center justify-between flex-shrink-0 gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-              Welcome back, {firstName}! <span className="animate-bounce">👋</span>
+            <h1 className="text-lg sm:text-xl xl:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-1.5 leading-tight">
+              Welcome back, {firstName}! <span className="animate-bounce inline-block text-base">👋</span>
             </h1>
-            <p className="text-xs font-semibold text-slate-500">
+            <p className="text-[11px] font-semibold text-slate-500 leading-none mt-0.5">
               Keep learning, keep growing. You&apos;re doing great!
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
             {/* Functional Search Input with Live Dropdown */}
             <div className="relative hidden md:block" ref={searchRef}>
-              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input 
                 type="text" 
                 value={searchQuery}
@@ -548,7 +548,7 @@ export default function DashboardPage() {
                   }
                 }}
                 placeholder="Search courses, topics..." 
-                className="pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 w-60 focus:outline-none focus:border-[#4F46E5] placeholder-slate-400 font-medium shadow-sm transition-all"
+                className="pl-8 pr-3 py-1 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 w-44 sm:w-52 lg:w-60 focus:outline-none focus:border-[#4F46E5] placeholder-slate-400 font-medium shadow-2xs transition-all"
               />
 
               {/* Live Search Results Dropdown */}
@@ -594,11 +594,11 @@ export default function DashboardPage() {
             <div className="relative" ref={notificationsRef}>
               <button 
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="w-8.5 h-8.5 rounded-xl border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all hover:shadow-sm cursor-pointer"
+                className="w-7.5 h-7.5 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all hover:shadow-2xs cursor-pointer"
               >
-                <Bell size={16} />
+                <Bell size={14} />
                 {notifications?.unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-white shadow-xs">
                     {notifications.unreadCount}
                   </span>
                 )}
@@ -645,10 +645,10 @@ export default function DashboardPage() {
                   <img 
                     src={activeUser.image} 
                     alt={activeUser.name || "User Profile"} 
-                    className="w-8.5 h-8.5 rounded-full object-cover border-2 border-slate-200 group-hover:border-[#4F46E5] shadow-sm transition-all"
+                    className="w-7.5 h-7.5 rounded-full object-cover border-2 border-slate-200 group-hover:border-[#4F46E5] shadow-2xs transition-all"
                   />
                 ) : (
-                  <div className="w-8.5 h-8.5 rounded-full bg-[#4F46E5] text-white flex items-center justify-center font-black text-xs shadow-sm border-2 border-slate-200 group-hover:border-[#4338CA] transition-all">
+                  <div className="w-7.5 h-7.5 rounded-full bg-[#4F46E5] text-white flex items-center justify-center font-black text-[11px] shadow-2xs border-2 border-slate-200 group-hover:border-[#4338CA] transition-all">
                     {firstName.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -744,10 +744,10 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-all cursor-pointer shadow-2xs"
               title="Logout"
             >
-              <LogOut size={13} className="text-red-500" />
+              <LogOut size={12} className="text-red-500" />
               <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
@@ -755,23 +755,19 @@ export default function DashboardPage() {
 
         {/* Weekend Pending Goals Alert Banner */}
         {computedNotifications.weekendPendingAlert && (
-          <div className="p-3.5 px-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 flex items-center justify-between shadow-xs shrink-0">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-sm animate-pulse">
-                ⚠️
-              </div>
-              <div>
-                <h4 className="text-xs font-black text-slate-900">
-                  {computedNotifications.weekendPendingAlert.daysLeft === 1 ? "⚠️ 1 Day Left to Complete Weekly Targets!" : "⚠️ 2 Days Left to Complete Weekly Targets!"}
-                </h4>
-                <p className="text-[11px] text-slate-600 font-medium">
-                  You have incomplete goals (<span className="font-bold text-slate-900">{computedNotifications.weekendPendingAlert.pendingText}</span>). Complete them before Monday reset!
-                </p>
-              </div>
+          <div className="p-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 flex items-center justify-between shadow-2xs shrink-0 text-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-sm shrink-0">⚠️</span>
+              <p className="text-[11px] text-slate-700 font-medium truncate">
+                <span className="font-black text-slate-900">
+                  {computedNotifications.weekendPendingAlert.daysLeft === 1 ? "1 Day Left:" : "2 Days Left:"}
+                </span>{" "}
+                Incomplete goals ({computedNotifications.weekendPendingAlert.pendingText}). Finish before reset!
+              </p>
             </div>
             <button
               onClick={() => router.push("/courses")}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs transition shadow-sm shrink-0 cursor-pointer"
+              className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black text-[11px] transition shadow-2xs shrink-0 cursor-pointer"
             >
               Finish Targets →
             </button>
@@ -779,67 +775,67 @@ export default function DashboardPage() {
         )}
 
         {/* Top 4 Stat Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 flex-shrink-0 select-none h-[11vh] min-h-[75px]">
+        <div className="grid grid-cols-4 gap-2 xl:gap-2.5 flex-shrink-0 select-none h-[68px] xl:h-[72px] 2xl:h-[78px]">
           {/* Courses Enrolled */}
-          <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center gap-3.5 h-full">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-[#4F46E5] shrink-0">
-              <BookOpen size={18} />
+          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
+            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-indigo-50 flex items-center justify-center text-[#4F46E5] shrink-0">
+              <BookOpen size={16} />
             </div>
-            <div className="min-w-0 flex-1 flex flex-col justify-center">
-              <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider leading-none">Courses Enrolled</span>
-              <span className="text-2xl font-black text-slate-900 leading-tight mt-1">{stats?.coursesCount ?? 0}</span>
-              <span className="text-[11px] font-bold text-emerald-600 mt-0.5">
+            <div className="min-w-0 flex-1 flex flex-col justify-center leading-none">
+              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider truncate">Courses Enrolled</span>
+              <span className="text-lg xl:text-xl font-black text-slate-900 leading-tight mt-0.5">{stats?.coursesCount ?? 0}</span>
+              <span className="text-[10px] font-bold text-emerald-600 mt-0.5 truncate">
                 ↑ {stats?.newThisMonth ?? 0} new <span className="text-slate-400 font-normal">this month</span>
               </span>
             </div>
           </div>
 
           {/* Chapters Completed */}
-          <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center gap-3.5 h-full">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
-              <CheckCircle2 size={18} />
+          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
+            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
+              <CheckCircle2 size={16} />
             </div>
-            <div className="min-w-0 flex-1 flex flex-col justify-center space-y-0.5">
-              <div className="flex justify-between items-end leading-none">
-                <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider">Chapters Completed</span>
-                <span className="text-[10px] text-slate-400 font-mono font-bold">Out of {stats?.totalChaptersCount ?? 0}</span>
+            <div className="min-w-0 flex-1 flex flex-col justify-center space-y-0.5 leading-none">
+              <div className="flex justify-between items-end leading-none gap-1">
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider truncate">Chapters Completed</span>
+                <span className="text-[9px] text-slate-400 font-mono font-bold shrink-0">Out of {stats?.totalChaptersCount ?? 0}</span>
               </div>
-              <span className="text-2xl font-black text-slate-900 leading-tight">{stats?.completedChaptersCount ?? 0}</span>
-              <div className="flex items-center gap-2">
+              <span className="text-lg xl:text-xl font-black text-slate-900 leading-tight">{stats?.completedChaptersCount ?? 0}</span>
+              <div className="flex items-center gap-1.5">
                 <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                   <div 
                     className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
                     style={{ width: `${stats?.chaptersPercentage ?? 0}%` }}
                   />
                 </div>
-                <span className="text-[11px] text-slate-600 font-mono font-bold">{stats?.chaptersPercentage ?? 0}%</span>
+                <span className="text-[10px] text-slate-600 font-mono font-bold shrink-0">{stats?.chaptersPercentage ?? 0}%</span>
               </div>
             </div>
           </div>
 
           {/* Quiz Accuracy */}
-          <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center gap-3.5 h-full">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
-              <Trophy size={18} />
+          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
+            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
+              <Trophy size={16} />
             </div>
-            <div className="min-w-0 flex-1 flex flex-col justify-center">
-              <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider leading-none">Quiz Accuracy</span>
-              <span className="text-2xl font-black text-slate-900 leading-tight mt-1">{stats?.quizAccuracy ?? 0}%</span>
-              <span className="text-[11px] font-bold text-emerald-600 mt-0.5">
+            <div className="min-w-0 flex-1 flex flex-col justify-center leading-none">
+              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider truncate">Quiz Accuracy</span>
+              <span className="text-lg xl:text-xl font-black text-slate-900 leading-tight mt-0.5">{stats?.quizAccuracy ?? 0}%</span>
+              <span className="text-[10px] font-bold text-emerald-600 mt-0.5 truncate">
                 ↑ {stats?.quizImprovement ?? 0}% <span className="text-slate-400 font-normal">improvement</span>
               </span>
             </div>
           </div>
 
           {/* Learning Streak */}
-          <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex items-center gap-3.5 h-full">
-            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
-              <Flame size={18} className="animate-pulse" />
+          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
+            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
+              <Flame size={16} className="animate-pulse" />
             </div>
-            <div className="min-w-0 flex-1 flex flex-col justify-center">
-              <span className="text-[11px] font-black uppercase text-slate-500 tracking-wider leading-none">Learning Streak</span>
-              <span className="text-2xl font-black text-slate-900 leading-tight mt-1">{stats?.streak ?? 0} Days</span>
-              <span className="text-[11px] font-bold text-orange-500 mt-0.5">
+            <div className="min-w-0 flex-1 flex flex-col justify-center leading-none">
+              <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider truncate">Learning Streak</span>
+              <span className="text-lg xl:text-xl font-black text-slate-900 leading-tight mt-0.5">{stats?.streak ?? 0} Days</span>
+              <span className="text-[10px] font-bold text-orange-500 mt-0.5 truncate">
                 Keep it up! 🔥
               </span>
             </div>
@@ -850,107 +846,106 @@ export default function DashboardPage() {
 {/* 13D — TODAY'S LEARNING RECAP */}
 {/* ===================================================== */}
 
-<div className="flex-shrink-0 p-3 rounded-2xl border border-blue-100 bg-gradient-to-r from-white via-blue-50/40 to-indigo-50/40 shadow-sm">
+<div className="flex-shrink-0 p-1.5 xl:p-2 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-blue-100 bg-gradient-to-r from-white via-blue-50/40 to-indigo-50/40 shadow-2xs">
 
-  <div className="flex flex-col xl:flex-row xl:items-center gap-3">
+  <div className="flex items-center gap-2 xl:gap-3">
 
     {/* Header */}
-    <div className="flex items-center gap-2 min-w-[180px]">
-      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm">
-        <TrendingUp size={15} />
+    <div className="flex items-center gap-1.5 shrink-0">
+      <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center shadow-xs">
+        <TrendingUp size={13} />
       </div>
 
-      <div>
-        <h3 className="text-xs font-black text-slate-900">
+      <div className="leading-tight">
+        <h3 className="text-[11px] font-black text-slate-900 leading-none">
           Today&apos;s Learning
         </h3>
 
-        <p className="text-[9px] text-slate-500 font-medium">
-          Your daily learning recap
+        <p className="text-[8.5px] text-slate-500 font-medium leading-none mt-0.5">
+          Daily recap
         </p>
       </div>
     </div>
 
     {/* Metrics */}
-    <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 flex-1">
+    <div className="grid grid-cols-6 gap-1.5 flex-1 min-w-0">
 
       {/* Activities */}
-      <div className="px-2.5 py-2 rounded-xl bg-white border border-slate-200">
-        <div className="text-[8px] uppercase tracking-wider font-black text-slate-400">
+      <div className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between min-w-0">
+        <span className="text-[8px] uppercase tracking-wider font-black text-slate-400 truncate">
           Activity
-        </div>
+        </span>
 
-        <div className="text-sm font-black text-slate-900 mt-0.5">
+        <span className="text-xs font-black text-slate-900 ml-1">
           {dailyRecap?.events?.total ?? 0}
-        </div>
+        </span>
       </div>
 
       {/* Questions */}
-      <div className="px-2.5 py-2 rounded-xl bg-white border border-blue-100">
-        <div className="text-[8px] uppercase tracking-wider font-black text-blue-500">
+      <div className="px-2 py-0.5 rounded-lg bg-white border border-blue-100 flex items-center justify-between min-w-0">
+        <span className="text-[8px] uppercase tracking-wider font-black text-blue-500 truncate">
           Questions
-        </div>
+        </span>
 
-        <div className="text-sm font-black text-slate-900 mt-0.5">
+        <span className="text-xs font-black text-slate-900 ml-1">
           {dailyRecap?.events?.questions ?? 0}
-        </div>
+        </span>
       </div>
 
       {/* Practice */}
-      <div className="px-2.5 py-2 rounded-xl bg-white border border-emerald-100">
-        <div className="text-[8px] uppercase tracking-wider font-black text-emerald-500">
+      <div className="px-2 py-0.5 rounded-lg bg-white border border-emerald-100 flex items-center justify-between min-w-0">
+        <span className="text-[8px] uppercase tracking-wider font-black text-emerald-500 truncate">
           Practice
-        </div>
+        </span>
 
-        <div className="text-sm font-black text-slate-900 mt-0.5">
+        <span className="text-xs font-black text-slate-900 ml-1">
           {dailyRecap?.events?.practice ?? 0}
-        </div>
+        </span>
       </div>
 
       {/* Mistakes */}
-      <div className="px-2.5 py-2 rounded-xl bg-white border border-red-100">
-        <div className="text-[8px] uppercase tracking-wider font-black text-red-500">
+      <div className="px-2 py-0.5 rounded-lg bg-white border border-red-100 flex items-center justify-between min-w-0">
+        <span className="text-[8px] uppercase tracking-wider font-black text-red-500 truncate">
           Mistakes
-        </div>
+        </span>
 
-        <div className="text-sm font-black text-slate-900 mt-0.5">
+        <span className="text-xs font-black text-slate-900 ml-1">
           {dailyRecap?.events?.mistakes ?? 0}
-        </div>
+        </span>
       </div>
 
       {/* Corrections */}
-      <div className="px-2.5 py-2 rounded-xl bg-white border border-amber-100">
-        <div className="text-[8px] uppercase tracking-wider font-black text-amber-600">
-          Corrections
-        </div>
+      <div className="px-2 py-0.5 rounded-lg bg-white border border-amber-100 flex items-center justify-between min-w-0">
+        <span className="text-[8px] uppercase tracking-wider font-black text-amber-600 truncate">
+          Correct
+        </span>
 
-        <div className="text-sm font-black text-slate-900 mt-0.5">
+        <span className="text-xs font-black text-slate-900 ml-1">
           {dailyRecap?.events?.corrections ?? 0}
-        </div>
+        </span>
       </div>
 
       {/* Topics */}
-      <div className="px-2.5 py-2 rounded-xl bg-white border border-purple-100">
-        <div className="text-[8px] uppercase tracking-wider font-black text-purple-500">
+      <div className="px-2 py-0.5 rounded-lg bg-white border border-purple-100 flex items-center justify-between min-w-0">
+        <span className="text-[8px] uppercase tracking-wider font-black text-purple-500 truncate">
           Topics
-        </div>
+        </span>
 
-        <div className="text-sm font-black text-slate-900 mt-0.5">
+        <span className="text-xs font-black text-slate-900 ml-1">
           {dailyRecap?.topicsCount ?? 0}
-        </div>
+        </span>
       </div>
 
     </div>
 
     {/* Learning Summary */}
-    <div className="hidden xl:block max-w-[260px] min-w-[200px]">
-      <div className="text-[9px] uppercase tracking-wider font-black text-indigo-600">
-        AI Learning Summary
+    <div className="hidden 2xl:block max-w-[200px] shrink-0 leading-tight">
+      <div className="text-[8px] uppercase tracking-wider font-black text-indigo-600">
+        AI Summary
       </div>
 
-      <p className="text-[10px] text-slate-600 font-medium leading-relaxed mt-0.5 line-clamp-2">
-        {dailyRecap?.summary ||
-          "Start learning today and your progress will appear here."}
+      <p className="text-[9px] text-slate-600 font-medium truncate mt-0.5">
+        {dailyRecap?.summary || "Start learning today and your progress will appear here."}
       </p>
     </div>
 
@@ -1005,43 +1000,43 @@ export default function DashboardPage() {
 
 </div>
 
-        {/* Middle Row: Continue Learning (Carousel), Course Completion (Carousel), and AI Teacher */}
-        <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-5 gap-3 overflow-hidden">
+        {/* Middle Row: Continue Learning (2 cols) & Skill Mastery Matrix (3 cols) */}
+        <div className="grid grid-cols-5 gap-2 xl:gap-2.5 flex-1 min-h-0 overflow-hidden">
           
           {/* Continue Learning Carousel - Ultra-Premium Modern Card */}
-          <div className="xl:col-span-2 p-5 rounded-2xl border-2 border-indigo-100 bg-gradient-to-b from-slate-50/50 via-white to-indigo-50/20 flex flex-col justify-between overflow-hidden shadow-xs relative group">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-xs">
-                  <Play size={13} className="text-white fill-white ml-0.5" />
+          <div className="col-span-2 p-2.5 xl:p-3 2xl:p-3.5 rounded-xl xl:rounded-2xl border-2 border-indigo-100 bg-gradient-to-b from-slate-50/50 via-white to-indigo-50/20 flex flex-col justify-between shadow-2xs relative group h-full overflow-hidden">
+            <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/80 flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-xs">
+                  <Play size={11} className="text-white fill-white ml-0.5" />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                  <h3 className="text-xs sm:text-[13px] font-black text-slate-900 tracking-tight leading-none">
                     Continue Learning
                   </h3>
-                  <span className="text-[10px] text-slate-500 font-medium block">
+                  <span className="text-[9px] text-slate-500 font-medium block leading-none mt-0.5">
                     Pick up right where you left off
                   </span>
                 </div>
               </div>
 
               {continueLearningCourses.length > 1 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-mono font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                    Track {currentLearnIndex + 1} of {continueLearningCourses.length}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-mono font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded-full border border-indigo-200">
+                    {currentLearnIndex + 1}/{continueLearningCourses.length}
                   </span>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-0.5">
                     <button 
                       onClick={() => triggerManualLearnSelect((currentLearnIndex - 1 + continueLearningCourses.length) % continueLearningCourses.length)}
-                      className="w-6 h-6 rounded-lg bg-white shadow-xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
+                      className="w-5 h-5 rounded-md bg-white shadow-2xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
                     >
-                      <ChevronLeft size={13} />
+                      <ChevronLeft size={11} />
                     </button>
                     <button 
                       onClick={() => triggerManualLearnSelect((currentLearnIndex + 1) % continueLearningCourses.length)}
-                      className="w-6 h-6 rounded-lg bg-white shadow-xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
+                      className="w-5 h-5 rounded-md bg-white shadow-2xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
                     >
-                      <ChevronRight size={13} />
+                      <ChevronRight size={11} />
                     </button>
                   </div>
                 </div>
@@ -1049,25 +1044,25 @@ export default function DashboardPage() {
             </div>
 
             {continueLearningCourses.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-2xl shadow-xs">
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-4 space-y-2">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl shadow-xs">
                   🎓
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   <div className="text-xs font-black text-slate-900">No active course in progress</div>
-                  <p className="text-[11px] text-slate-500 max-w-xs">
+                  <p className="text-[10px] text-slate-500 max-w-xs">
                     Choose from our Python, Java, C++, or C curricula to start learning.
                   </p>
                 </div>
                 <button 
                   onClick={() => router.push("/courses/catalog")}
-                  className="px-5 py-2.5 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity cursor-pointer shadow-md shadow-blue-500/20"
+                  className="px-4 py-1.5 rounded-lg text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity cursor-pointer shadow-sm shadow-blue-500/20"
                 >
-                  Explore Course Catalog
+                  Explore Catalog
                 </button>
               </div>
             ) : (
-              <div className="flex-1 flex flex-col justify-between min-h-0 pt-3 relative space-y-3">
+              <div className="flex-1 flex flex-col justify-between pt-1.5 relative space-y-2 min-h-0">
                 {continueLearningCourses.map((course: CourseSlide, idx: number) => {
                   if (idx !== currentLearnIndex) return null;
 
@@ -1082,53 +1077,53 @@ export default function DashboardPage() {
                       : { label: "Python AI", bg: "bg-cyan-50 text-cyan-700 border-cyan-200" };
 
                   return (
-                    <div key={course.courseId} className="flex-1 flex flex-col justify-between min-h-0 space-y-3">
+                    <div key={course.courseId} className="flex-1 flex flex-col justify-between space-y-1.5 min-h-0">
                       {/* Course Card Top Row */}
-                      <div className="p-3.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex gap-3.5 items-start">
+                      <div className="p-2 xl:p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex gap-2.5 items-start">
                         <div className="relative shrink-0">
                           <img 
                             src={course.courseThumbnail} 
                             alt={course.courseTitle}
-                            className="w-16 h-16 rounded-xl object-cover border border-slate-200 shadow-xs"
+                            className="w-12 h-12 xl:w-13 xl:h-13 rounded-lg object-cover border border-slate-200 shadow-2xs"
                           />
-                          <span className={`absolute -bottom-1 -right-1 px-1.5 py-0.2 rounded-md text-[9px] font-mono font-black border uppercase ${langTag.bg}`}>
+                          <span className={`absolute -bottom-1 -right-1 px-1 py-0.2 rounded text-[8px] font-mono font-black border uppercase ${langTag.bg}`}>
                             {lang.toUpperCase()}
                           </span>
                         </div>
 
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`text-[9px] font-mono font-black uppercase px-2 py-0.5 rounded-full border ${langTag.bg}`}>
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center justify-between gap-1 leading-none">
+                            <span className={`text-[8px] font-mono font-black uppercase px-1.5 py-0.2 rounded border ${langTag.bg}`}>
                               {langTag.label}
                             </span>
-                            <span className="text-[10px] font-mono font-bold text-slate-500">
+                            <span className="text-[9px] font-mono font-bold text-slate-500 shrink-0">
                               {course.completedChaptersCount}/{course.totalChaptersCount || 11} Ch.
                             </span>
                           </div>
 
-                          <h4 className="text-xs sm:text-sm font-black text-slate-900 truncate tracking-tight leading-snug">
+                          <h4 className="text-xs sm:text-[13px] font-black text-slate-900 truncate tracking-tight leading-snug">
                             {course.courseTitle}
                           </h4>
 
-                          <div className="text-xs font-black text-indigo-700 flex items-center gap-1 truncate">
-                            <Sparkles size={12} className="text-indigo-600 shrink-0" />
-                            <span>Chapter {course.currentChapter?.orderNumber ?? 1}: {course.currentChapter?.title || "Concept Overview"}</span>
+                          <div className="text-[11px] font-black text-indigo-700 flex items-center gap-1 truncate">
+                            <Sparkles size={11} className="text-indigo-600 shrink-0" />
+                            <span className="truncate">Chapter {course.currentChapter?.orderNumber ?? 1}: {course.currentChapter?.title || "Concept Overview"}</span>
                           </div>
                         </div>
                       </div>
 
                       {/* Progress Bar Section */}
-                      <div className="space-y-1.5 px-0.5">
-                        <div className="flex justify-between items-center text-[11px] font-black text-slate-700">
-                          <span className="flex items-center gap-1.5">
+                      <div className="space-y-1 px-0.5">
+                        <div className="flex justify-between items-center text-[10px] font-black text-slate-700 leading-none">
+                          <span className="flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 animate-pulse" />
                             Current Completion
                           </span>
-                          <span className="font-mono text-indigo-600 font-black text-xs bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                          <span className="font-mono text-indigo-600 font-black text-[10px] bg-indigo-50 px-1.5 py-0.2 rounded-md border border-indigo-200">
                             {course.progressPercent}%
                           </span>
                         </div>
-                        <div className="h-2 rounded-full bg-slate-100 p-0.5 border border-slate-200/60 overflow-hidden">
+                        <div className="h-1.5 rounded-full bg-slate-100 p-0.2 border border-slate-200/60 overflow-hidden">
                           <div 
                             className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-400 rounded-full transition-all duration-500 shadow-xs"
                             style={{ width: `${Math.max(5, course.progressPercent)}%` }}
@@ -1137,23 +1132,23 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
                         <button 
                           onClick={() => {
                             const startOrder = course.currentChapter?.orderNumber ?? ((course.courseLanguage === "c" || course.courseLanguage === "python") ? 0 : 1);
                             router.push(`/courses/${course.courseLanguage}/chapter/${startOrder}`);
                           }}
-                          className="py-2.5 px-4 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-all text-center cursor-pointer shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                          className="py-1.5 px-3 rounded-lg text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-all text-center cursor-pointer shadow-xs shadow-blue-500/20 flex items-center justify-center gap-1 active:scale-[0.98]"
                         >
-                          <span>Resume Learning</span>
-                          <ArrowRight size={14} />
+                          <span>Resume</span>
+                          <ArrowRight size={12} />
                         </button>
                         <button 
                           onClick={() => router.push(`/courses/${course.courseLanguage}/curriculum`)}
-                          className="py-2.5 px-4 rounded-xl text-xs font-black text-slate-800 bg-white border-2 border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 transition-all text-center cursor-pointer shadow-2xs flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                          className="py-1.5 px-3 rounded-lg text-xs font-black text-slate-800 bg-white border border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 transition-all text-center cursor-pointer shadow-2xs flex items-center justify-center gap-1 active:scale-[0.98]"
                         >
-                          <BookOpen size={14} className="text-slate-600" />
-                          <span>Full Curriculum</span>
+                          <BookOpen size={12} className="text-slate-600" />
+                          <span>Curriculum</span>
                         </button>
                       </div>
                     </div>
@@ -1162,13 +1157,13 @@ export default function DashboardPage() {
 
                 {/* Dot Pagination */}
                 {continueLearningCourses.length > 1 && (
-                  <div className="flex justify-center items-center gap-1.5 pt-1">
+                  <div className="flex justify-center items-center gap-1 pt-0.5">
                     {continueLearningCourses.map((_course: CourseSlide, dIdx: number) => (
                       <button
                         key={dIdx}
                         onClick={() => triggerManualLearnSelect(dIdx)}
-                        className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                          dIdx === currentLearnIndex ? "bg-indigo-600 w-5 shadow-xs" : "bg-slate-300 hover:bg-slate-400 w-1.5"
+                        className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${
+                          dIdx === currentLearnIndex ? "bg-indigo-600 w-4 shadow-xs" : "bg-slate-300 hover:bg-slate-400 w-1"
                         }`}
                       />
                     ))}
@@ -1227,32 +1222,32 @@ export default function DashboardPage() {
             const isGrandChampionUnlocked = (stats?.completedChaptersCount ?? 0) >= (stats?.totalChaptersCount ?? 999) && (stats?.totalChaptersCount ?? 0) > 0;
 
             return (
-              <div className="xl:col-span-3 p-4 rounded-2xl border border-slate-200/80 bg-white flex flex-col justify-between overflow-hidden shadow-sm relative space-y-3">
+              <div className="col-span-3 p-2.5 xl:p-3 2xl:p-3.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white flex flex-col justify-between shadow-2xs relative space-y-1.5 h-full overflow-hidden">
                 
                 {/* Header: Gamified Level & XP Velocity */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-100 flex-shrink-0">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center font-black text-sm shadow-md shrink-0 animate-pulse">
+                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100 flex-shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center font-black text-xs shadow-xs shrink-0 animate-pulse">
                       ⚡
                     </div>
                     <div>
-                      <h3 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                      <h3 className="text-xs sm:text-[13px] font-black text-slate-900 flex items-center gap-1.5 leading-none">
                         Skill Mastery & XP Journey Matrix 🎮
                       </h3>
-                      <p className="text-[10px] text-slate-500 font-bold">
+                      <p className="text-[9px] text-slate-500 font-bold leading-none mt-0.5">
                         Real-time gamified performance tracking & XP growth curve
                       </p>
                     </div>
                   </div>
 
                   {/* Player Level Badge */}
-                  <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100/80 px-3 py-1 rounded-xl shrink-0">
-                    <ShieldCheck size={16} className="text-[#4F46E5]" />
+                  <div className="flex items-center gap-1.5 bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100/80 px-2 py-0.5 rounded-lg shrink-0">
+                    <ShieldCheck size={13} className="text-[#4F46E5]" />
                     <div>
-                      <div className="text-[10px] font-black uppercase text-[#4F46E5] tracking-wider leading-none">
+                      <div className="text-[9px] font-black uppercase text-[#4F46E5] tracking-wider leading-none">
                         {levelTitle}
                       </div>
-                      <div className="text-[9px] font-mono font-extrabold text-slate-600 mt-0.5">
+                      <div className="text-[8px] font-mono font-extrabold text-slate-600 leading-none mt-0.5">
                         {currentXp} / {targetXp} XP
                       </div>
                     </div>
@@ -1260,18 +1255,18 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Main Content Grid: Skill Radar Breakdown (Left) + Weekly XP Area Wave Chart (Right) */}
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 items-center min-h-0">
+                <div className="grid grid-cols-2 gap-2 xl:gap-2.5 items-stretch flex-1 min-h-0 overflow-hidden py-0.5">
                   
                   {/* Left Column: Multi-Attribute Skill Mastery Meters */}
-                  <div className="space-y-2.5 bg-slate-50/70 p-3 rounded-xl border border-slate-100">
-                    <div className="flex items-center justify-between text-[11px] font-black text-slate-900 border-b border-slate-200/60 pb-1">
+                  <div className="space-y-1 bg-slate-50/70 p-2 xl:p-2.5 rounded-xl border border-slate-100 flex flex-col justify-between overflow-hidden">
+                    <div className="flex items-center justify-between text-[10px] font-black text-slate-900 border-b border-slate-200/60 pb-0.5">
                       <span>⚡ Attribute Power Breakdown</span>
-                      <span className="text-[9px] text-indigo-600 uppercase font-mono font-bold">Live Status</span>
+                      <span className="text-[8.5px] text-indigo-600 uppercase font-mono font-bold">Live Status</span>
                     </div>
 
                     {/* Skill 1: DSA & Logic */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center text-[10px] font-black text-slate-700">
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between items-center text-[9.5px] font-black text-slate-700 leading-none">
                         <span className="flex items-center gap-1">🧠 Logic & DSA Power</span>
                         <span className="text-[#4F46E5]">{dsaPower}% • {getTierName(dsaPower)}</span>
                       </div>
@@ -1281,8 +1276,8 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Skill 2: Quiz Accuracy */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center text-[10px] font-black text-slate-700">
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between items-center text-[9.5px] font-black text-slate-700 leading-none">
                         <span className="flex items-center gap-1">🎯 Quiz Accuracy & Retention</span>
                         <span className="text-purple-600">{quizAccuracyPower}% • {getTierName(quizAccuracyPower)}</span>
                       </div>
@@ -1292,8 +1287,8 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Skill 3: AI Collaboration */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center text-[10px] font-black text-slate-700">
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between items-center text-[9.5px] font-black text-slate-700 leading-none">
                         <span className="flex items-center gap-1">🤖 AI Prompting & Debugging</span>
                         <span className="text-emerald-600">{aiCollabPower}% • {getTierName(aiCollabPower)}</span>
                       </div>
@@ -1303,8 +1298,8 @@ export default function DashboardPage() {
                     </div>
 
                     {/* Skill 4: Streak Consistency */}
-                    <div className="space-y-1">
-                      <div className="flex justify-between items-center text-[10px] font-black text-slate-700">
+                    <div className="space-y-0.5">
+                      <div className="flex justify-between items-center text-[9.5px] font-black text-slate-700 leading-none">
                         <span className="flex items-center gap-1">🔥 Consistency & Streak</span>
                         <span className="text-amber-600">{stats?.streak || 0} Days • {getTierName(streakPower)}</span>
                       </div>
@@ -1315,19 +1310,19 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Right Column: Weekly XP Velocity Area Wave Chart */}
-                  <div className="flex flex-col justify-between h-full bg-slate-50/70 p-3 rounded-xl border border-slate-100 space-y-2">
+                  <div className="flex flex-col justify-between h-full bg-slate-50/70 p-2 xl:p-2.5 rounded-xl border border-slate-100 space-y-1 overflow-hidden">
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-black text-slate-900 flex items-center gap-1">
+                      <span className="text-[10px] font-black text-slate-900 flex items-center gap-1">
                         📈 Weekly XP Growth Wave
                       </span>
-                      <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-mono text-[9px] font-black uppercase">
+                      <span className="px-1.5 py-0.2 rounded-md bg-amber-100 text-amber-800 font-mono text-[8px] font-black uppercase">
                         2x XP Weekend 🔥
                       </span>
                     </div>
 
                     {/* Dynamic SVG Area Curve Chart */}
-                    <div className="h-28 w-full relative pt-2">
-                      <svg className="w-full h-full overflow-visible" viewBox="0 0 300 90">
+                    <div className="h-16 xl:h-20 w-full relative pt-1">
+                      <svg className="w-full h-full overflow-visible" viewBox="0 0 300 85">
                         <defs>
                           <linearGradient id="xpGradientDynamic" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#4F46E5" stopOpacity="0.4" />
@@ -1350,23 +1345,23 @@ export default function DashboardPage() {
                           d={`M 0 ${yCoords[0]} L 50 ${yCoords[1]} L 100 ${yCoords[2]} L 150 ${yCoords[3]} L 200 ${yCoords[4]} L 250 ${yCoords[5]} L 300 ${yCoords[6]}`}
                           fill="none"
                           stroke="#4F46E5"
-                          strokeWidth="3"
+                          strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
                         />
 
                         {/* Dynamic Interactive Points */}
-                        <circle cx="0" cy={yCoords[0]} r="4" fill="#4F46E5" />
-                        <circle cx="50" cy={yCoords[1]} r="4" fill="#4F46E5" />
-                        <circle cx="100" cy={yCoords[2]} r="4" fill="#4F46E5" />
-                        <circle cx="150" cy={yCoords[3]} r="4" fill="#4F46E5" />
-                        <circle cx="200" cy={yCoords[4]} r="4" fill="#4F46E5" />
-                        <circle cx="250" cy={yCoords[5]} r="5" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2" />
-                        <circle cx="300" cy={yCoords[6]} r="4" fill="#4F46E5" />
+                        <circle cx="0" cy={yCoords[0]} r="3" fill="#4F46E5" />
+                        <circle cx="50" cy={yCoords[1]} r="3" fill="#4F46E5" />
+                        <circle cx="100" cy={yCoords[2]} r="3" fill="#4F46E5" />
+                        <circle cx="150" cy={yCoords[3]} r="3" fill="#4F46E5" />
+                        <circle cx="200" cy={yCoords[4]} r="3" fill="#4F46E5" />
+                        <circle cx="250" cy={yCoords[5]} r="4" fill="#F59E0B" stroke="#FFFFFF" strokeWidth="1.5" />
+                        <circle cx="300" cy={yCoords[6]} r="3" fill="#4F46E5" />
                       </svg>
 
                       {/* Days Labels */}
-                      <div className="flex justify-between text-[9px] font-mono font-extrabold text-slate-400 pt-1">
+                      <div className="flex justify-between text-[8px] font-mono font-extrabold text-slate-400 pt-0.5">
                         <span>MON</span>
                         <span>TUE</span>
                         <span>WED</span>
@@ -1377,7 +1372,7 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-600 pt-1 border-t border-slate-200/60">
+                    <div className="flex items-center justify-between text-[9px] font-extrabold text-slate-600 pt-0.5 border-t border-slate-200/60">
                       <span>Velocity: <strong className="text-[#4F46E5]">+{avgVelocity} XP / day</strong></span>
                       <span className="text-emerald-600 font-black">Total: +{totalWeeklyXp} XP</span>
                     </div>
@@ -1385,33 +1380,33 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Dynamic Achievement Badges Footer Strip */}
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 flex-shrink-0 text-xs">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
-                    🏆 Achievements Status
+                <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-100 flex-shrink-0 text-xs">
+                  <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
+                    🏆 Achievements
                   </span>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center gap-1 border ${
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black flex items-center gap-1 border ${
                       isSpeedDemonUnlocked
                         ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                         : "bg-slate-100 border-slate-200 text-slate-400 opacity-60"
                     }`}>
                       {isSpeedDemonUnlocked ? "⚡ Speed Demon" : "🔒 Speed Demon"}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center gap-1 border ${
+                    <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black flex items-center gap-1 border ${
                       isStreakMasterUnlocked
                         ? "bg-indigo-50 border-indigo-200 text-[#4F46E5]"
                         : "bg-slate-100 border-slate-200 text-slate-400 opacity-60"
                     }`}>
                       {isStreakMasterUnlocked ? "🔥 Streak Master" : "🔒 Streak Master"}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center gap-1 border ${
+                    <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black flex items-center gap-1 border ${
                       isQuizTitanUnlocked
                         ? "bg-purple-50 border-purple-200 text-purple-700"
                         : "bg-slate-100 border-slate-200 text-slate-400 opacity-60"
                     }`}>
                       {isQuizTitanUnlocked ? "🎯 Quiz Titan" : "🔒 Quiz Titan"}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center gap-1 border ${
+                    <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black flex items-center gap-1 border ${
                       isGrandChampionUnlocked
                         ? "bg-amber-50 border-amber-200 text-amber-700"
                         : "bg-slate-100 border-slate-200 text-slate-400 opacity-60"
@@ -1426,17 +1421,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Bottom Row: Donut Chart, Goals, Heatmap */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 flex-shrink-0 h-[24vh] min-h-[160px]">
+        <div className="grid grid-cols-3 gap-2 xl:gap-2.5 flex-shrink-0 h-[145px] xl:h-[160px] 2xl:h-[175px]">
           
           {/* Learning Progress Donut */}
-          <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex flex-col justify-between overflow-hidden relative select-none h-full">
-            <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-wider pb-1 border-b border-slate-100 flex-shrink-0">
+          <div className="p-2 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none h-full">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-wider pb-0.5 border-b border-slate-100 flex-shrink-0 leading-none">
               Learning Progress
             </h3>
             
-            <div className="flex items-center gap-4 py-1 flex-1 min-h-0">
-              <div className="relative w-20 h-20 shrink-0 flex items-center justify-center">
-                <svg className="w-full h-full transform -rotate-90">
+            <div className="flex items-center gap-2.5 py-0.5 flex-1 min-h-0">
+              <div className="relative w-16 h-16 xl:w-18 xl:h-18 shrink-0 flex items-center justify-center">
+                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
                   <circle cx="40" cy="40" r="30" className="stroke-slate-100 fill-none" strokeWidth="7" />
                   <circle cx="40" cy="40" r="30" className="stroke-slate-300 fill-none" strokeWidth="7" 
                     strokeDasharray={2 * Math.PI * 30}
@@ -1452,43 +1447,43 @@ export default function DashboardPage() {
                   />
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xs font-black text-slate-900 leading-none font-mono">{learningProgress?.overallProgressPercent ?? 0}%</span>
-                  <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide mt-0.5">Overall</span>
+                  <span className="text-[11px] xl:text-xs font-black text-slate-900 leading-none font-mono">{learningProgress?.overallProgressPercent ?? 0}%</span>
+                  <span className="text-[7.5px] text-slate-400 font-extrabold uppercase tracking-wide mt-0.5">Overall</span>
                 </div>
               </div>
 
               {/* Legends list */}
-              <div className="flex-1 space-y-1 text-xs text-slate-700 font-bold">
+              <div className="flex-1 space-y-0.5 text-[9.5px] xl:text-[10.5px] text-slate-700 font-bold min-w-0">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span>Completed</span>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="truncate">Completed</span>
                   </div>
-                  <span className="font-mono font-black text-slate-900">{learningProgress?.completedCount} ({learningProgress?.completedPercentage}%)</span>
+                  <span className="font-mono font-black text-slate-900 shrink-0 text-[9px] xl:text-[10px]">{learningProgress?.completedCount} ({learningProgress?.completedPercentage}%)</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#7C3AED]" />
-                    <span>In Progress</span>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#7C3AED] shrink-0" />
+                    <span className="truncate">In Progress</span>
                   </div>
-                  <span className="font-mono font-black text-slate-900">{learningProgress?.inProgressCount} ({learningProgress?.inProgressPercentage}%)</span>
+                  <span className="font-mono font-black text-slate-900 shrink-0 text-[9px] xl:text-[10px]">{learningProgress?.inProgressCount} ({learningProgress?.inProgressPercentage}%)</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-slate-300" />
-                    <span>Remaining</span>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                    <span className="truncate">Remaining</span>
                   </div>
-                  <span className="font-mono font-black text-slate-900">{learningProgress?.remainingCount} ({learningProgress?.remainingPercentage}%)</span>
+                  <span className="font-mono font-black text-slate-900 shrink-0 text-[9px] xl:text-[10px]">{learningProgress?.remainingCount} ({learningProgress?.remainingPercentage}%)</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Goals Widget */}
-          <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex flex-col justify-between overflow-hidden relative select-none h-full">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100 flex-shrink-0">
-              <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                This Week&apos;s Goals {isGoalsLocked && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">LOCKED</span>}
+          <div className="p-2 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none h-full">
+            <div className="flex items-center justify-between pb-0.5 border-b border-slate-100 flex-shrink-0 gap-1 leading-none">
+              <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1 truncate">
+                This Week&apos;s Goals {isGoalsLocked && <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">LOCKED</span>}
               </h3>
               <button
                 type="button"
@@ -1502,24 +1497,24 @@ export default function DashboardPage() {
                   setEditTargetAIChats(weeklyGoals?.aiSessions?.target ?? 5);
                   setIsGoalsModalOpen(true);
                 }}
-                className={`text-[11px] font-extrabold flex items-center gap-1 cursor-pointer transition ${
+                className={`text-[9.5px] font-extrabold flex items-center gap-1 cursor-pointer transition shrink-0 ${
                   isGoalsLocked
-                    ? "text-amber-700 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-lg border border-amber-200"
+                    ? "text-amber-700 bg-amber-50 hover:bg-amber-100 px-1.5 py-0.2 rounded border border-amber-200"
                     : "text-[#4F46E5] hover:underline"
                 }`}
               >
-                {isGoalsLocked ? <Lock size={11} className="text-amber-600" /> : <Edit3 size={11} />}
-                {isGoalsLocked ? "Locked until Monday" : "Edit Goals"}
+                {isGoalsLocked ? <Lock size={10} className="text-amber-600" /> : <Edit3 size={10} />}
+                {isGoalsLocked ? "Locked" : "Edit Goals"}
               </button>
             </div>
             
-            <div className="space-y-2 py-1 flex-1 flex flex-col justify-center text-xs text-slate-700 font-extrabold">
-              <div className="space-y-1">
+            <div className="space-y-1 py-0.5 flex-1 flex flex-col justify-center text-[9.5px] xl:text-[10px] text-slate-700 font-extrabold">
+              <div className="space-y-0.5">
                 <div className="flex justify-between items-center leading-none">
-                  <span className="flex items-center gap-1">🟢 Complete {weeklyGoals?.chapters?.target ?? 2} Chapters</span>
-                  <span className="font-mono text-slate-500 font-bold">{weeklyGoals?.chapters?.current ?? 0}/{weeklyGoals?.chapters?.target ?? 2}</span>
+                  <span className="flex items-center gap-1 truncate">🟢 Complete {weeklyGoals?.chapters?.target ?? 2} Chapters</span>
+                  <span className="font-mono text-slate-500 font-bold text-[9px] shrink-0">{weeklyGoals?.chapters?.current ?? 0}/{weeklyGoals?.chapters?.target ?? 2}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
                   <div 
                     className="h-full bg-blue-500 rounded-full"
                     style={{ width: `${Math.min(100, ((weeklyGoals?.chapters?.current ?? 0) / (weeklyGoals?.chapters?.target ?? 2)) * 100)}%` }}
@@ -1527,12 +1522,12 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="flex justify-between items-center leading-none">
-                  <span className="flex items-center gap-1">🎯 Solve {weeklyGoals?.quizzes?.target ?? 10} Quiz Questions</span>
-                  <span className="font-mono text-slate-500 font-bold">{weeklyGoals?.quizzes?.current ?? 0}/{weeklyGoals?.quizzes?.target ?? 10}</span>
+                  <span className="flex items-center gap-1 truncate">🎯 Solve {weeklyGoals?.quizzes?.target ?? 10} Quiz Questions</span>
+                  <span className="font-mono text-slate-500 font-bold text-[9px] shrink-0">{weeklyGoals?.quizzes?.current ?? 0}/{weeklyGoals?.quizzes?.target ?? 10}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
                   <div 
                     className="h-full bg-purple-500 rounded-full"
                     style={{ width: `${Math.min(100, ((weeklyGoals?.quizzes?.current ?? 0) / (weeklyGoals?.quizzes?.target ?? 10)) * 100)}%` }}
@@ -1540,12 +1535,12 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 <div className="flex justify-between items-center leading-none">
-                  <span className="flex items-center gap-1">🤖 AI Practice &amp; Chats</span>
-                  <span className="font-mono text-slate-500 font-bold">{weeklyGoals?.aiSessions?.current ?? 0}/{weeklyGoals?.aiSessions?.target ?? 5}</span>
+                  <span className="flex items-center gap-1 truncate">🤖 AI Practice &amp; Chats</span>
+                  <span className="font-mono text-slate-500 font-bold text-[9px] shrink-0">{weeklyGoals?.aiSessions?.current ?? 0}/{weeklyGoals?.aiSessions?.target ?? 5}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
                   <div 
                     className="h-full bg-emerald-500 rounded-full"
                     style={{ width: `${Math.min(100, ((weeklyGoals?.aiSessions?.current ?? 0) / (weeklyGoals?.aiSessions?.target ?? 5)) * 100)}%` }}
@@ -1554,7 +1549,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="text-center pt-1 border-t border-slate-100 flex-shrink-0">
+            <div className="text-center pt-0.5 border-t border-slate-100 flex-shrink-0">
               <button 
                 type="button"
                 onClick={() => {
@@ -1563,7 +1558,7 @@ export default function DashboardPage() {
                   setEditTargetAIChats(weeklyGoals?.aiSessions?.target ?? 5);
                   setIsGoalsModalOpen(true);
                 }} 
-                className="text-xs font-black text-[#4F46E5] hover:underline cursor-pointer"
+                className="text-[9.5px] font-black text-[#4F46E5] hover:underline cursor-pointer leading-none"
               >
                 Manage &amp; Customize Goals
               </button>
@@ -1571,27 +1566,27 @@ export default function DashboardPage() {
           </div>
 
           {/* LeetCode Style Coding Activity Heatmap */}
-          <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex flex-col justify-between overflow-hidden relative select-none h-full space-y-1.5">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100 flex-shrink-0">
-              <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="p-2 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none h-full space-y-1">
+            <div className="flex items-center justify-between pb-0.5 border-b border-slate-100 flex-shrink-0 leading-none">
+              <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-wider flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 Coding Activity Matrix 🟩
               </h3>
-              <span className="text-[9px] font-mono font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+              <span className="text-[8px] font-mono font-black text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-1.5 py-0.2 rounded">
                 {heatmap.reduce((sum: number, w: any) => sum + w.days.reduce((dSum: number, d: any) => dSum + d.count, 0), 0)} Submissions
               </span>
             </div>
             
-            <div className="flex flex-col justify-between flex-1 min-h-0 pt-1 space-y-2">
+            <div className="flex flex-col justify-between flex-1 min-h-0 pt-0.5 space-y-1">
               {/* LeetCode Green Grid Matrix */}
-              <div className="flex gap-1 justify-between items-center overflow-x-auto py-1 scrollbar-thin">
+              <div className="flex gap-0.5 sm:gap-1 justify-between items-center overflow-x-hidden py-0.5">
                 {heatmap.map((week: any, wIdx: number) => (
-                  <div key={wIdx} className="flex flex-col gap-1 shrink-0">
+                  <div key={wIdx} className="flex flex-col gap-0.5 shrink-0">
                     {week.days.map((day: any, dIdx: number) => (
                       <div 
                         key={dIdx}
                         title={`${day.date}: ${day.count} coding submissions`}
-                        className={`w-3 h-3 rounded-xs transition-all duration-200 hover:scale-125 cursor-pointer shadow-xs ${
+                        className={`w-2 h-2 xl:w-2.5 xl:h-2.5 rounded-2xs transition-all duration-200 hover:scale-125 cursor-pointer shadow-xs ${
                           day.intensity === 0 
                             ? "bg-slate-100 border border-slate-200/40 hover:bg-slate-200/60" 
                             : day.intensity === 1 
@@ -1609,14 +1604,14 @@ export default function DashboardPage() {
               </div>
 
               {/* LeetCode Heatmap Swatches Legend */}
-              <div className="flex items-center justify-between text-[9px] text-slate-400 font-mono font-bold uppercase tracking-wider pt-1 border-t border-slate-100 flex-shrink-0">
+              <div className="flex items-center justify-between text-[8px] text-slate-400 font-mono font-bold uppercase tracking-wider pt-0.5 border-t border-slate-100 flex-shrink-0">
                 <span>Less</span>
-                <div className="flex items-center gap-1">
-                  <div className="w-2.5 h-2.5 rounded-xs bg-slate-100 border border-slate-200/60" />
-                  <div className="w-2.5 h-2.5 rounded-xs bg-[#9BE9A8]" />
-                  <div className="w-2.5 h-2.5 rounded-xs bg-[#40C463]" />
-                  <div className="w-2.5 h-2.5 rounded-xs bg-[#30A14E]" />
-                  <div className="w-2.5 h-2.5 rounded-xs bg-[#216E39]" />
+                <div className="flex items-center gap-0.5">
+                  <div className="w-2 h-2 rounded-2xs bg-slate-100 border border-slate-200/60" />
+                  <div className="w-2 h-2 rounded-2xs bg-[#9BE9A8]" />
+                  <div className="w-2 h-2 rounded-2xs bg-[#40C463]" />
+                  <div className="w-2 h-2 rounded-2xs bg-[#30A14E]" />
+                  <div className="w-2 h-2 rounded-2xs bg-[#216E39]" />
                 </div>
                 <span>More</span>
               </div>
@@ -1625,17 +1620,17 @@ export default function DashboardPage() {
         </div>
 
         {/* Recommended for You Row */}
-        <div className="p-3.5 rounded-2xl border border-slate-200/80 bg-white shadow-sm flex flex-col justify-between overflow-hidden flex-shrink-0 h-[10.5vh] min-h-[65px] select-none">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100 flex-shrink-0">
-            <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-wider leading-none">
+        <div className="p-1.5 xl:p-2 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden flex-shrink-0 h-[56px] xl:h-[60px] 2xl:h-[66px] select-none">
+          <div className="flex items-center justify-between pb-0.5 border-b border-slate-100 flex-shrink-0 leading-none">
+            <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-wider leading-none">
               Recommended for You
             </h3>
-            <span className="text-[10px] text-slate-400 font-bold uppercase">Based on progress</span>
+            <span className="text-[9px] text-slate-400 font-bold uppercase leading-none">Based on progress</span>
           </div>
           
-          <div className="flex items-center gap-3 overflow-x-auto py-0.5 scrollbar-thin min-h-0 flex-shrink-0 relative">
+          <div className="flex items-center gap-2 overflow-x-auto py-0.5 scrollbar-thin flex-shrink-0 relative">
             {recommended.length === 0 ? (
-              <span className="text-xs text-slate-500 font-bold uppercase tracking-wide">All courses fully enrolled! Outstanding progress!</span>
+              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">All courses fully enrolled! Outstanding progress!</span>
             ) : (
               recommended.map((course: any) => (
                 <div 
@@ -1647,28 +1642,28 @@ export default function DashboardPage() {
                       router.push(`/courses/${course.language}/curriculum`);
                     }
                   }}
-                  className="flex-shrink-0 w-64 p-1.5 px-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100/50 hover:border-[#4F46E5]/40 flex gap-2.5 items-center cursor-pointer transition-all hover:scale-101 group shadow-sm"
+                  className="flex-shrink-0 w-48 sm:w-52 p-1 px-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/50 hover:border-[#4F46E5]/40 flex gap-2 items-center cursor-pointer transition-all hover:scale-[1.01] group shadow-2xs"
                 >
                   <img 
                     src={course.thumbnail} 
                     alt={course.title}
-                    className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
+                    className="w-6 h-6 rounded-md object-cover border border-slate-200 shrink-0"
                   />
-                  <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="min-w-0 flex-1 space-y-0.2">
                     <div className="flex items-center justify-between gap-1 leading-none">
-                      <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border leading-none ${
+                      <span className={`text-[7px] font-black uppercase px-1 py-0.2 rounded border leading-none ${
                         course.badge === "Review Required" 
                           ? "bg-red-50 border-red-200 text-red-600" 
                           : "bg-indigo-50 border-indigo-100 text-[#4F46E5]"
                       }`}>
                         {course.badge}
                       </span>
-                      <div className="flex items-center gap-0.5 text-[10px] text-amber-500 font-bold shrink-0">
-                        <Star size={10} className="fill-amber-400 text-amber-500" />
+                      <div className="flex items-center gap-0.5 text-[9px] text-amber-500 font-bold shrink-0">
+                        <Star size={9} className="fill-amber-400 text-amber-500" />
                         <span>{course.rating}</span>
                       </div>
                     </div>
-                    <h4 className="text-xs font-black text-slate-900 truncate group-hover:text-[#4F46E5] transition-colors">
+                    <h4 className="text-[10px] sm:text-[11px] font-black text-slate-900 truncate group-hover:text-[#4F46E5] transition-colors leading-tight">
                       {course.title}
                     </h4>
                   </div>

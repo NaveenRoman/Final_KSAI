@@ -1176,27 +1176,6 @@ const saveLessonProgress = async (
       lesson,
       payload.status
     );
-
-    // Save/update structured study note in day-wise notebook
-    try {
-      if (courseId && currentChapter?.id) {
-        await fetch("/api/notes", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            courseId,
-            chapterId: currentChapter.id,
-            topic: lesson,
-            title: lesson,
-            type: "NOTEBOOK",
-            content: `Core concepts and syntax for ${lesson} in ${currentChapter.title}.`,
-            saveEvent: true,
-          }),
-        });
-      }
-    } catch (noteErr) {
-      console.warn("Auto-note save notice:", noteErr);
-    }
   } catch (error) {
     console.error(
       "Lesson progress save error:",
@@ -2302,6 +2281,41 @@ const startMentorListening = () => {
           diagram: sessionData?.diagram || null,
           understanding: performance?.understanding || "Strong",
           completedAt: new Date().toISOString(),
+        },
+        structuredContext: {
+          courseId: courseId || "python",
+          language: "python",
+          chapterId: currentChapter?.id || String(chapterOrder),
+          chapterTitle: currentChapter?.title,
+          chapterOrder,
+          topic: title,
+          timestamp: new Date().toISOString(),
+          whatAITaught: {
+            concept: sessionData?.whatILearned || title,
+            explanation: sessionData?.whatILearned || markdownContent,
+            importantPoints: sessionData?.importantPoints || sessionData?.coreConcepts || [],
+            examples: sessionData?.examples || [],
+            codeExamples: sessionData?.codeSnippets || [],
+          },
+          studentInteraction: {
+            studentQuestions: topicStudentChats,
+          },
+          understandingCheck: sessionData?.teacherQuestions?.[0]
+            ? {
+                aiQuestion: sessionData.teacherQuestions[0].question,
+                studentActualAnswer: sessionData.teacherQuestions[0].answer,
+                expectedAnswer: sessionData.teacherQuestions[0].whatWasCorrect,
+                evaluation: sessionData.teacherQuestions[0].result || "CORRECT",
+                score: sessionData.teacherQuestions[0].score ?? 85,
+                correctness: performance?.isCorrect ?? true,
+                misconception: sessionData.teacherQuestions[0].whatIsMissing || null,
+              }
+            : undefined,
+          learningSignals: {
+            strengths: performance?.strengths || sessionData?.importantPoints || [],
+            needsSupport: performance?.needsImprovement || [],
+            demonstratedUnderstanding: performance?.isCorrect ?? true,
+          },
         },
       }),
     }).catch((err) => {

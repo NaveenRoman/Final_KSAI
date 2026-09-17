@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { generateQuickRecap, generateCheckpointQuestionForTopic } from "@/lib/recap-bank";
+import { appendLearningUnitToNotebook, resolveCourse } from "@/lib/notebook/notebook-service";
 
 export const dynamic = "force-dynamic";
 
@@ -46,14 +47,14 @@ async function getCurrentUser() {
 
 /**
  * GET /api/recap/quick
- * Query params: language (c | cpp | python | java), chapterOrder (optional), topic (optional)
- * Automatically detects the student's last actually studied topic if not specified.
+ *
+ * Grounded directly on the student's actual accumulated Learning Notebook context.
  */
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser();
     const { searchParams } = new URL(request.url);
-    const rawLang = (searchParams.get("language") || "python").toLowerCase().trim();
+    const rawLang = (searchParams.get("language") || searchParams.get("course") || "python").toLowerCase().trim();
     const language = rawLang === "c++" ? "cpp" : rawLang;
 
     let topic = searchParams.get("topic");
@@ -61,46 +62,36 @@ export async function GET(request: NextRequest) {
     let resolvedCourseId = "";
     let resolvedChapterId = "";
 
-    // If user is authenticated and topic is not explicitly provided, detect last studied topic
-    if (user && (!topic || topic === "auto" || topic === "undefined")) {
-      try {
-        const { getLastMeaningfulTopic } = await import("@/lib/adaptive/resume-service");
-        const meaningfulTopic = await getLastMeaningfulTopic({
+    const courseObj = await resolveCourse(language);
+    resolvedCourseId = courseObj.id;
+
+    // Fetch the student's latest chronologically completed learning note in this course
+    let latestNote: any = null;
+
+    if (user) {
+      latestNote = await db.learningNote.findFirst({
+        where: {
           userId: user.id,
-          courseId: language,
-          chapterId: resolvedChapterId,
-          chapterLessons: [],
-        });
-        if (meaningfulTopic) {
-          topic = meaningfulTopic;
-        }
-      } catch (e) {
-        console.warn("getLastMeaningfulTopic fallback notice:", e);
-      }
+          courseId: resolvedCourseId,
+        },
+        include: {
+          chapter: { select: { id: true, orderNumber: true, title: true } },
+          course: { select: { id: true, language: true, title: true } },
+        },
+        orderBy: [
+          { sequenceOrder: "desc" },
+          { createdAt: "desc" },
+        ],
+      });
 
-      if (!topic || topic === "auto" || topic === "undefined") {
-        const latestNote = await db.learningNote.findFirst({
-          where: {
-            userId: user.id,
-            course: { language },
-            type: "NOTEBOOK",
-          },
-          include: {
-            chapter: { select: { id: true, orderNumber: true } },
-            course: { select: { id: true } },
-          },
-          orderBy: { updatedAt: "desc" },
-        });
-
-        if (latestNote) {
-          topic = latestNote.topic;
-          chapterOrder = latestNote.chapter?.orderNumber ?? chapterOrder;
-          resolvedCourseId = latestNote.courseId;
-          resolvedChapterId = latestNote.chapterId;
-        }
+      if (latestNote && (!topic || topic === "auto" || topic === "undefined")) {
+        topic = latestNote.topic;
+        chapterOrder = latestNote.chapter?.orderNumber ?? chapterOrder;
+        resolvedChapterId = latestNote.chapterId;
       }
     }
 
+    // Fallback topic if no history
     if (!topic || topic === "auto" || topic === "undefined") {
       topic = language === "c"
         ? "1. What is C, and Where is it Used?"
@@ -111,10 +102,57 @@ export async function GET(request: NextRequest) {
         : "1. What is Python & Setting Up Your Environment";
     }
 
+    // Parse actual learning context from latest note
+    let meta: any = null;
+    if (latestNote?.metadata) {
+      try {
+        meta = typeof latestNote.metadata === "string" ? JSON.parse(latestNote.metadata) : latestNote.metadata;
+      } catch {
+        meta = null;
+      }
+    }
+
+    const whatAITaughtActual =
+      meta?.whatAITaught?.explanation ||
+      meta?.whatILearned ||
+      latestNote?.content ||
+      `Core concepts covered in ${topic}.`;
+
+    const whatStudentAnsweredActual =
+      meta?.understandingCheck?.studentActualAnswer ||
+      meta?.teacherQuestions?.[0]?.answer ||
+      (meta?.studentQuestions?.[0]?.question ? `Asked: "${meta.studentQuestions[0].question}"` : null);
+
+    const whatWasUnderstoodActual =
+      meta?.learningSignals?.strengths ||
+      meta?.importantPoints ||
+      meta?.coreConcepts ||
+      [];
+
+    const whatNeedsSupportActual =
+      meta?.learningSignals?.needsSupport ||
+      (meta?.understandingCheck?.misconception ? [meta.understandingCheck.misconception] : []);
+
+    const whereStopped = topic;
+
+    // Base quick recap template
     let quickRecap = generateQuickRecap(language, chapterOrder, topic);
     let question = generateCheckpointQuestionForTopic(language, topic);
 
-    // If profile exists, generate genuinely adaptive quick recap tailored to student
+    // Enrich with actual learning context
+    if (latestNote) {
+      quickRecap.whatWeLearned = `Welcome back! In your last session, you studied ${topic}.\n\n` +
+        `What you covered: ${meta?.whatAITaught?.concept || topic}.\n` +
+        (whatWasUnderstoodActual.length > 0 ? `Demonstrated understanding: ${whatWasUnderstoodActual.slice(0, 2).join(", ")}.\n` : "") +
+        (whatNeedsSupportActual.length > 0 ? `Keep in mind: ${whatNeedsSupportActual[0]}.\n` : "") +
+        `Resuming directly from ${whereStopped}.`;
+
+      if (meta?.understandingCheck?.aiQuestion) {
+        question = meta.understandingCheck.aiQuestion;
+      }
+    }
+
+    // Adaptive profile enrichment
     if (user) {
       try {
         const { getTopicLearningProfile } = await import("@/lib/adaptive/profile-service");
@@ -126,10 +164,10 @@ export async function GET(request: NextRequest) {
             course: language,
             profile,
           });
-          if (adapted.recapText) {
+          if (adapted.recapText && !latestNote) {
             quickRecap.whatWeLearned = adapted.recapText;
           }
-          if (adapted.question) {
+          if (adapted.question && !meta?.understandingCheck?.aiQuestion) {
             question = adapted.question;
           }
         }
@@ -146,6 +184,13 @@ export async function GET(request: NextRequest) {
       chapterId: resolvedChapterId,
       recap: quickRecap,
       question,
+      actualLearningContext: {
+        whatAITaught: whatAITaughtActual,
+        whatStudentAnswered: whatStudentAnsweredActual,
+        whatWasUnderstood: whatWasUnderstoodActual,
+        whatNeedsSupport: whatNeedsSupportActual,
+        whereStopped,
+      },
     });
   } catch (error) {
     console.error("GET /api/recap/quick error:", error);
@@ -158,7 +203,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/recap/quick
- * Saves/persists interactive quick recap checkpoint into LearningNote table
+ *
+ * Saves/persists interactive quick recap checkpoint into Learning Notebook
  */
 export async function POST(request: NextRequest) {
   try {
@@ -188,32 +234,24 @@ export async function POST(request: NextRequest) {
       understandingDecision, // "CONTINUE" | "TEACH_AGAIN"
     } = body;
 
-    let targetCourseId = courseId;
-    let targetChapterId = chapterId;
+    const courseObj = await resolveCourse(courseId || language);
 
-    if (!targetCourseId) {
-      const cleanLang = language.toLowerCase() === "c++" ? "cpp" : language.toLowerCase();
-      const course = await db.course.findFirst({
-        where: { language: cleanLang },
-        include: { chapters: { take: 1, orderBy: { orderNumber: "asc" } } },
-      });
-      if (course) {
-        targetCourseId = course.id;
-        targetChapterId = targetChapterId || course.chapters[0]?.id;
-      }
-    }
-
-    if (!targetCourseId || !topic) {
+    if (!topic) {
       return NextResponse.json(
-        { success: false, error: "courseId and topic are required." },
+        { success: false, error: "topic is required." },
         { status: 400 }
       );
     }
 
-    const content = `Quick Recap & Understanding Check: ${topic}\n\n${whatWeLearned || ""}\n\nTeacher Question:\n${question || ""}\n\nStudent Answer:\n${studentAnswer || "(Voice/Text response)"}\n\nAI Evaluation & Feedback:\n${aiFeedback || "Concept reviewed."}\n\nDecision: ${understandingDecision === "TEACH_AGAIN" ? "Teach Again Requested" : "Understood & Continued"}`;
+    const content = `Quick Recap & Understanding Check: ${topic}\n\n` +
+      `${whatWeLearned || ""}\n\n` +
+      `Teacher Question:\n${question || ""}\n\n` +
+      `Student Answer:\n${studentAnswer || "(Voice/Text response)"}\n\n` +
+      `AI Evaluation & Feedback:\n${aiFeedback || "Concept reviewed."}\n\n` +
+      `Decision: ${understandingDecision === "TEACH_AGAIN" ? "Teach Again Requested" : "Understood & Continued"}`;
 
     const metadata = {
-      language,
+      language: courseObj.language,
       topic,
       whatWeLearned,
       keyConcept,
@@ -227,40 +265,17 @@ export async function POST(request: NextRequest) {
       completedAt: new Date().toISOString(),
     };
 
-    // Upsert quick recap note
-    const existing = await db.learningNote.findFirst({
-      where: {
-        userId: user.id,
-        courseId: targetCourseId,
-        topic: `Quick Recap: ${topic}`,
-      },
+    const note = await appendLearningUnitToNotebook({
+      userId: user.id,
+      courseIdOrSlug: courseObj.id,
+      chapterId: chapterId || "chapter-default",
+      topic: `Quick Recap: ${topic}`,
+      title: `Quick Recap • ${topic}`,
+      type: "QUICK_RECAP",
+      content,
+      rawMetadata: metadata,
+      saveEvent: true,
     });
-
-    let note;
-    if (existing) {
-      note = await db.learningNote.update({
-        where: { id: existing.id },
-        data: {
-          content,
-          metadata: JSON.stringify(metadata),
-          updatedAt: new Date(),
-        },
-      });
-    } else {
-      note = await db.learningNote.create({
-        data: {
-          userId: user.id,
-          courseId: targetCourseId,
-          chapterId: targetChapterId || "chapter-default",
-          topic: `Quick Recap: ${topic}`,
-          title: `Quick Recap • ${topic}`,
-          type: "QUICK_RECAP",
-          content,
-          metadata: JSON.stringify(metadata),
-          importance: 3,
-        },
-      });
-    }
 
     return NextResponse.json({
       success: true,

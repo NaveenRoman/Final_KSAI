@@ -2,12 +2,12 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import VisualNoteRenderer from "@/components/notes/VisualNoteRenderer";
 import {
   ArrowLeft,
   BookOpen,
   Calendar,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Code2,
   Copy,
@@ -21,12 +21,16 @@ import {
   Trash2,
   Zap,
   BookMarked,
+  AlertCircle,
+  FileText,
 } from "lucide-react";
 
 type Note = {
   id: string;
   courseId: string;
   chapterId: string;
+  topicId?: string | null;
+  subtopic?: string | null;
   topic: string;
   title: string;
   type: string;
@@ -34,6 +38,8 @@ type Note = {
   metadata?: string | null;
   importance: number;
   isPinned: boolean;
+  pageNumber: number;
+  sequenceOrder: number;
   createdAt: string;
   updatedAt: string;
 
@@ -47,75 +53,61 @@ type Note = {
     id: string;
     title: string;
     orderNumber: number;
-    explanation: string;
   };
 };
 
-type ChapterSection = {
-  title: string;
-  question?: string;
-  answer?: string;
-  importantPoints?: string[];
-  examples?: Array<{ title: string; lang?: string; code?: string; content?: string }>;
-  diagram?: any | null;
-  content: string;
-  bullets: string[];
-  codeBlocks: Array<{ lang: string; code: string }>;
-  teacherQuestions?: Array<{
-    question: string;
-    answer?: string;
-    feedback?: string;
-    result?: string;
+type NotebookPageResponse = {
+  success: boolean;
+  course: {
+    id: string;
+    title: string;
+    language: string;
+  };
+  pageNumber: number;
+  totalPages: number;
+  hasPrevious: boolean;
+  hasNext: boolean;
+  totalUnitsOnPage: number;
+  chaptersOnPage: Array<{
+    id: string;
+    title: string;
+    orderNumber: number;
+    topics: string[];
   }>;
-  studentQuestions?: Array<{
-    question: string;
-    answer: string;
-  }>;
-};
-
-type ChapterData = {
-  id: string;
-  title: string;
-  orderNumber: number;
-  courseTitle: string;
-  language: string;
-  content: string;
-  sections: ChapterSection[];
-  revisionPoints?: string[];
-};
-
-type DayGroup = {
-  date: string;
-  formattedDate: string;
-  courses: Array<{ id: string; title: string; language: string }>;
-  chapters: ChapterData[];
   notes: Note[];
+  createdAt: string;
+  updatedAt: string;
+  error?: string;
 };
 
 const SUPPORTED_COURSES = [
   {
     id: "python",
-    title: "Python AI & Data Structures Architecture",
+    title: "Python AI & Data Structures",
     language: "python",
     label: "Python",
+    color: "from-blue-600 to-indigo-700",
   },
   {
     id: "java",
-    title: "Java Enterprise & Object-Oriented Architecture",
+    title: "Java Enterprise Architecture",
     language: "java",
     label: "Java",
+    color: "from-amber-600 to-orange-700",
   },
   {
     id: "c",
-    title: "C Programming Architecture",
+    title: "C Systems Programming",
     language: "c",
     label: "C",
+    color: "from-slate-700 to-slate-900",
   },
   {
     id: "cpp",
-    title: "C++ Mastery Architecture",
+    title: "C++ High-Performance Architecture",
     language: "cpp",
     label: "C++",
+    color: "from-cyan-600 to-blue-700",
   },
 ];
 
@@ -129,6 +121,8 @@ function NotesContent() {
     searchParams.get("courseId") ||
     "";
 
+  const initialPageParam = parseInt(searchParams.get("page") || "1", 10);
+
   const [activeCourse, setActiveCourse] = useState<string>(() => {
     if (initialCourseParam) {
       const clean = initialCourseParam.toLowerCase().trim();
@@ -141,41 +135,33 @@ function NotesContent() {
     return "python";
   });
 
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [days, setDays] = useState<DayGroup[]>([]);
+  const [currentPage, setCurrentPage] = useState<number>(initialPageParam || 1);
+  const [pageData, setPageData] = useState<NotebookPageResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDayFilter, setSelectedDayFilter] = useState<string>("ALL");
   const [copiedCodeId, setCopiedCodeId] = useState<string | null>(null);
-
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [explainingNoteId, setExplainingNoteId] = useState<string | null>(null);
-  const [explainedNoteId, setExplainedNoteId] = useState<string | null>(null);
-  const [explanation, setExplanation] = useState("");
 
+  // Synchronize URL parameters
   useEffect(() => {
     if (initialCourseParam) {
       const clean = initialCourseParam.toLowerCase().trim();
       const normalized = clean === "c++" ? "cpp" : clean;
       if (normalized !== activeCourse) {
         setActiveCourse(normalized);
-        if (typeof window !== "undefined") {
-          localStorage.setItem("active_notes_course", normalized);
-        }
-        loadNotes(normalized);
+        setCurrentPage(1);
       }
     }
   }, [initialCourseParam]);
 
-  async function loadNotes(courseToLoad = activeCourse) {
+  async function loadPage(courseToLoad: string, pageToLoad: number) {
     try {
       setLoading(true);
       setError("");
 
-      const timezoneOffset = new Date().getTimezoneOffset();
       const response = await fetch(
-        `/api/notes?course=${encodeURIComponent(courseToLoad)}&timezoneOffset=${timezoneOffset}`,
+        `/api/notes?course=${encodeURIComponent(courseToLoad)}&page=${pageToLoad}&mode=page`,
         {
           method: "GET",
           cache: "no-store",
@@ -185,15 +171,15 @@ function NotesContent() {
       const data = await response.json();
 
       if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to load notes.");
+        throw new Error(data.error || "Failed to load notebook page.");
       }
 
-      setNotes(data.notes || []);
-      setDays(data.days || []);
+      setPageData(data);
+      setCurrentPage(data.pageNumber || pageToLoad);
     } catch (err) {
-      console.error("Notes loading error:", err);
+      console.error("Notebook page loading error:", err);
       setError(
-        err instanceof Error ? err.message : "Failed to load your notes."
+        err instanceof Error ? err.message : "Failed to load your study notebook."
       );
     } finally {
       setLoading(false);
@@ -201,17 +187,25 @@ function NotesContent() {
   }
 
   useEffect(() => {
-    loadNotes(activeCourse);
-  }, [activeCourse]);
+    loadPage(activeCourse, currentPage);
+  }, [activeCourse, currentPage]);
 
   const handleCourseChange = (newCourse: string) => {
     const clean = newCourse.toLowerCase().trim();
     const normalized = clean === "c++" ? "cpp" : clean;
     setActiveCourse(normalized);
+    setCurrentPage(1);
     if (typeof window !== "undefined") {
       localStorage.setItem("active_notes_course", normalized);
     }
-    router.replace(`/notes?course=${encodeURIComponent(normalized)}`);
+    router.replace(`/notes?course=${encodeURIComponent(normalized)}&page=1`);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || (pageData && newPage > pageData.totalPages)) return;
+    setCurrentPage(newPage);
+    router.replace(`/notes?course=${encodeURIComponent(activeCourse)}&page=${newPage}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const currentCourseObj =
@@ -222,56 +216,8 @@ function NotesContent() {
       title: `${activeCourse.toUpperCase()} Architecture`,
       language: activeCourse,
       label: activeCourse.toUpperCase(),
+      color: "from-blue-600 to-indigo-700",
     };
-
-  const filteredDays: DayGroup[] = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    const result: DayGroup[] = [];
-
-    for (const dayGroup of days) {
-      if (selectedDayFilter !== "ALL" && dayGroup.date !== selectedDayFilter) {
-        continue;
-      }
-
-      const matchingChapters = (dayGroup.chapters || []).filter((ch) => {
-        if (!query) return true;
-        return (
-          ch.title.toLowerCase().includes(query) ||
-          ch.content.toLowerCase().includes(query) ||
-          ch.sections.some(
-            (s) =>
-              s.title.toLowerCase().includes(query) ||
-              (s.answer && s.answer.toLowerCase().includes(query)) ||
-              (s.question && s.question.toLowerCase().includes(query))
-          )
-        );
-      });
-
-      const matchingNotes = (dayGroup.notes || []).filter((note) => {
-        if (!query) return true;
-
-        const textToSearch = `${note.title} ${note.topic} ${note.content} ${
-          note.course?.title || ""
-        } ${note.chapter?.title || ""}`.toLowerCase();
-
-        return textToSearch.includes(query);
-      });
-
-      if (matchingNotes.length === 0 && matchingChapters.length === 0) {
-        continue;
-      }
-
-      result.push({
-        date: dayGroup.date,
-        formattedDate: dayGroup.formattedDate,
-        chapters: matchingChapters,
-        notes: matchingNotes,
-        courses: dayGroup.courses || [],
-      });
-    }
-
-    return result;
-  }, [days, searchQuery, selectedDayFilter]);
 
   const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -279,53 +225,9 @@ function NotesContent() {
     setTimeout(() => setCopiedCodeId(null), 2000);
   };
 
-  const openInCourse = (chapterOrder: number, specificLang?: string) => {
-    const langToUse = specificLang || activeCourse;
-    const clean = langToUse.toLowerCase().trim();
-    const targetSlug =
-      clean === "c++" || clean === "cpp"
-        ? "cpp"
-        : clean === "c"
-        ? "c"
-        : clean === "java"
-        ? "java"
-        : "python";
-    router.push(`/courses/${targetSlug}/chapter/${chapterOrder}`);
-  };
-
-  async function explainNote(note: Note) {
-    try {
-      setExplainingNoteId(note.id);
-      setExplainedNoteId(null);
-      setExplanation("");
-
-      const response = await fetch("/api/notes/explain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ noteId: note.id }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to explain this note.");
-      }
-
-      setExplainedNoteId(note.id);
-      setExplanation(data.explanation || "");
-    } catch (err) {
-      console.error("Explain note error:", err);
-      alert(
-        err instanceof Error ? err.message : "Failed to explain this note."
-      );
-    } finally {
-      setExplainingNoteId(null);
-    }
-  }
-
   async function deleteNote(id: string) {
     const confirmed = window.confirm(
-      "Delete this learning note? This cannot be undone."
+      "Remove this learning unit from your notebook? This cannot be undone."
     );
     if (!confirmed) return;
 
@@ -338,15 +240,8 @@ function NotesContent() {
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to delete note.");
       }
-      setNotes((current) => current.filter((note) => note.id !== id));
-      setDays((current) =>
-        current
-          .map((day) => ({
-            ...day,
-            notes: day.notes.filter((note) => note.id !== id),
-          }))
-          .filter((day) => day.notes.length > 0 || day.chapters.length > 0)
-      );
+      // Reload current page
+      loadPage(activeCourse, currentPage);
     } catch (err) {
       console.error("Delete note error:", err);
       alert(err instanceof Error ? err.message : "Failed to delete note.");
@@ -355,9 +250,23 @@ function NotesContent() {
     }
   }
 
+  // Filter notes on current page by search query
+  const filteredNotes = useMemo(() => {
+    if (!pageData?.notes) return [];
+    if (!searchQuery.trim()) return pageData.notes;
+    const q = searchQuery.toLowerCase().trim();
+    return pageData.notes.filter(
+      (n) =>
+        n.topic.toLowerCase().includes(q) ||
+        n.title.toLowerCase().includes(q) ||
+        n.content.toLowerCase().includes(q)
+    );
+  }, [pageData?.notes, searchQuery]);
+
   return (
-    <main className="min-h-screen bg-[#F8FAFC] text-slate-900 pb-24">
-      <header className="h-[76px] bg-white border-b border-slate-200/90 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30 shadow-xs">
+    <main className="min-h-screen bg-[#F1F5F9] text-slate-900 pb-20">
+      {/* Top Application Header */}
+      <header className="h-[72px] bg-white border-b border-slate-200/90 flex items-center justify-between px-4 sm:px-8 sticky top-0 z-30 shadow-xs">
         <div className="flex items-center gap-3 sm:gap-4">
           <button
             onClick={() => router.push("/dashboard")}
@@ -368,21 +277,24 @@ function NotesContent() {
           </button>
 
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 text-white flex items-center justify-center shadow-md">
+            <div
+              className={`w-10 h-10 rounded-xl bg-gradient-to-br ${currentCourseObj.color} text-white flex items-center justify-center shadow-md`}
+            >
               <BookMarked size={20} />
             </div>
 
             <div>
-              <p className="text-[10px] uppercase tracking-[0.18em] font-black text-blue-600">
-                {currentCourseObj.label} Notes • KnowledgeStream AI
+              <p className="text-[10px] uppercase tracking-[0.2em] font-black text-blue-600">
+                {currentCourseObj.label} Notebook • KnowledgeStream AI
               </p>
               <h1 className="text-base sm:text-lg font-black tracking-tight text-slate-950">
-                {currentCourseObj.label} Study Notebook
+                {currentCourseObj.label} Student Notebook
               </h1>
             </div>
           </div>
         </div>
 
+        {/* Search within notebook */}
         <div className="hidden md:flex items-center w-[280px] lg:w-[320px] h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 gap-2 focus-within:border-blue-500 focus-within:bg-white transition shadow-xs">
           <Search size={16} className="text-slate-400 shrink-0" />
           <input
@@ -403,398 +315,388 @@ function NotesContent() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+      {/* Course Bar & Page Summary Controls */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 pb-4">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-black tracking-wide flex items-center gap-1.5 shadow-xs">
-              <BookOpen size={14} />
-              <span>{currentCourseObj.label} Completed Topics</span>
-            </span>
-            <span className="text-xs font-semibold text-slate-500">
-              {days.length} Learning {days.length === 1 ? "Day" : "Days"} Recorded
-            </span>
-          </div>
-
+          {/* Course Tabs */}
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs">
-              <Filter size={13} className="text-slate-400" />
-              <select
-                value={activeCourse}
-                onChange={(e) => handleCourseChange(e.target.value)}
-                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
-              >
-                {SUPPORTED_COURSES.map((c) => (
-                  <option key={c.language} value={c.language}>
-                    {c.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {days.length > 1 && (
-              <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-3 py-1.5 shadow-xs">
-                <Calendar size={13} className="text-slate-400" />
-                <select
-                  value={selectedDayFilter}
-                  onChange={(e) => setSelectedDayFilter(e.target.value)}
-                  className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+            {SUPPORTED_COURSES.map((c) => {
+              const isActive = activeCourse === c.language;
+              return (
+                <button
+                  key={c.language}
+                  onClick={() => handleCourseChange(c.language)}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 shadow-xs ${
+                    isActive
+                      ? "bg-slate-950 text-white shadow-sm"
+                      : "bg-white text-slate-700 hover:bg-slate-100 border border-slate-200"
+                  }`}
                 >
-                  <option value="ALL">All Dates</option>
-                  {days.map((d) => (
-                    <option key={d.date} value={d.date}>
-                      {d.formattedDate}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+                  <BookOpen size={13} className={isActive ? "text-blue-400" : "text-slate-400"} />
+                  <span>{c.label}</span>
+                </button>
+              );
+            })}
           </div>
-        </div>
 
-        <div className="mt-8">
-          {loading ? (
-            <div className="py-24 text-center">
-              <Loader2 size={36} className="text-blue-600 animate-spin mx-auto mb-3" />
-              <p className="text-sm font-bold text-slate-700">
-                Opening your {currentCourseObj.label} study notebook...
-              </p>
-            </div>
-          ) : error ? (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-800">
-              <p className="font-bold mb-2">Error</p>
-              <p className="text-sm">{error}</p>
-            </div>
-          ) : filteredDays.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center max-w-lg mx-auto shadow-xs">
-              <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
-                <BookOpen size={28} />
-              </div>
-              <h3 className="text-base font-black text-slate-900 mb-1">
-                No {currentCourseObj.label} study notebook entries found
-              </h3>
-              <p className="text-xs text-slate-500 leading-relaxed mb-5">
-                Your study notebook automatically records key concepts, questions, answers,
-                diagrams, and code examples as you complete {currentCourseObj.label} topics.
-              </p>
-              <button
-                onClick={() =>
-                  openInCourse(
-                    activeCourse === "cpp" || activeCourse === "java" ? 1 : 0
-                  )
-                }
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm"
-              >
-                Start Learning {currentCourseObj.label} →
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-14">
-              {filteredDays.map((dayGroup) => (
-                <section key={dayGroup.date} className="space-y-8">
-                  <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:px-7 rounded-3xl shadow-sm border border-slate-800">
-                    <div className="flex items-center gap-3.5">
-                      <div className="w-10 h-10 rounded-2xl bg-blue-600/40 border border-blue-400/40 text-blue-200 flex items-center justify-center shadow-xs">
-                        <Calendar size={20} />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-blue-300">
-                          LEARNING DATE
-                        </div>
-                        <h2 className="text-base sm:text-lg font-black tracking-tight text-white">
-                          {dayGroup.formattedDate}
-                        </h2>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="px-3 py-1 rounded-xl bg-white/10 border border-white/20 text-xs font-extrabold text-blue-200 backdrop-blur-sm">
-                        {currentCourseObj.title}
-                      </span>
-                    </div>
-                  </div>
-
-                  {dayGroup.chapters && dayGroup.chapters.length > 0 ? (
-                    <div className="space-y-10">
-                      {dayGroup.chapters.map((chapter) => (
-                        <div key={chapter.id} className="space-y-6">
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b-2 border-slate-900 pb-3">
-                            <div className="space-y-0.5">
-                              <div className="text-[10px] font-black uppercase tracking-widest text-blue-700">
-                                {currentCourseObj.label.toUpperCase()} • CHAPTER {chapter.orderNumber}
-                              </div>
-                              <h3 className="text-lg sm:text-xl font-black text-slate-950 uppercase tracking-tight">
-                                {chapter.title}
-                              </h3>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => openInCourse(chapter.orderNumber)}
-                              className="px-3 py-1.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 text-xs font-bold hover:bg-blue-100 transition flex items-center gap-1"
-                            >
-                              <span>Open in Course</span>
-                              <ChevronRight size={14} />
-                            </button>
-                          </div>
-
-                          <div className="space-y-6">
-                            {chapter.sections.map((section, sIdx) => {
-                              const sectionCodeId = `${chapter.id}-${sIdx}`;
-                              return (
-                                <article
-                                  key={sIdx}
-                                  className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs space-y-6 transition hover:border-slate-300"
-                                >
-                                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                                    <h4 className="text-base sm:text-lg font-black text-slate-950 uppercase tracking-tight flex items-center gap-2.5">
-                                      <span className="w-8 h-8 rounded-xl bg-slate-950 text-white flex items-center justify-center text-xs font-mono font-bold shadow-xs">
-                                        {sIdx + 1}
-                                      </span>
-                                      <span>{section.title}</span>
-                                    </h4>
-
-                                    <div className="flex items-center gap-2">
-                                      <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-mono font-black uppercase flex items-center gap-1">
-                                        <CheckCircle2 size={11} className="text-emerald-600" />
-                                        Completed
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  {section.question && (
-                                    <div className="rounded-2xl bg-rose-50/80 border border-rose-200/90 p-4 space-y-1">
-                                      <div className="text-[10px] font-black uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
-                                        <HelpCircle size={13} className="text-rose-600" />
-                                        <span>Question</span>
-                                      </div>
-                                      <p className="text-xs sm:text-sm font-bold text-rose-900 leading-snug">
-                                        {section.question}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {section.answer && (
-                                    <div className="rounded-2xl bg-blue-50/70 border border-blue-200/80 p-4 sm:p-5 space-y-1.5">
-                                      <div className="text-[10px] font-black uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
-                                        <Sparkles size={13} className="text-blue-600" />
-                                        <span>What I Learned (Core Concept)</span>
-                                      </div>
-                                      <div className="text-xs sm:text-sm font-medium text-blue-950 leading-relaxed whitespace-pre-wrap">
-                                        {section.answer}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {section.diagram && (
-                                    <div className="space-y-2">
-                                      <div className="text-xs font-black uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
-                                        <Layers size={14} className="text-blue-600" />
-                                        <span>HOW IT WORKS (FLOWCHART)</span>
-                                      </div>
-                                      <VisualNoteRenderer metadata={section.diagram} />
-                                    </div>
-                                  )}
-
-                                  {section.importantPoints && section.importantPoints.length > 0 && (
-                                    <div className="space-y-2.5">
-                                      <div className="text-xs font-black uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
-                                        <CheckCircle2 size={14} className="text-slate-800" />
-                                        <span>IMPORTANT POINTS</span>
-                                      </div>
-                                      <div className="grid gap-2 sm:grid-cols-2">
-                                        {section.importantPoints.map((pt, ptIdx) => (
-                                          <div
-                                            key={ptIdx}
-                                            className="rounded-xl bg-blue-50/50 border border-blue-200/60 p-3 text-xs font-medium text-blue-950 flex items-start gap-2 shadow-2xs"
-                                          >
-                                            <span className="text-blue-600 font-bold shrink-0">•</span>
-                                            <span>{pt}</span>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* 6. TEACHER QUESTIONS (Checkpoints) */}
-                                  {section.teacherQuestions && section.teacherQuestions.length > 0 && (
-                                    <div className="space-y-3">
-                                      <div className="text-xs font-black uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
-                                        <HelpCircle size={14} className="text-indigo-600" />
-                                        <span>TEACHER QUESTIONS & CHECKPOINTS</span>
-                                      </div>
-                                      <div className="space-y-2.5">
-                                        {section.teacherQuestions.map((tq, tqIdx) => (
-                                          <div
-                                            key={tqIdx}
-                                            className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 space-y-2"
-                                          >
-                                            <div className="text-xs font-bold text-indigo-950 flex items-start gap-2">
-                                              <span className="px-1.5 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-black uppercase shrink-0">Teacher</span>
-                                              <span>{tq.question}</span>
-                                            </div>
-                                            {tq.answer && (
-                                              <div className="text-xs text-indigo-900/90 pl-6 border-l-2 border-indigo-300 ml-2">
-                                                <span className="font-bold">Evaluation: </span>
-                                                {tq.feedback || tq.answer}
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* 7. STUDENT ASK AI QUESTIONS */}
-                                  {section.studentQuestions && section.studentQuestions.length > 0 && (
-                                    <div className="space-y-3">
-                                      <div className="text-xs font-black uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
-                                        <Sparkles size={14} className="text-emerald-600" />
-                                        <span>MY QUESTIONS (ASK AI CHAT)</span>
-                                      </div>
-                                      <div className="space-y-2.5">
-                                        {section.studentQuestions.map((sq, sqIdx) => (
-                                          <div
-                                            key={sqIdx}
-                                            className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4 space-y-2"
-                                          >
-                                            <div className="text-xs font-bold text-emerald-950 flex items-start gap-2">
-                                              <span className="px-1.5 py-0.5 rounded-md bg-emerald-600 text-white text-[10px] font-black uppercase shrink-0">Me</span>
-                                              <span>{sq.question}</span>
-                                            </div>
-                                            {sq.answer && (
-                                              <div className="text-xs text-emerald-900/90 pl-6 border-l-2 border-emerald-300 ml-2 whitespace-pre-wrap">
-                                                <span className="font-bold">AI Mentor: </span>
-                                                {sq.answer}
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {section.codeBlocks && section.codeBlocks.length > 0 && (
-                                    <div className="space-y-3">
-                                      <div className="text-xs font-black uppercase tracking-wider text-slate-950 flex items-center gap-1.5">
-                                        <Code2 size={14} className="text-slate-800" />
-                                        <span>CODE & SYNTAX EXAMPLE</span>
-                                      </div>
-                                      {section.codeBlocks.map((block, cbIdx) => {
-                                        const codeId = `${sectionCodeId}-${cbIdx}`;
-                                        return (
-                                          <div
-                                            key={cbIdx}
-                                            className="relative rounded-2xl bg-slate-950 text-cyan-300 p-4 font-mono text-xs overflow-x-auto shadow-inner border border-slate-800"
-                                          >
-                                            <button
-                                              type="button"
-                                              onClick={() =>
-                                                copyToClipboard(block.code, codeId)
-                                              }
-                                              className="absolute right-3 top-3 p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition"
-                                              title="Copy code"
-                                            >
-                                              {copiedCodeId === codeId ? (
-                                                <Check
-                                                  size={14}
-                                                  className="text-emerald-400"
-                                                />
-                                              ) : (
-                                                <Copy size={14} />
-                                              )}
-                                            </button>
-                                            <div className="text-[10px] text-slate-400 font-sans mb-1 font-bold uppercase tracking-wider">
-                                              {block.lang || activeCourse}
-                                            </div>
-                                            <code>{block.code}</code>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </article>
-                              );
-                            })}
-                          </div>
-
-                          {chapter.revisionPoints && chapter.revisionPoints.length > 0 && (
-                            <div className="rounded-3xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 space-y-4 shadow-md border border-slate-800">
-                              <div className="flex items-center gap-2">
-                                <Zap size={18} className="text-amber-400" />
-                                <h4 className="text-sm font-black uppercase tracking-widest text-amber-300">
-                                  CHAPTER REVISION & HIGH-YIELD POINTS
-                                </h4>
-                              </div>
-                              <div className="grid gap-2.5 sm:grid-cols-2">
-                                {chapter.revisionPoints.map((rp, rpIdx) => (
-                                  <div
-                                    key={rpIdx}
-                                    className="rounded-2xl bg-white/10 border border-white/15 p-3.5 text-xs font-medium text-blue-100 flex items-start gap-2.5 backdrop-blur-sm"
-                                  >
-                                    <span className="text-amber-400 font-bold shrink-0">✓</span>
-                                    <span>{rp}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid gap-6 md:grid-cols-2">
-                      {dayGroup.notes.map((note) => (
-                        <article
-                          key={note.id}
-                          className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-4 flex flex-col justify-between"
-                        >
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="px-2.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-bold uppercase">
-                                {note.course?.title || currentCourseObj.title}
-                              </span>
-                              <button
-                                onClick={() => deleteNote(note.id)}
-                                className="text-slate-400 hover:text-red-600 transition"
-                                title="Delete note"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                            <h4 className="text-sm font-black text-slate-950 uppercase">
-                              {note.title}
-                            </h4>
-                            <div className="text-xs text-slate-600 whitespace-pre-wrap line-clamp-4">
-                              {note.content}
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-                            <span className="text-[10px] font-mono text-slate-400">
-                              {new Date(note.createdAt).toLocaleDateString()}
-                            </span>
-                            <button
-                              onClick={() => explainNote(note)}
-                              disabled={explainingNoteId === note.id}
-                              className="px-3 py-1 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition flex items-center gap-1"
-                            >
-                              <Sparkles size={12} />
-                              <span>
-                                {explainingNoteId === note.id
-                                  ? "Explaining..."
-                                  : "Explain"}
-                              </span>
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  )}
-                </section>
-              ))}
+          {/* Quick Page Jump & Metadata */}
+          {pageData && pageData.totalPages > 0 && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">
+                Page {pageData.pageNumber} of {pageData.totalPages}
+              </span>
+              {pageData.totalPages > 1 && (
+                <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1 shadow-xs">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">Jump:</span>
+                  <select
+                    value={currentPage}
+                    onChange={(e) => handlePageChange(Number(e.target.value))}
+                    className="bg-transparent text-xs font-bold text-slate-800 outline-none cursor-pointer"
+                  >
+                    {Array.from({ length: pageData.totalPages }, (_, i) => i + 1).map((p) => (
+                      <option key={p} value={p}>
+                        Page {p}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           )}
         </div>
+      </div>
+
+      {/* Main Physical A4 Notebook Viewport */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-4">
+        {loading ? (
+          <div className="py-32 text-center">
+            <Loader2 size={40} className="text-blue-600 animate-spin mx-auto mb-3" />
+            <p className="text-sm font-bold text-slate-700">
+              Opening {currentCourseObj.label} Notebook • Page {currentPage}...
+            </p>
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-800">
+            <AlertCircle size={24} className="mx-auto mb-2 text-red-600" />
+            <p className="font-bold mb-1">Unable to Load Notebook</p>
+            <p className="text-xs">{error}</p>
+          </div>
+        ) : !pageData || pageData.notes.length === 0 ? (
+          /* Empty Notebook State */
+          <div className="rounded-3xl border-2 border-dashed border-slate-300 bg-white p-12 text-center max-w-lg mx-auto shadow-sm">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-4">
+              <FileText size={32} />
+            </div>
+            <h3 className="text-lg font-black text-slate-900 mb-1">
+              Your {currentCourseObj.label} Notebook is Fresh
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed mb-6">
+              As you study {currentCourseObj.label} topics with LiveTeacher, every concept,
+              checkpoint evaluation, and code example appends chronologically into this notebook.
+            </p>
+            <button
+              onClick={() =>
+                router.push(
+                  `/courses/${activeCourse === "cpp" || activeCourse === "java" ? activeCourse : "python"}/chapter/1`
+                )
+              }
+              className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition shadow-sm"
+            >
+              Begin {currentCourseObj.label} Lesson 1 →
+            </button>
+          </div>
+        ) : (
+          /* REAL PHYSICAL A4 NOTEBOOK SHEET */
+          <div className="bg-[#FCFCFD] border border-slate-200/90 rounded-2xl shadow-xl overflow-hidden transition relative">
+            {/* Authentic Top Binder / Notebook Spine Accent */}
+            <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600" />
+
+            {/* Notebook Sheet Header */}
+            <div className="border-b border-slate-200 px-6 sm:px-10 py-5 bg-white flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono font-black uppercase tracking-widest text-blue-600">
+                    {currentCourseObj.label.toUpperCase()} COURSE NOTEBOOK
+                  </span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-500">
+                    {pageData.chaptersOnPage.length > 0
+                      ? pageData.chaptersOnPage.map((c) => c.title).join(", ")
+                      : "General Concepts"}
+                  </span>
+                </div>
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-slate-950 uppercase mt-0.5">
+                  Page {pageData.pageNumber} • Chronological Learning Log
+                </h2>
+              </div>
+
+              {/* Physical A4 Page Badge */}
+              <div className="flex items-center gap-2 bg-slate-900 text-white px-3.5 py-1.5 rounded-xl shadow-xs">
+                <FileText size={13} className="text-blue-400" />
+                <span className="text-xs font-mono font-black tracking-wider">
+                  A4 • PAGE {pageData.pageNumber} / {pageData.totalPages}
+                </span>
+              </div>
+            </div>
+
+            {/* Ruled Notebook Sheet Content */}
+            <div className="p-6 sm:p-10 space-y-10 min-h-[750px]">
+              {filteredNotes.map((note, noteIdx) => {
+                let meta: any = null;
+                if (note.metadata) {
+                  try {
+                    meta = typeof note.metadata === "string" ? JSON.parse(note.metadata) : note.metadata;
+                  } catch {
+                    meta = null;
+                  }
+                }
+
+                const whatAITaught = meta?.whatAITaught;
+                const studentQuestions = meta?.studentInteraction?.studentQuestions || meta?.studentQuestions || [];
+                const check = meta?.understandingCheck || meta?.teacherQuestions?.[0];
+                const strengths = meta?.learningSignals?.strengths || meta?.importantPoints || [];
+                const needsSupport = meta?.learningSignals?.needsSupport || [];
+                const codeBlocks = whatAITaught?.codeExamples || whatAITaught?.examples || meta?.codeSnippets || meta?.examples || [];
+
+                return (
+                  <article
+                    key={note.id}
+                    className="border border-slate-200/80 bg-white rounded-2xl p-6 sm:p-8 shadow-xs space-y-6 hover:border-slate-300 transition"
+                  >
+                    {/* Unit Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-xl bg-slate-900 text-white flex items-center justify-center text-xs font-mono font-bold shadow-xs">
+                          {note.sequenceOrder || noteIdx + 1}
+                        </span>
+                        <div>
+                          <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">
+                            LEARNING UNIT #{note.sequenceOrder || noteIdx + 1} • {new Date(note.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </div>
+                          <h3 className="text-base sm:text-lg font-black text-slate-950 uppercase tracking-tight">
+                            {note.topic || note.title}
+                          </h3>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {note.chapter && (
+                          <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 text-[10px] font-mono font-bold uppercase">
+                            Ch {note.chapter.orderNumber}
+                          </span>
+                        )}
+                        <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 text-[10px] font-mono font-black uppercase flex items-center gap-1">
+                          <CheckCircle2 size={11} className="text-emerald-600" />
+                          Mastered
+                        </span>
+                        <button
+                          onClick={() => deleteNote(note.id)}
+                          disabled={deletingId === note.id}
+                          className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
+                          title="Delete note"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* What AI Taught (Concept & Core Explanation) */}
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-black uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
+                        <Sparkles size={13} className="text-blue-600" />
+                        <span>WHAT AI TAUGHT • CORE CONCEPTS</span>
+                      </div>
+                      <div className="text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-wrap rounded-xl bg-slate-50/80 p-4 border border-slate-100 font-medium">
+                        {whatAITaught?.explanation || meta?.whatILearned || note.content}
+                      </div>
+                    </div>
+
+                    {/* Key Takeaways */}
+                    {whatAITaught?.importantPoints && whatAITaught.importantPoints.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-slate-600" />
+                          <span>KEY TAKEAWAYS & PRINCIPLES</span>
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {whatAITaught.importantPoints.map((pt: string, ptIdx: number) => (
+                            <div
+                              key={ptIdx}
+                              className="rounded-xl bg-blue-50/60 border border-blue-200/70 p-3 text-xs font-medium text-blue-950 flex items-start gap-2"
+                            >
+                              <span className="text-blue-600 font-bold shrink-0">•</span>
+                              <span>{pt}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Code & Syntax Examples */}
+                    {codeBlocks && codeBlocks.length > 0 && (
+                      <div className="space-y-2.5">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                          <Code2 size={13} className="text-indigo-600" />
+                          <span>CODE & SYNTAX EXAMPLES</span>
+                        </div>
+                        {codeBlocks.map((block: any, cbIdx: number) => {
+                          const codeId = `${note.id}-${cbIdx}`;
+                          return (
+                            <div
+                              key={cbIdx}
+                              className="relative rounded-xl bg-slate-950 text-cyan-300 p-4 font-mono text-xs overflow-x-auto shadow-inner border border-slate-800"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => copyToClipboard(block.code, codeId)}
+                                className="absolute right-3 top-3 p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white transition"
+                                title="Copy code"
+                              >
+                                {copiedCodeId === codeId ? (
+                                  <Check size={13} className="text-emerald-400" />
+                                ) : (
+                                  <Copy size={13} />
+                                )}
+                              </button>
+                              <div className="text-[10px] text-slate-400 font-sans mb-1 font-bold uppercase tracking-wider">
+                                {block.title || block.lang || activeCourse}
+                              </div>
+                              <code>{block.code}</code>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Student Interaction & Clarifications */}
+                    {studentQuestions && studentQuestions.length > 0 && (
+                      <div className="space-y-2.5">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
+                          <HelpCircle size={13} className="text-emerald-600" />
+                          <span>MY QUESTIONS & AI CLARIFICATIONS</span>
+                        </div>
+                        <div className="space-y-2">
+                          {studentQuestions.map((sq: any, sqIdx: number) => (
+                            <div
+                              key={sqIdx}
+                              className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3.5 space-y-1 text-xs"
+                            >
+                              <p className="font-bold text-emerald-950">
+                                <span className="font-black uppercase text-[10px] text-emerald-700 mr-1.5">Q:</span>
+                                {sq.question}
+                              </p>
+                              <p className="text-emerald-900 pl-4 border-l-2 border-emerald-300 leading-relaxed whitespace-pre-wrap">
+                                <span className="font-black uppercase text-[10px] text-emerald-700 mr-1.5">AI:</span>
+                                {sq.answer}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Understanding Check & Checkpoint Evaluation */}
+                    {check && (
+                      <div className="space-y-2 rounded-xl bg-indigo-50/60 border border-indigo-200/80 p-4">
+                        <div className="text-[10px] font-black uppercase tracking-wider text-indigo-700 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <Zap size={13} className="text-indigo-600" />
+                            <span>UNDERSTANDING CHECK • CHECKPOINT</span>
+                          </span>
+                          <span className="px-2 py-0.5 rounded-md bg-indigo-600 text-white font-mono text-[10px] font-bold">
+                            Score: {check.score ?? 85}%
+                          </span>
+                        </div>
+                        <div className="text-xs space-y-1.5 pt-1">
+                          <p className="font-bold text-indigo-950">
+                            <span className="text-indigo-600 mr-1">Teacher:</span> {check.question || check.aiQuestion}
+                          </p>
+                          {(check.answer || check.studentActualAnswer) && (
+                            <p className="text-indigo-900 pl-3 border-l-2 border-indigo-300">
+                              <span className="font-bold">My Answer:</span> {check.answer || check.studentActualAnswer}
+                            </p>
+                          )}
+                          {(check.feedback || check.evaluation) && (
+                            <p className="text-indigo-800 text-[11px] pt-1">
+                              <span className="font-bold">Evaluation:</span> {check.feedback || check.evaluation}
+                            </p>
+                          )}
+                          {check.misconception && (
+                            <p className="text-amber-800 text-[11px] bg-amber-100/60 p-2 rounded-lg border border-amber-200">
+                              <span className="font-bold">Clarification:</span> {check.misconception}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Real Learning Signals (Strengths & Needs Support) */}
+                    {((strengths && strengths.length > 0) || (needsSupport && needsSupport.length > 0)) && (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {strengths.slice(0, 3).map((st: string, sIdx: number) => (
+                          <span
+                            key={sIdx}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-bold flex items-center gap-1"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Strength: {st}
+                          </span>
+                        ))}
+                        {needsSupport.slice(0, 2).map((ns: string, nIdx: number) => (
+                          <span
+                            key={nIdx}
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-bold flex items-center gap-1"
+                          >
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                            Review: {ns}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+
+            {/* Notebook Sheet Footer Navigation (Physical Notebook Pagination) */}
+            <div className="border-t border-slate-200 px-6 sm:px-10 py-5 bg-slate-50/80 flex flex-wrap items-center justify-between gap-4">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={!pageData.hasPrevious}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-xs ${
+                  pageData.hasPrevious
+                    ? "bg-white border border-slate-200 text-slate-800 hover:bg-slate-100"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200/50"
+                }`}
+              >
+                <ChevronLeft size={16} />
+                <span>Previous Page</span>
+              </button>
+
+              <div className="text-center">
+                <p className="text-xs font-mono font-black text-slate-900">
+                  PAGE {pageData.pageNumber} OF {pageData.totalPages}
+                </p>
+                <p className="text-[10px] font-medium text-slate-500">
+                  {pageData.totalUnitsOnPage} {pageData.totalUnitsOnPage === 1 ? "unit" : "units"} on this page • Sequential append
+                </p>
+              </div>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={!pageData.hasNext}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition flex items-center gap-1.5 shadow-xs ${
+                  pageData.hasNext
+                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200/50"
+                }`}
+              >
+                <span>Next Page</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -804,7 +706,7 @@ export default function NotesPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="min-h-screen bg-[#F1F5F9] flex items-center justify-center">
           <Loader2 size={36} className="text-blue-600 animate-spin" />
         </div>
       }

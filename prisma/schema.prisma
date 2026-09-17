@@ -53,6 +53,7 @@ model User {
   topicProgresses            TopicProgress[]
   dailyRecaps                DailyRecap[]
   chapterRecaps              ChapterRecap[]
+  notebookPages              NotebookPage[]
 }
 
 model Contest {
@@ -163,6 +164,7 @@ model Course {
   xpTransactions XpTransaction[]
   learningNotes  LearningNote[]
   chapterRecaps  ChapterRecap[]
+  notebookPages  NotebookPage[]
 }
 
 model Chapter {
@@ -303,14 +305,23 @@ model LearningNote {
   courseId  String
   chapterId String
 
+  topicId   String?
+  subtopic  String?
+
   topic    String
   title    String
-  type     String // EXPLANATION | EXAMPLE | QUESTION | CORRECTION | CODE | VISUAL | TIP | MISTAKE | PRACTICE
+  type     String // NOTEBOOK | EXPLANATION | EXAMPLE | QUESTION | CORRECTION | CODE | VISUAL | TIP | MISTAKE | PRACTICE | QUICK_RECAP | CHAPTER_RECAP
   content  String
   metadata String?
 
   importance Int     @default(1)
   isPinned   Boolean @default(false)
+
+  // A4 Physical Notebook fields
+  pageNumber    Int           @default(1)
+  sequenceOrder Int           @default(0) // Monotonic sequence within (userId, courseId)
+  pageId        String?
+  page          NotebookPage? @relation(fields: [pageId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -323,6 +334,24 @@ model LearningNote {
   @@index([courseId])
   @@index([chapterId])
   @@index([userId, chapterId])
+  @@index([userId, courseId, pageNumber])
+  @@index([userId, courseId, sequenceOrder])
+}
+
+model NotebookPage {
+  id         String   @id @default(uuid())
+  userId     String
+  courseId   String
+  pageNumber Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  notes  LearningNote[]
+
+  @@unique([userId, courseId, pageNumber])
+  @@index([userId, courseId])
 }
 
 model LearningEvent {

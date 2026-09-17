@@ -231,7 +231,7 @@ export function LeftSidebar({
 
   return (
     <aside
-      className={`flex flex-col justify-between transition-all duration-300 z-30 select-none border-r ${
+      className={`flex flex-col justify-between transition-all duration-300 z-30 select-none border-r shrink-0 ${
         isLight 
           ? "bg-white border-slate-200/80 text-slate-700" 
           : "dark-sidebar bg-[#09090B]/90 border-white/10 backdrop-blur-xl text-white"
