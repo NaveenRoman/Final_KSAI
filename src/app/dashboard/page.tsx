@@ -672,7 +672,7 @@ export default function DashboardPage() {
                     )}
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <h4 className="text-xs font-black text-slate-900 truncate leading-snug">
-                        {activeUser.name || "Ajmeera Chandu"}
+                        {activeUser.name || "Student"}
                       </h4>
                       <p className="text-[11px] font-mono text-slate-500 truncate">
                         {activeUser.email || "student@knowledgestream.ai"}
@@ -1175,6 +1175,7 @@ export default function DashboardPage() {
 
           {/* Gamified Skill Mastery & XP Progress Graph (100% Dynamic Real Data) */}
           {(() => {
+            const progressXp = activeUser?.levelProgressXp !== undefined ? activeUser.levelProgressXp : (activeUser?.xp ?? 0);
             const currentXp = activeUser?.xp ?? 0;
             const currentLevel = activeUser?.level ?? 1;
             const targetXp = activeUser?.targetXp ?? 1000;
@@ -1247,8 +1248,8 @@ export default function DashboardPage() {
                       <div className="text-[9px] font-black uppercase text-[#4F46E5] tracking-wider leading-none">
                         {levelTitle}
                       </div>
-                      <div className="text-[8px] font-mono font-extrabold text-slate-600 leading-none mt-0.5">
-                        {currentXp} / {targetXp} XP
+                      <div className="text-[8px] font-mono font-extrabold text-slate-600 leading-none mt-0.5" title={`Lifetime Cumulative XP: ${currentXp}`}>
+                        {progressXp} / {targetXp} XP
                       </div>
                     </div>
                   </div>

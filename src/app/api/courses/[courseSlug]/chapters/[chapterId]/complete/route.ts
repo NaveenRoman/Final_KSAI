@@ -32,17 +32,9 @@ export async function POST(
           where: { token: rawToken },
           include: { user: true },
         });
-        user = session?.user ?? null;
-      }
-    }
-
-    if (!user) {
-      const defaultUser =
-        (await db.user.findFirst({
-          where: { role: "Student" },
-        })) || (await db.user.findFirst());
-      if (defaultUser) {
-        user = defaultUser;
+        if (session && new Date() < session.expiresAt) {
+          user = session.user;
+        }
       }
     }
 
@@ -95,24 +87,29 @@ export async function POST(
       );
     }
 
-    // Award XP and update daily streak
+    // Award XP and update daily streak (idempotent: awarded once per user per chapter)
     const xpResult = await awardXpAndStreak({
       userId: user.id,
       amount: XP_CONFIG.CHAPTER_COMPLETE,
       source: "chapter_complete",
       courseId: course.id,
+      idempotencyKey: `chapter_complete_${user.id}_${chapter.id}`,
     });
 
-    await logUserActivity(user.id, "CHAPTER_COMPLETE", {
-      chapterTitle: chapter.title,
-    });
+    if (xpResult.xpAwarded > 0) {
+      await logUserActivity(user.id, "CHAPTER_COMPLETE", {
+        chapterTitle: chapter.title,
+        xpEarned: xpResult.xpAwarded,
+        skipXpAward: true,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       chapterId: chapter.id,
       orderNumber: chapter.orderNumber,
       isCompleted: true,
-      xpEarned: XP_CONFIG.CHAPTER_COMPLETE,
+      xpEarned: xpResult.xpAwarded,
       currentStreak: xpResult.user.currentStreak,
       longestStreak: xpResult.user.longestStreak,
       nextChapterOrder: chapter.orderNumber + 1,

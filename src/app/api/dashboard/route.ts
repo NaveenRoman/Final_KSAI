@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { calculateUserStreak } from "@/lib/streak-service";
+import { calculateLevelFromLifetimeXp } from "@/lib/xp-config";
 
 export const dynamic = "force-dynamic";
 
@@ -215,13 +216,13 @@ export async function GET(req: Request) {
       if (act.actionType === "QUIZ_SUBMIT") {
         try {
           const meta = act.metadata ? JSON.parse(act.metadata) : null;
-          if (meta && meta.questionsCount) {
+          if (meta && typeof meta.questionsCount === "number") {
             quizQuestionsSolvedThisWeek += meta.questionsCount;
-          } else {
-            quizQuestionsSolvedThisWeek += 5; 
+          } else if (meta && typeof meta.correctCount === "number") {
+            quizQuestionsSolvedThisWeek += meta.correctCount;
           }
         } catch (e) {
-          quizQuestionsSolvedThisWeek += 5;
+          // ignore corrupted metadata without inflating counts
         }
       }
     }
@@ -517,13 +518,8 @@ export async function GET(req: Request) {
             }.`,
     };
 
-    // K. Profile Widget Progress
-    let targetXp = 1000;
-    if (user.level >= 10) {
-      targetXp = 5000;
-    } else if (user.level >= 5) {
-      targetXp = 2500;
-    }
+    // K. Profile Widget Progress (Unified Gamification Engine)
+    const levelInfo = calculateLevelFromLifetimeXp(user.xp);
 
     return NextResponse.json({
       success: true,
@@ -533,9 +529,10 @@ export async function GET(req: Request) {
         email: user.email,
         role: user.role,
         country: user.country,
-        level: user.level,
+        level: levelInfo.level,
         xp: user.xp,
-        targetXp
+        levelProgressXp: levelInfo.levelProgressXp,
+        targetXp: levelInfo.targetXp,
       },
       stats: {
         coursesCount,

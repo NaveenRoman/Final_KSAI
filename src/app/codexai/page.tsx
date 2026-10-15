@@ -9,7 +9,7 @@ import { RightAIPanel } from "@/components/dashboard/RightAIPanel";
 import { DashboardFooter } from "@/components/dashboard/DashboardFooter";
 import { Sparkles, Terminal, Code2, Cpu, MessageSquare } from "lucide-react";
 
-export default function CodexAIPage() {
+export default function CodenthraAIPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const [user, setUser] = useState<{
@@ -51,10 +51,10 @@ export default function CodexAIPage() {
         <main className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full custom-scrollbar">
           <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/10 space-y-2 bg-gradient-to-r from-purple-950/40 via-blue-950/20 to-cyan-950/30 shadow-2xl relative overflow-hidden">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 text-purple-300 text-xs font-semibold border border-purple-500/20">
-              <Sparkles size={13} /> CodexAI &bull; Advanced Coding Partner
+              <Sparkles size={13} /> Codenthra AI &bull; Advanced Coding Partner
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
-              Welcome to CodexAI 🤖
+              Welcome to Codenthra AI 🤖
             </h1>
             <p className="text-slate-400 text-xs sm:text-sm">
               Your next-generation interactive AI coding assistant and peer programmer.
@@ -68,7 +68,7 @@ export default function CodexAIPage() {
               </div>
               <h2 className="text-lg font-bold">Smart Code Synthesis</h2>
               <p className="text-slate-400 text-xs leading-relaxed">
-                Generate high-quality code snippets, boilerplate, or explain complex logic in real-time. Simply prompt CodexAI to write cleaner programs.
+                Generate high-quality code snippets, boilerplate, or explain complex logic in real-time. Simply prompt Codenthra AI to write cleaner programs.
               </p>
             </div>
 
@@ -87,7 +87,7 @@ export default function CodexAIPage() {
             <Cpu className="mx-auto text-cyan-400 animate-pulse" size={40} />
             <h3 className="text-lg font-bold">Next-Gen Interface is Under Construction</h3>
             <p className="text-slate-400 text-xs max-w-md mx-auto leading-relaxed">
-              We are fine-tuning our AST parser and multi-agent code compilation models. CodexAI workspace features will launch shortly!
+              We are fine-tuning our AST parser and multi-agent code compilation models. Codenthra AI workspace features will launch shortly!
             </p>
           </div>
 

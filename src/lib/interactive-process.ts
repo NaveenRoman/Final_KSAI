@@ -1,8 +1,9 @@
-import { exec, spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { resolveCompiler, getCompilerMissingMessage } from "./c-compiler";
+import crypto from "crypto";
+import { isDockerAvailable, APPROVED_RUNTIME_IMAGES } from "./sandbox/docker-sandbox";
 
 export interface SessionEvent {
   type: "stdout" | "stderr" | "exit" | "error" | "start";
@@ -14,7 +15,8 @@ export interface SessionEvent {
 
 export interface InteractiveSession {
   id: string;
-  child: ChildProcess;
+  child: ChildProcess | null;
+  containerId: string;
   tmpDir: string;
   language: string;
   startTime: number;
@@ -44,11 +46,6 @@ function resetSessionTimeout(session: InteractiveSession) {
   }
   session.idleTimer = setTimeout(() => {
     if (!session.isExited) {
-      try {
-        if (session.child && typeof session.child.kill === "function") {
-          session.child.kill();
-        }
-      } catch {}
       session.broadcast({
         type: "stderr",
         text: "\n[Process timed out after 60s of inactivity]\n",
@@ -68,12 +65,25 @@ export function cleanupSession(sessionId: string) {
     session.idleTimer = null;
   }
 
+  // Kill child process
   try {
     if (session.child && typeof session.child.kill === "function") {
-      session.child.kill();
+      session.child.kill("SIGKILL");
     }
   } catch {}
 
+  // Force-kill Docker container if one was running
+  if (session.containerId) {
+    try {
+      const killer = spawn("docker", ["rm", "-f", session.containerId], {
+        stdio: "ignore",
+        timeout: 3000,
+      });
+      killer.on("error", () => {});
+    } catch {}
+  }
+
+  // Clean up temporary workspace
   if (session.tmpDir) {
     setTimeout(() => {
       try {
@@ -114,6 +124,11 @@ export function sendInputToSession(sessionId: string, input: string): boolean {
   }
 }
 
+/**
+ * Creates an interactive execution session.
+ * STRICT: Runs ONLY inside an isolated Docker container with --network none.
+ * Direct host execution is STRICTLY DISABLED.
+ */
 export async function createInteractiveSession({
   sessionId,
   code,
@@ -125,12 +140,14 @@ export async function createInteractiveSession({
   language: string;
   onEvent: (event: SessionEvent) => void;
 }): Promise<InteractiveSession> {
-  const normLang = (language || "java").toLowerCase().trim();
+  const normLang = (language || "python").toLowerCase().trim();
   const startTime = Date.now();
+  const containerId = `ksai_int_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
 
   const session: InteractiveSession = {
     id: sessionId,
-    child: null as any,
+    child: null,
+    containerId,
     tmpDir: "",
     language: normLang,
     startTime,
@@ -152,122 +169,118 @@ export async function createInteractiveSession({
   };
   sessions.set(sessionId, session);
 
-  let tmpDir = "";
-  let child: ChildProcess;
-
-  if (normLang === "python" || normLang === "py") {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ksai_py_int_"));
-    const pyFile = path.join(tmpDir, "main.py");
-    fs.writeFileSync(pyFile, code, "utf8");
-
-    const pythonCmd = process.platform === "win32" ? "python" : "python3";
-    child = spawn(pythonCmd, ["-u", pyFile], {
-      cwd: tmpDir,
-      env: { ...process.env, PYTHONUNBUFFERED: "1" },
-    });
-  } else if (normLang === "c" || normLang === "cpp" || normLang === "c++") {
-    const isCpp = normLang === "cpp" || normLang === "c++";
-    const compilerPath = resolveCompiler(isCpp);
-
-    // Case B: Compiler not found on system
-    if (!compilerPath) {
-      const missingMsg = getCompilerMissingMessage(isCpp);
-      session.isExited = true;
-      session.errorBuffer = missingMsg;
-      setTimeout(() => {
-        onEvent({
-          type: "stderr",
-          text: `${missingMsg}\n`,
-          sessionId,
-        });
-        onEvent({
-          type: "exit",
-          exitCode: 1,
-          executionTime: 0,
-          sessionId,
-        });
-      }, 50);
-      return session;
-    }
-
-    // Case A: Compiler found -> compile with authentic GCC/G++
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), isCpp ? "ksai_cpp_int_" : "ksai_c_int_"));
-    const ext = isCpp ? "cpp" : "c";
-    const srcFile = path.join(tmpDir, `main.${ext}`);
-    const initFile = path.join(tmpDir, `_ksai_init.${ext}`);
-    const outFile = path.join(tmpDir, process.platform === "win32" ? "main.exe" : "main.out");
-    fs.writeFileSync(srcFile, code, "utf8");
-
-    // Unbuffer stdout/stderr across pipes so prompts without newlines appear immediately
-    const initCode = isCpp
-      ? `#include <iostream>\n#include <cstdio>\n__attribute__((constructor)) static void __ksai_unbuffer(void) { std::setvbuf(stdout, NULL, _IONBF, 0); std::setvbuf(stderr, NULL, _IONBF, 0); }\n`
-      : `#include <stdio.h>\n__attribute__((constructor)) static void __ksai_unbuffer(void) { setvbuf(stdout, NULL, _IONBF, 0); setvbuf(stderr, NULL, _IONBF, 0); }\n`;
-    fs.writeFileSync(initFile, initCode, "utf8");
-
-    const stdFlag = isCpp ? "-std=c++17" : "-std=c11";
-    const compileCmd = `"${compilerPath}" ${stdFlag} -O2 "${srcFile}" "${initFile}" -o "${outFile}"`;
-
-    let compileFailed = false;
-    let compileErrorOutput = "";
-
-    await new Promise<void>((resolve) => {
-      exec(compileCmd, { cwd: tmpDir, timeout: 10000, env: process.env }, (err, stdout, stderr) => {
-        if (err) {
-          compileFailed = true;
-          compileErrorOutput = (stderr || err.message || "Compilation failed").trim();
-        }
-        resolve();
+  // 1. Fail closed if Docker sandbox is unavailable
+  const dockerOnline = await isDockerAvailable();
+  if (!dockerOnline) {
+    const errorMsg =
+      "Execution Sandbox Unavailable: Secure container runtime (Docker) is required but not active on this host. Direct host execution is strictly disabled for security.";
+    session.isExited = true;
+    session.errorBuffer = errorMsg;
+    setTimeout(() => {
+      onEvent({
+        type: "stderr",
+        text: `\n[${errorMsg}]\n`,
+        sessionId,
       });
-    });
-
-    // If compilation fails, broadcast authentic GCC compiler error directly to terminal
-    if (compileFailed) {
-      session.isExited = true;
-      session.tmpDir = tmpDir;
-      session.errorBuffer = compileErrorOutput;
-      setTimeout(() => {
-        onEvent({
-          type: "stderr",
-          text: `Compilation Error:\n\n${compileErrorOutput}\n`,
-          sessionId,
-        });
-        onEvent({
-          type: "exit",
-          exitCode: 1,
-          executionTime: Date.now() - startTime,
-          sessionId,
-        });
-      }, 50);
-      cleanupSession(sessionId);
-      return session;
-    }
-
-    // Compilation succeeded -> execute compiled binary
-    child = spawn(outFile, [], { cwd: tmpDir, env: process.env });
-  } else {
-    // Java
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ksai_java_int_"));
-    const javaFile = path.join(tmpDir, "Main.java");
-    fs.writeFileSync(javaFile, code, "utf8");
-
-    await new Promise<void>((resolve, reject) => {
-      exec(`javac "${javaFile}"`, { cwd: tmpDir, timeout: 8000 }, (err, stdout, stderr) => {
-        if (err) {
-          const compileErr = stderr || err.message || "Compilation failed";
-          return reject(new Error(compileErr));
-        }
-        resolve();
+      onEvent({
+        type: "exit",
+        exitCode: 1,
+        executionTime: 0,
+        sessionId,
       });
-    });
-
-    child = spawn("java", ["-cp", tmpDir, "Main"], { cwd: tmpDir });
+    }, 50);
+    cleanupSession(sessionId);
+    return session;
   }
 
-  session.child = child;
+  // 2. Validate approved runtime
+  const runtime = APPROVED_RUNTIME_IMAGES[normLang];
+  if (!runtime) {
+    const errorMsg = `Unsupported runtime: '${language}'. Supported languages: Python, Java, C, C++, JavaScript, TypeScript.`;
+    session.isExited = true;
+    session.errorBuffer = errorMsg;
+    setTimeout(() => {
+      onEvent({
+        type: "stderr",
+        text: `\n[Error: ${errorMsg}]\n`,
+        sessionId,
+      });
+      onEvent({
+        type: "exit",
+        exitCode: 1,
+        executionTime: 0,
+        sessionId,
+      });
+    }, 50);
+    cleanupSession(sessionId);
+    return session;
+  }
+
+  // 3. Prepare isolated ephemeral workspace
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `ksai_sandbox_${containerId}_`));
   session.tmpDir = tmpDir;
+
+  let mainFileName = runtime.defaultFileName;
+  if (normLang === "java") {
+    const publicClassMatch = code.match(/public\s+class\s+([A-Za-z0-9_]+)/);
+    if (publicClassMatch) {
+      mainFileName = `${publicClassMatch[1]}.java`;
+    }
+  }
+  fs.writeFileSync(path.join(tmpDir, mainFileName), code, "utf8");
+
+  // 4. Build Docker container args
+  const dockerArgs: string[] = [
+    "run",
+    "--rm",
+    "-i",
+    "--name",
+    containerId,
+    "--label",
+    "ksai-sandbox=true",
+    "--network",
+    "none", // STRICT: No network access
+    "--user",
+    "1000:1000", // Non-root
+    "--read-only",
+    "--tmpfs",
+    "/tmp:rw,noexec,nosuid,size=64m",
+    "--memory",
+    "256m",
+    "--memory-swap",
+    "256m",
+    "--cpus",
+    "0.5",
+    "--pids-limit",
+    "64",
+    "--cap-drop",
+    "ALL",
+    "--security-opt",
+    "no-new-privileges:true",
+    "-v",
+    `${tmpDir}:/workspace:rw`,
+    "-w",
+    "/workspace",
+    runtime.image,
+  ];
+
+  if (runtime.buildCommand) {
+    const buildParts = runtime.buildCommand(mainFileName).join(" ");
+    const execParts = runtime.executeCommand(mainFileName).join(" ");
+    dockerArgs.push("sh", "-c", `${buildParts} && ${execParts}`);
+  } else {
+    dockerArgs.push(...runtime.executeCommand(mainFileName));
+  }
+
+  // 5. Spawn container with interactive stdin/stdout
+  const child = spawn("docker", dockerArgs, {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  session.child = child;
   resetSessionTimeout(session);
 
-  // Flush any inputs that were queued while compiling
+  // Send any inputs queued before spawn
   if (session.pendingInputs && session.pendingInputs.length > 0) {
     for (const pInput of session.pendingInputs) {
       try {
@@ -278,7 +291,7 @@ export async function createInteractiveSession({
   }
 
   child.stdout?.on("data", (chunk: Buffer) => {
-    const text = chunk.toString();
+    const text = chunk.toString("utf8");
     session.outputBuffer += text;
     session.lastActivity = Date.now();
     resetSessionTimeout(session);
@@ -286,32 +299,31 @@ export async function createInteractiveSession({
   });
 
   child.stderr?.on("data", (chunk: Buffer) => {
-    const text = chunk.toString();
+    const text = chunk.toString("utf8");
     session.errorBuffer += text;
     session.lastActivity = Date.now();
     resetSessionTimeout(session);
     session.broadcast({ type: "stderr", text, sessionId });
   });
 
-  child.on("close", (code) => {
-    const duration = Date.now() - session.startTime;
+  child.on("error", (err: any) => {
     session.isExited = true;
-    session.exitCode = code;
     session.broadcast({
-      type: "exit",
-      exitCode: code ?? 0,
-      executionTime: duration,
+      type: "error",
+      text: `Container Error: ${err.message}\n`,
       sessionId,
+      exitCode: 1,
     });
     cleanupSession(sessionId);
   });
 
-  child.on("error", (err) => {
-    const duration = Date.now() - session.startTime;
+  child.on("close", (exitCode) => {
     session.isExited = true;
+    session.exitCode = exitCode ?? 0;
+    const duration = Date.now() - startTime;
     session.broadcast({
-      type: "error",
-      text: err.message,
+      type: "exit",
+      exitCode: exitCode ?? 0,
       executionTime: duration,
       sessionId,
     });

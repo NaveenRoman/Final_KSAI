@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       {
         success: false,
         message:
-          "Unable to connect to CodeXAI Teaching Engine.",
+          "Unable to connect to Codenthra AI Teaching Engine.",
       },
       {
         status: 500,

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseSessionToken } from "@/lib/auth-cookie";
+import { awardXpAndStreak } from "@/lib/xp-service";
 import {
   getQuestionMarks,
   calculatePracticeScore,
@@ -8,6 +11,8 @@ import {
   extractWeakTopicsFromIncorrectOnly,
   checkCertificateEligibility,
 } from "@/lib/practice-utils";
+
+export const dynamic = "force-dynamic";
 
 function getGrade(score: number) {
   if (score >= 90) return "A";
@@ -32,9 +37,39 @@ function getDifficultyMultiplier(difficulty: string) {
 }
 
 export async function POST(req: Request) {
-  const session = await auth.api.getSession({ headers: req.headers });
+  let sessionData = null;
+  try {
+    sessionData = await auth.api.getSession({ headers: req.headers });
+  } catch {
+    try {
+      sessionData = await auth.api.getSession({ headers: await headers() });
+    } catch {
+      // ignore
+    }
+  }
 
-  if (!session?.user?.email) {
+  let user = sessionData?.user as any;
+
+  if (!user) {
+    const cookieStore = await cookies();
+    const sessionTokenRaw =
+      cookieStore.get("better-auth.session_token")?.value ||
+      cookieStore.get("sessionToken")?.value;
+
+    if (sessionTokenRaw) {
+      const rawToken = parseSessionToken(sessionTokenRaw);
+      const dbSession = await db.session.findUnique({
+        where: { token: rawToken },
+        include: { user: true },
+      });
+
+      if (dbSession && new Date() < dbSession.expiresAt) {
+        user = dbSession.user;
+      }
+    }
+  }
+
+  if (!user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -61,7 +96,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Practice session not found" }, { status: 404 });
     }
 
-    if (rec.userEmail !== session.user.email) {
+    if (rec.userEmail !== user.email) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -87,6 +122,24 @@ export async function POST(req: Request) {
       });
 
       return NextResponse.json({ saved: true });
+    }
+
+    // Idempotency: Reject repeated evaluation and duplicate XP if session is already finalized
+    if (meta.finalized) {
+      return NextResponse.json({
+        sessionId,
+        scorePercent: meta.scorePercent ?? meta.score ?? 0,
+        earnedMarks: meta.earnedMarks ?? 0,
+        totalMarks: meta.totalMarks ?? 0,
+        attemptedCount: meta.attemptedCount ?? 0,
+        correctCount: meta.correctCount ?? 0,
+        wrongCount: meta.wrongCount ?? 0,
+        skippedCount: meta.skippedCount ?? 0,
+        accuracy: meta.accuracy ?? 0,
+        xpEarned: 0,
+        alreadyFinalized: true,
+        message: "Practice session already finalized; no duplicate XP awarded.",
+      });
     }
 
     const quiz = Array.isArray(meta.quiz) ? meta.quiz : [];
@@ -305,26 +358,20 @@ export async function POST(req: Request) {
       },
     });
 
-    // Increment user XP in database if user is logged in
-    if (session.user.id && xpEarned > 0) {
+    // Increment user XP atomically with idempotency key if user is logged in
+    let finalXpEarned = 0;
+    if (user.id && xpEarned > 0) {
       try {
-        await db.user.update({
-          where: { id: session.user.id },
-          data: {
-            xp: { increment: xpEarned },
-          },
+        const xpResult = await awardXpAndStreak({
+          userId: user.id,
+          amount: xpEarned,
+          source: "ai_practice_lab",
+          courseId: rec.courseId ?? null,
+          idempotencyKey: `practice_${sessionId}`,
         });
-
-        await db.xpTransaction.create({
-          data: {
-            userId: session.user.id,
-            amount: xpEarned,
-            source: "ai_practice_lab",
-            courseId: rec.courseId,
-          },
-        });
+        finalXpEarned = xpResult.xpAwarded;
       } catch (userXpErr) {
-        console.error("Failed to increment user XP:", userXpErr);
+        console.error("Failed to increment user XP via awardXpAndStreak:", userXpErr);
       }
     }
 
@@ -341,7 +388,7 @@ export async function POST(req: Request) {
       weakTopics,
       explanations,
       grade: getGrade(scorePercent),
-      xpEarned,
+      xpEarned: finalXpEarned,
       confidenceAnalysis,
       certificationEligible,
     });

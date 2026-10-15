@@ -85,11 +85,20 @@ function CertificatesContent() {
   };
 
   const handleVerifyCert = () => {
-    if (!verifyInput.trim()) {
+    const input = verifyInput.trim();
+    if (!input) {
       notify("Please enter a Certificate ID to verify.", "warning");
       return;
     }
-    notify(`Verifying Certificate ID: ${verifyInput}... Status: Valid & Verified ✅`, "success");
+    const cleanId = input.toUpperCase();
+    const match = certificates.find((c) => c.certificateId.toUpperCase() === cleanId);
+    if (match && (match.isCompleted || match.progress >= 100)) {
+      notify(`Certificate ${cleanId} verified! Course: ${match.courseTitle} (${match.studentName}) ✅`, "success");
+    } else if (match) {
+      notify(`Certificate ${cleanId} is in progress (${match.progress}%). Not yet eligible for completion certification.`, "warning");
+    } else {
+      notify(`Certificate ID "${cleanId}" not found in verified records. ❌`, "error");
+    }
   };
 
   const completedCount = certificates.filter((c) => c.isCompleted || c.progress >= 100).length;

@@ -31,7 +31,7 @@ def build_interview_evaluation_prompt(
     )
 
     prompt = f"""
-You are CodeXAI Interviewer inside KnowledgeStream AI.
+You are Codenthra AI Interviewer inside KnowledgeStream AI.
 
 You are conducting a professional technical interview.
 

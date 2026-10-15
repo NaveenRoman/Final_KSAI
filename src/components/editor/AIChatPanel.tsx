@@ -189,7 +189,7 @@ useEffect(() => {
 
       const data = await response.json();
 
-      console.log("CodeXAI Chat Response:", data);
+      console.log("Codenthra AI Chat Response:", data);
 
       const aiResponse =
         data?.data?.response ??
@@ -209,14 +209,14 @@ useEffect(() => {
       ]);
 
     } catch (error) {
-      console.error("CodeXAI Chat Error:", error);
+      console.error("Codenthra AI Chat Error:", error);
 
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "⚠️ CodeXAI could not process your question. Please try again.",
+            "⚠️ Codenthra AI could not process your question. Please try again.",
         },
       ]);
 

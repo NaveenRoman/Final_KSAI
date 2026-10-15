@@ -32,7 +32,33 @@ export async function POST(request: Request) {
       });
     }
 
+    // 1. Enforce max source code length limit (64 KB)
+    if (Buffer.byteLength(code, "utf8") > 64 * 1024) {
+      return NextResponse.json(
+        {
+          success: false,
+          output: "Payload Too Large: Source code exceeds the 64 KB limit.",
+          executionTime: 0,
+          exitCode: 1,
+        },
+        { status: 400 }
+      );
+    }
+
     const normLang = normalizeLanguage(language);
+    const supportedLangs = ["java", "python", "c", "cpp", "javascript", "typescript"];
+    if (!supportedLangs.includes(normLang)) {
+      return NextResponse.json(
+        {
+          success: false,
+          output: `Unsupported language: '${language}'. Supported languages: Java, Python, C, C++.`,
+          executionTime: 0,
+          exitCode: 1,
+        },
+        { status: 400 }
+      );
+    }
+
     const fileName = body.fileName || "";
 
     // Pre-execution validation check
@@ -75,16 +101,6 @@ export async function POST(request: Request) {
 
       if (dbSession && new Date() < dbSession.expiresAt) {
         user = dbSession.user;
-      }
-    }
-
-    if (!user) {
-      const defaultUser =
-        (await db.user.findFirst({
-          where: { role: "Student" },
-        })) || (await db.user.findFirst());
-      if (defaultUser) {
-        user = defaultUser;
       }
     }
 

@@ -1509,7 +1509,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                 <h3 className="font-extrabold text-sm tracking-tight flex items-center gap-2">
                   <span>Live AI Teacher</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-mono font-medium shrink-0">
-                    {course || "CodeX"}
+                    {course || "Codenthra"}
                   </span>
                 </h3>
                 <p

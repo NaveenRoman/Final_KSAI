@@ -369,7 +369,7 @@ function InterviewSetupContent() {
                 />
 
                 <span className="font-bold">
-                  CodeXAI
+                  Codenthra AI
                 </span>
               </div>
 
@@ -406,7 +406,7 @@ function InterviewSetupContent() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-500">
-            Tell CodeXAI what you&apos;re preparing for.
+            Tell Codenthra AI what you&apos;re preparing for.
             We&apos;ll use your selections to create an
             adaptive interview experience designed around
             your goals.
@@ -496,7 +496,7 @@ function InterviewSetupContent() {
         <SetupSection
           number="03"
           title="Technology"
-          description="Which technology should CodeXAI focus on?"
+          description="Which technology should Codenthra AI focus on?"
         >
           <SelectGrid
             value={technology}
@@ -740,7 +740,7 @@ function InterviewSetupContent() {
             </div>
 
             <p className="mt-1 text-xs text-slate-500">
-              CodeXAI will generate your interview based
+              Codenthra AI will generate your interview based
               on these preferences.
             </p>
           </div>

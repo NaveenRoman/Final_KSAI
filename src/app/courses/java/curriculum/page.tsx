@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
+import { safeParseResponse } from "@/lib/safe-json";
 import {
   ArrowLeft,
   BookOpen,
@@ -39,10 +40,10 @@ export default function JavaCurriculumPage() {
       setLoading(true);
       try {
         const res = await fetch("/api/courses/java/chapters/1");
-        const data = await res.json();
-        if (res.ok && data.success) {
-          setChapters(data.chapters);
-          setProgresses(data.progresses);
+        const parsed = await safeParseResponse(res, "Java curriculum");
+        if (parsed.ok && parsed.data?.success) {
+          setChapters(parsed.data.chapters || []);
+          setProgresses(parsed.data.progresses || []);
         }
       } catch (err) {
         console.error(err);

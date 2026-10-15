@@ -603,33 +603,47 @@ export async function logUserActivity(userId: string, actionType: string, metada
       },
     });
 
-    // 2. Award XP based on activity type
+    // 2. Award XP based on activity type (skip if caller already awarded XP)
     let xpToAdd = 0;
     let notificationTitle = "";
     let notificationMessage = "";
 
+    const shouldAwardXp = !metadata?.skipXpAward;
+
     if (actionType === "CHAPTER_COMPLETE") {
-      xpToAdd = XP_CONFIG.CHAPTER_COMPLETE || 100;
       notificationTitle = "Chapter Completed! 📚";
       const chapterTitle = metadata?.chapterTitle || "a chapter";
-      notificationMessage = `You completed "${chapterTitle}" and earned ${xpToAdd} XP!`;
+      const displayXp = metadata?.xpEarned ?? XP_CONFIG.CHAPTER_COMPLETE;
+      notificationMessage = `You completed "${chapterTitle}" and earned ${displayXp} XP!`;
+      if (shouldAwardXp) {
+        xpToAdd = XP_CONFIG.CHAPTER_COMPLETE;
+      }
     } else if (actionType === "QUIZ_SUBMIT") {
       if (metadata?.passed) {
-        xpToAdd = XP_CONFIG.QUIZ_PASS || 150;
         notificationTitle = "Quiz Passed! 🎯";
-        notificationMessage = `Scored ${metadata.score}% on the quiz and earned ${xpToAdd} XP!`;
+        const displayXp = metadata?.xpEarned ?? XP_CONFIG.QUIZ_PASS;
+        notificationMessage = `Scored ${metadata.score}% on the quiz and earned ${displayXp} XP!`;
+        if (shouldAwardXp) {
+          xpToAdd = XP_CONFIG.QUIZ_PASS;
+        }
       } else {
-        xpToAdd = 30; // participation XP
         notificationTitle = "Quiz Attempted 📝";
-        notificationMessage = `Attempted the quiz (Scored ${metadata?.score || 0}%). Earned 30 participation XP. Keep practicing!`;
+        notificationMessage = `Attempted the quiz (Scored ${metadata?.score || 0}%). Keep practicing!`;
+        if (shouldAwardXp) {
+          xpToAdd = 0;
+        }
       }
     } else if (actionType === "AI_CHAT") {
-      xpToAdd = 10;
+      if (shouldAwardXp) {
+        xpToAdd = 10;
+      }
     } else if (actionType === "COURSE_ENROLL") {
-      xpToAdd = 200;
       notificationTitle = "Enrolled in Course 🎓";
       const courseTitle = metadata?.courseTitle || "a new course";
       notificationMessage = `Successfully enrolled in "${courseTitle}". Earned 200 XP!`;
+      if (shouldAwardXp) {
+        xpToAdd = 200;
+      }
     }
 
     // 3. Create notification if applicable

@@ -621,7 +621,7 @@ ${getLessons()
       }
 
       const aiResponse = data.data?.response ?? data.response ?? "";
-      if (!aiResponse) throw new Error("CodeXAI returned an empty response.");
+      if (!aiResponse) throw new Error("Codenthra AI returned an empty response.");
 
       setChatMessages((prev) => [...prev, { sender: "ai", text: aiResponse }]);
 
@@ -1546,7 +1546,7 @@ ${getLessons()
                 </div>
               </button>
 
-              {/* CODEXAI / ASK AI MENTOR */}
+              {/* CODENTHRA AI / ASK AI MENTOR */}
               <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                 {/* Mentor Header */}
                 <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50 shrink-0">
@@ -1814,7 +1814,7 @@ ${getLessons()
                   </form>
 
                   <p className="text-[9px] text-slate-400 text-center">
-                    CodeXAI uses this lesson and visual context.
+                    Codenthra AI uses this lesson and visual context.
                   </p>
                 </div>
               </div>

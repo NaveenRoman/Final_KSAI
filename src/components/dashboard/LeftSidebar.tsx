@@ -40,6 +40,7 @@ interface LeftSidebarProps {
     role?: string;
     level?: number;
     xp?: number;
+    levelProgressXp?: number;
     targetXp?: number;
     image?: string | null;
     [key: string]: any;
@@ -177,6 +178,7 @@ export function LeftSidebar({
     role: string;
     level: number;
     xp: number;
+    levelProgressXp?: number;
     targetXp: number;
     image?: string | null;
   } | null>(null);
@@ -199,6 +201,7 @@ export function LeftSidebar({
             role: data.user.role,
             level: data.user.level ?? 1,
             xp: data.user.xp ?? 0,
+            levelProgressXp: data.user.levelProgressXp ?? data.user.xp ?? 0,
             targetXp: data.user.targetXp ?? 1000,
             image: data.user.image,
           });
@@ -222,6 +225,7 @@ export function LeftSidebar({
     role: (session.user as any).role ?? "Student",
     level: 1,
     xp: 0,
+    levelProgressXp: 0,
     targetXp: 1000,
     image: session.user.image,
   } : null);
@@ -434,23 +438,31 @@ export function LeftSidebar({
                 </div>
                 
                 {/* XP Progress Bar */}
-                <div className="flex items-center gap-1.5">
-                  <div className={`flex-1 h-1 rounded-full overflow-hidden ${
-                    isLight ? "bg-slate-100" : "bg-white/10"
-                  }`}>
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isLight ? "bg-gradient-to-r from-blue-500 to-[#4F46E5]" : "bg-gradient-to-r from-blue-500 to-cyan-400"
-                      }`}
-                      style={{ width: `${Math.min(100, (((activeProfile.xp ?? 0) / (activeProfile.targetXp || 1000))) * 100)}%` }}
-                    />
-                  </div>
-                  <div className={`text-[8px] font-mono font-bold shrink-0 ${
-                    isLight ? "text-slate-500" : "text-slate-400"
-                  }`}>
-                    {activeProfile.xp ?? 0}/{activeProfile.targetXp ?? 1000} XP
-                  </div>
-                </div>
+                {(() => {
+                  const currentProgressXp = (activeProfile as any)?.levelProgressXp !== undefined ? (activeProfile as any).levelProgressXp : (activeProfile?.xp ?? 0);
+                  const targetXp = activeProfile?.targetXp || 1000;
+                  const progressPct = Math.min(100, Math.round((currentProgressXp / targetXp) * 100));
+
+                  return (
+                    <div className="flex items-center gap-1.5" title={`Lifetime Cumulative XP: ${activeProfile.xp ?? 0}`}>
+                      <div className={`flex-1 h-1 rounded-full overflow-hidden ${
+                        isLight ? "bg-slate-100" : "bg-white/10"
+                      }`}>
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isLight ? "bg-gradient-to-r from-blue-500 to-[#4F46E5]" : "bg-gradient-to-r from-blue-500 to-cyan-400"
+                          }`}
+                          style={{ width: `${progressPct}%` }}
+                        />
+                      </div>
+                      <div className={`text-[8px] font-mono font-bold shrink-0 ${
+                        isLight ? "text-slate-500" : "text-slate-400"
+                      }`}>
+                        {currentProgressXp}/{targetXp} XP
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </>

@@ -1,5 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { parseSessionToken } from "@/lib/auth-cookie";
+
+export const dynamic = "force-dynamic";
+
+async function resolveAuthenticatedUser(request: NextRequest) {
+  let sessionData = null;
+  try {
+    sessionData = await auth.api.getSession({ headers: request.headers });
+  } catch {
+    try {
+      sessionData = await auth.api.getSession({ headers: await headers() });
+    } catch {
+      // ignore
+    }
+  }
+
+  let user = sessionData?.user as any;
+
+  if (!user) {
+    let sessionTokenRaw =
+      request.cookies.get("better-auth.session_token")?.value ||
+      request.cookies.get("sessionToken")?.value;
+
+    if (!sessionTokenRaw) {
+      try {
+        const cookieStore = await cookies();
+        sessionTokenRaw =
+          cookieStore.get("better-auth.session_token")?.value ||
+          cookieStore.get("sessionToken")?.value;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (sessionTokenRaw) {
+      const rawToken = parseSessionToken(sessionTokenRaw);
+      const dbSession = await db.session.findUnique({
+        where: { token: rawToken },
+        include: { user: true },
+      });
+
+      if (dbSession && new Date() < dbSession.expiresAt) {
+        user = dbSession.user;
+      }
+    }
+  }
+
+  return user;
+}
 
 const EVENT_TYPES = [
   "EXPLANATION",
@@ -314,21 +365,50 @@ function buildMemoryFromEvent(
 
 export async function POST(request: NextRequest) {
   try {
+    const authUser = await resolveAuthenticatedUser(request);
+    if (!authUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Not authenticated",
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     const {
-  userEmail,
-  courseId,
-  chapterId,
-  topic,
-  eventType,
-  content,
-  metadata,
-  isCorrect,
-} = body;
+      userEmail,
+      courseId,
+      chapterId,
+      topic,
+      eventType,
+      content,
+      metadata,
+      isCorrect,
+    } = body;
+
+    const isAdmin =
+      authUser.role === "Admin" ||
+      authUser.role === "SUPER_ADMIN" ||
+      authUser.role === "SuperAdmin";
 
     if (
-      !userEmail ||
+      userEmail &&
+      String(userEmail).trim().toLowerCase() !== authUser.email.toLowerCase() &&
+      !isAdmin
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Cannot record learning events for another user",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (
       !courseId ||
       !chapterId ||
       !topic ||
@@ -354,9 +434,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const targetEmail = userEmail ? String(userEmail).trim() : authUser.email;
+
     const user = await db.user.findUnique({
       where: {
-        email: userEmail,
+        email: targetEmail,
       },
       select: {
         id: true,
@@ -441,42 +523,72 @@ try {
     let note = null;
 
     if (shouldSave) {
-      const titleMap: Record<string, string> = {
-        EXPLANATION: "Explanation",
-        EXAMPLE: "Example",
-        QUESTION: "Your Question",
-        MISTAKE: "Common Mistake",
-        CORRECTION: "Correction",
-        VISUAL: "Visual",
-        PRACTICE: "Practice",
-      };
+      try {
+        let actualCourseId = courseId;
+        let actualChapterId = chapterId;
 
-      const typeMap: Record<string, string> = {
-        EXPLANATION: "EXPLANATION",
-        EXAMPLE: "EXAMPLE",
-        QUESTION: "QUESTION",
-        MISTAKE: "MISTAKE",
-        CORRECTION: "CORRECTION",
-        VISUAL: "VISUAL",
-        PRACTICE: "PRACTICE",
-      };
+        const resolvedCourse = await db.course.findFirst({
+          where: { OR: [{ id: courseId }, { language: courseId.toLowerCase() }] },
+          select: { id: true },
+        });
 
-      note = await db.learningNote.create({
-        data: {
-          userId: user.id,
-          courseId,
-          chapterId,
-          topic,
-          title: titleMap[eventType] || "Learning Note",
-          type: typeMap[eventType] || "TIP",
-          content,
-          metadata: event.metadata,
-          importance:
-            eventType === "MISTAKE" || eventType === "CORRECTION"
-              ? 4
-              : 2,
-        },
-      });
+        if (resolvedCourse) {
+          actualCourseId = resolvedCourse.id;
+          const orderNum = parseInt(chapterId.replace(/[^0-9]/g, ""), 10);
+          const resolvedChapter = await db.chapter.findFirst({
+            where: {
+              OR: [
+                { id: chapterId },
+                ...(isNaN(orderNum) ? [] : [{ courseId: actualCourseId, orderNumber: orderNum }]),
+              ],
+            },
+            select: { id: true },
+          });
+
+          if (resolvedChapter) {
+            actualChapterId = resolvedChapter.id;
+          }
+        }
+
+        const titleMap: Record<string, string> = {
+          EXPLANATION: "Explanation",
+          EXAMPLE: "Example",
+          QUESTION: "Your Question",
+          MISTAKE: "Common Mistake",
+          CORRECTION: "Correction",
+          VISUAL: "Visual",
+          PRACTICE: "Practice",
+        };
+
+        const typeMap: Record<string, string> = {
+          EXPLANATION: "EXPLANATION",
+          EXAMPLE: "EXAMPLE",
+          QUESTION: "QUESTION",
+          MISTAKE: "MISTAKE",
+          CORRECTION: "CORRECTION",
+          VISUAL: "VISUAL",
+          PRACTICE: "PRACTICE",
+        };
+
+        note = await db.learningNote.create({
+          data: {
+            userId: user.id,
+            courseId: actualCourseId,
+            chapterId: actualChapterId,
+            topic,
+            title: titleMap[eventType] || "Learning Note",
+            type: typeMap[eventType] || "TIP",
+            content,
+            metadata: event.metadata,
+            importance:
+              eventType === "MISTAKE" || eventType === "CORRECTION"
+                ? 4
+                : 2,
+          },
+        });
+      } catch (noteError) {
+        console.error("Learning note create error:", noteError);
+      }
     }
 
     // =====================================================

@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 
 import { useRouter } from "next/navigation";
-import type { ElementType } from "react";
+import { useState, useEffect, type ElementType } from "react";
 
 
 const interviewTypes = [
@@ -78,30 +78,48 @@ const technologies = [
 ];
 
 
-const recentInterviews = [
-  {
-    title: "Java Technical Interview",
-    type: "Technical",
-    score: 82,
-    date: "Today",
-  },
-  {
-    title: "HR Mock Interview",
-    type: "HR",
-    score: 74,
-    date: "2 days ago",
-  },
-  {
-    title: "Coding Challenge",
-    type: "Coding",
-    score: 88,
-    date: "5 days ago",
-  },
-];
-
-
 export default function InterviewPage() {
   const router = useRouter();
+
+  const [stats, setStats] = useState<{
+    totalInterviews: number;
+    readinessScore: number | null;
+    currentStreak: number;
+    longestStreak: number;
+    skills: {
+      technical: number | null;
+      coding: number | null;
+      communication: number | null;
+      hr: number | null;
+    };
+    recentInterviews: Array<{
+      id: string;
+      title: string;
+      type: string;
+      score: number;
+      date: string;
+    }>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    fetch("/api/interview/stats")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data && isMounted) {
+          setStats(json.data);
+        }
+      })
+      .catch((err) => console.error("Failed to load interview stats:", err))
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#07070A] text-white overflow-x-hidden">
@@ -170,7 +188,7 @@ export default function InterviewPage() {
                 size={14}
                 className="text-orange-400"
               />
-              7 Day Streak
+              {stats?.currentStreak ?? 0} Day Streak
             </span>
 
             <span className="flex items-center gap-2">
@@ -178,7 +196,7 @@ export default function InterviewPage() {
                 size={14}
                 className="text-yellow-400"
               />
-              12 Interviews
+              {stats?.totalInterviews ?? 0} Interviews
             </span>
 
           </div>
@@ -208,7 +226,7 @@ export default function InterviewPage() {
 
               <Sparkles size={13} />
 
-              CODEXAI INTERVIEWER
+              CODENTHRA AI INTERVIEWER
 
             </div>
 
@@ -294,7 +312,9 @@ export default function InterviewPage() {
                 </p>
 
                 <h2 className="text-4xl font-black mt-2">
-                  76%
+                  {stats?.readinessScore !== null && stats?.readinessScore !== undefined
+                    ? `${stats.readinessScore}%`
+                    : "—"}
                 </h2>
 
               </div>
@@ -314,13 +334,20 @@ export default function InterviewPage() {
 
             <div className="mt-5 h-2 rounded-full bg-white/5 overflow-hidden">
 
-              <div className="h-full w-[76%] bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full" />
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500"
+                style={{
+                  width: `${stats?.readinessScore ?? 0}%`,
+                }}
+              />
 
             </div>
 
 
             <p className="text-xs text-slate-500 mt-3">
-              You're getting closer. Keep practicing to reach interview-ready status.
+              {stats?.readinessScore !== null && stats?.readinessScore !== undefined
+                ? "Based on your verified AI interview sessions. Keep practicing to reach interview-ready status."
+                : "Complete your first AI mock interview to calculate your interview readiness rating."}
             </p>
 
           </div>
@@ -332,25 +359,25 @@ export default function InterviewPage() {
 
             <SkillCard
               title="Technical"
-              score={82}
+              score={stats?.skills?.technical ?? null}
               icon={Code2}
             />
 
             <SkillCard
               title="Coding"
-              score={88}
+              score={stats?.skills?.coding ?? null}
               icon={Brain}
             />
 
             <SkillCard
               title="Communication"
-              score={71}
+              score={stats?.skills?.communication ?? null}
               icon={MessageSquare}
             />
 
             <SkillCard
               title="HR"
-              score={76}
+              score={stats?.skills?.hr ?? null}
               icon={Users}
             />
 
@@ -553,57 +580,65 @@ export default function InterviewPage() {
 
             <div className="divide-y divide-white/5">
 
-              {recentInterviews.map((interview) => (
+              {stats?.recentInterviews && stats.recentInterviews.length > 0 ? (
+                stats.recentInterviews.map((interview) => (
 
-                <div
-                  key={interview.title}
-                  className="p-5 flex items-center gap-4 hover:bg-white/[0.02] transition"
-                >
+                  <div
+                    key={interview.id || interview.title}
+                    className="p-5 flex items-center gap-4 hover:bg-white/[0.02] transition"
+                  >
 
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
 
-                    <BarChart3
-                      size={18}
-                      className="text-blue-400"
+                      <BarChart3
+                        size={18}
+                        className="text-blue-400"
+                      />
+
+                    </div>
+
+
+                    <div className="flex-1 min-w-0">
+
+                      <h3 className="text-sm font-bold truncate">
+                        {interview.title}
+                      </h3>
+
+                      <p className="text-xs text-slate-500 mt-1">
+                        {interview.type} • {interview.date}
+                      </p>
+
+                    </div>
+
+
+                    <div className="text-right">
+
+                      <p className="text-lg font-black">
+                        {interview.score}%
+                      </p>
+
+                      <p className="text-[10px] text-slate-500">
+                        Score
+                      </p>
+
+                    </div>
+
+
+                    <ChevronRight
+                      size={16}
+                      className="text-slate-600"
                     />
 
                   </div>
 
-
-                  <div className="flex-1 min-w-0">
-
-                    <h3 className="text-sm font-bold truncate">
-                      {interview.title}
-                    </h3>
-
-                    <p className="text-xs text-slate-500 mt-1">
-                      {interview.type} • {interview.date}
-                    </p>
-
-                  </div>
-
-
-                  <div className="text-right">
-
-                    <p className="text-lg font-black">
-                      {interview.score}%
-                    </p>
-
-                    <p className="text-[10px] text-slate-500">
-                      Score
-                    </p>
-
-                  </div>
-
-
-                  <ChevronRight
-                    size={16}
-                    className="text-slate-600"
-                  />
-
+                ))
+              ) : (
+                <div className="p-8 text-center text-slate-500">
+                  <BarChart3 size={32} className="mx-auto text-slate-600 mb-2 opacity-50" />
+                  <p className="text-sm font-semibold text-slate-400">No interviews completed yet</p>
+                  <p className="text-xs text-slate-500 mt-1">Start your first technical, coding, or HR mock interview above.</p>
                 </div>
-
-              ))}
+              )}
 
             </div>
 
@@ -682,7 +717,7 @@ function SkillCard({
   icon: Icon,
 }: {
   title: string;
-  score: number;
+  score: number | null;
   // Icon components can have varying props (e.g., size, className). Use any to allow passing size:number
   icon: any;
 }) {
@@ -699,7 +734,7 @@ function SkillCard({
         />
 
         <span className="text-lg font-black">
-          {score}%
+          {score !== null && score !== undefined ? `${score}%` : "—"}
         </span>
 
       </div>
@@ -713,9 +748,9 @@ function SkillCard({
       <div className="h-1.5 bg-white/5 rounded-full mt-3 overflow-hidden">
 
         <div
-          className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"
+          className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-500"
           style={{
-            width: `${score}%`,
+            width: `${score ?? 0}%`,
           }}
         />
 

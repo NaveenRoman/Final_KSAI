@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
+import { awardXpAndStreak } from "@/lib/xp-service";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       },
     });
 
-    // 3. Award minor XP if it's an editor completion or debug session
+    // 3. Award minor XP if it's an editor completion or debug session (rate-limited, daily capped at 50 XP)
     let xpToAdd = 0;
     if (actionType === "EDITOR_FIX" || actionType === "EDITOR_IMPROVEMENT" || actionType === "EDITOR_GUIDANCE") {
       xpToAdd = 10;
@@ -60,37 +61,41 @@ export async function POST(req: Request) {
     }
 
     if (xpToAdd > 0) {
-      const dbUser = await db.user.findUnique({ where: { id: user.id } });
-      if (dbUser) {
-        let currentXp = dbUser.xp + xpToAdd;
-        let currentLevel = dbUser.level;
-        
-        // Handle level up boundary checks
-        let targetXp = 1000;
-        if (currentLevel >= 10) targetXp = 5000;
-        else if (currentLevel >= 5) targetXp = 2500;
+      const todayStart = new Date();
+      todayStart.setUTCHours(0, 0, 0, 0);
 
-        if (currentXp >= targetXp) {
-          currentXp -= targetXp;
-          currentLevel += 1;
-          
+      const dailyEditorXp = await db.xpTransaction.aggregate({
+        where: {
+          userId: user.id,
+          source: "editor_practice",
+          createdAt: { gte: todayStart },
+        },
+        _sum: { amount: true },
+      });
+
+      const currentDailySum = dailyEditorXp._sum.amount ?? 0;
+      const DAILY_EDITOR_CAP = 50; // max 50 XP per day from editor hints/fixes
+      const allowableXp = Math.min(xpToAdd, Math.max(0, DAILY_EDITOR_CAP - currentDailySum));
+
+      if (allowableXp > 0) {
+        const initialLevel = user.level;
+        const xpResult = await awardXpAndStreak({
+          userId: user.id,
+          amount: allowableXp,
+          source: "editor_practice",
+          idempotencyKey: `editor_${activity.id}`,
+        });
+
+        if (xpResult.user && xpResult.user.level > initialLevel) {
           await db.notification.create({
             data: {
               userId: user.id,
               title: "Level Up! 🎉",
-              message: `Congratulations! You've reached Level ${currentLevel} through code editor practice!`,
+              message: `Congratulations! You've reached Level ${xpResult.user.level} through code editor practice!`,
               read: false,
             },
           });
         }
-
-        await db.user.update({
-          where: { id: user.id },
-          data: {
-            xp: currentXp,
-            level: currentLevel,
-          },
-        });
       }
     }
 

@@ -1,9 +1,12 @@
 "use client";
 
 import React from "react";
+import { useSession } from "@/lib/auth-client";
 import { Briefcase, Trophy, Award, ExternalLink, Star } from "lucide-react";
 
 export function JobsLeaderboardWidget() {
+  const { data: session } = useSession();
+  const displayName = session?.user?.name || "Student";
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Recommended Jobs */}
@@ -53,7 +56,7 @@ export function JobsLeaderboardWidget() {
         <div className="space-y-2">
           {[
             { rank: 1, name: "Dr. Elena Rostova", xp: "4,820 XP", badge: "🥇 Rank #1", avatar: "👩‍🔬" },
-            { rank: 2, name: "Ajmeera Chandu (You)", xp: "2,450 XP", badge: "🥈 Rank #2", avatar: "👨‍💻", isUser: true },
+            { rank: 2, name: `${displayName} (You)`, xp: "2,450 XP", badge: "🥈 Rank #2", avatar: "👨‍💻", isUser: true },
             { rank: 3, name: "Marcus Vance", xp: "2,180 XP", badge: "🥉 Rank #3", avatar: "🚀" },
           ].map((l) => (
             <div

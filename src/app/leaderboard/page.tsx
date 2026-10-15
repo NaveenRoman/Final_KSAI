@@ -466,7 +466,7 @@ export default function LeaderboardPage() {
                   #{currentUserEntry?.rank || 1}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-sm font-black text-slate-900 truncate">{user?.name || "Ajmeera Chandu"}</h4>
+                  <h4 className="text-sm font-black text-slate-900 truncate">{user?.name || "Student"}</h4>
                   <p className="text-xs font-extrabold text-slate-600 truncate">{user?.college || "KGRCET"}</p>
                 </div>
               </div>
@@ -527,7 +527,7 @@ export default function LeaderboardPage() {
             <div>
               <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                 <span className="text-slate-900 font-black">Your Real Standing</span>
-                <span className="text-[11px] font-extrabold text-indigo-600">({user?.name || "Ajmeera Chandu"})</span>
+                <span className="text-[11px] font-extrabold text-indigo-600">({user?.name || "Student"})</span>
               </div>
               <div className="text-[10px] text-emerald-600 font-bold">
                 🟢 100% Real Database Synced Data

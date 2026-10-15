@@ -12,7 +12,7 @@ export default function CodeAiRedirectPage() {
 
   return (
     <div className="min-h-screen bg-[#09090B] flex items-center justify-center text-white/50 text-sm font-mono animate-pulse">
-      Redirecting to CodexAI...
+      Redirecting to Codenthra AI...
     </div>
   );
 }

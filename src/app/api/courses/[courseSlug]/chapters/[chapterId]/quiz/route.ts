@@ -32,17 +32,9 @@ export async function GET(
           where: { token: rawToken },
           include: { user: true },
         });
-        user = session?.user ?? null;
-      }
-    }
-
-    if (!user) {
-      const defaultUser =
-        (await db.user.findFirst({
-          where: { role: "Student" },
-        })) || (await db.user.findFirst());
-      if (defaultUser) {
-        user = defaultUser;
+        if (session && new Date() < session.expiresAt) {
+          user = session.user;
+        }
       }
     }
 

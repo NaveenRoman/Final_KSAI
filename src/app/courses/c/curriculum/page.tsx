@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import { safeParseResponse } from "@/lib/safe-json";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 import {
   Lock,
@@ -62,22 +63,22 @@ export default function CCurriculumPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/courses/c/chapters/0");
-      const data = await res.json();
+      const parsed = await safeParseResponse(res, "C curriculum");
 
-      if (res.ok && data.success) {
-        setCourseTitle(data.courseTitle);
-        setCourseId(data.courseId);
-        setCoursePrice(data.coursePrice);
-        setIsEnrolled(data.isEnrolled);
-        setUserEmail(data.userEmail || "student@gmail.com");
-        setChapters(data.chapters);
-        setProgresses(data.progresses);
+      if (parsed.ok && parsed.data?.success) {
+        setCourseTitle(parsed.data.courseTitle);
+        setCourseId(parsed.data.courseId);
+        setCoursePrice(parsed.data.coursePrice);
+        setIsEnrolled(parsed.data.isEnrolled);
+        setUserEmail(parsed.data.userEmail || "student@gmail.com");
+        setChapters(parsed.data.chapters || []);
+        setProgresses(parsed.data.progresses || []);
       } else {
-        setError(data.error || "Failed to load curriculum details.");
+        setError(parsed.error || parsed.data?.error || "Failed to load curriculum details.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Network error loading curriculum data.");
+      setError(err?.message || "Network error loading curriculum data.");
     } finally {
       setLoading(false);
     }

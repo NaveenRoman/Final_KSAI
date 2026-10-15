@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useSession } from "@/lib/auth-client";
 import {
   Sparkles,
   Bot,
@@ -27,6 +28,11 @@ interface RightAIPanelProps {
 
 export function RightAIPanel({ isLight = true }: RightAIPanelProps) {
   const [isOpen, setIsOpen] = useState(true);
+
+  // Authenticated Session Identity
+  const { data: session } = useSession();
+  const userName = session?.user?.name;
+  const firstName = userName && userName.trim() ? userName.trim().split(" ")[0] : "";
 
   // Student Customizable Timer States
   const [initialSeconds, setInitialSeconds] = useState(1500); // Default 25 mins choice
@@ -63,17 +69,37 @@ export function RightAIPanel({ isLight = true }: RightAIPanelProps) {
     setCustomMinutes(currentMins + delta);
   };
 
+  const createInitialMessage = (name?: string) => ({
+    id: "initial-welcome",
+    sender: "ai",
+    text: `👋 Hello ${name ? name : "there"}! I'm KnowledgeStream AI Copilot. How can I help you with your courses, concepts, or code today?`,
+    time: "Just now"
+  });
+
   // Chat Stream State
-  const [messages, setMessages] = useState([
-    {
-      id: "1",
-      sender: "ai",
-      text: "👋 Hello! I'm KnowledgeStream AI Copilot. How can I help you with your courses, concepts, or code today?",
-      time: "Just now"
-    }
-  ]);
+  const [messages, setMessages] = useState([createInitialMessage(firstName)]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+
+  // Isolate chat history per authenticated user ID & update greeting on user change/logout
+  const currentUserId = session?.user?.id || "anonymous";
+  const prevUserIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevUserIdRef.current !== null && prevUserIdRef.current !== currentUserId) {
+      // User changed or logged out — purge state and set fresh greeting
+      setMessages([createInitialMessage(firstName)]);
+    } else if (prevUserIdRef.current === null && firstName) {
+      // Initial session load — update default greeting to personalized name
+      setMessages((prev) => {
+        if (prev.length === 1 && prev[0].id === "initial-welcome") {
+          return [createInitialMessage(firstName)];
+        }
+        return prev;
+      });
+    }
+    prevUserIdRef.current = currentUserId;
+  }, [currentUserId, firstName]);
 
   // Recommended tasks completion state
   const [tasks, setTasks] = useState([

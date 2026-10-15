@@ -192,7 +192,7 @@ export default function AIResultPanel() {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `CodeXAI-${language.name}.txt`;
+        link.download = `CodenthraAI-${language.name}.txt`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -204,6 +204,7 @@ export default function AIResultPanel() {
      */
     function regenerate() {
         if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("codenthra-regenerate"));
             window.dispatchEvent(new CustomEvent("codexai-regenerate"));
         }
     }
@@ -775,7 +776,7 @@ export default function AIResultPanel() {
             }
         } catch (error) {
             console.error("Auto Code error:", error);
-            setResult("⚠️ CodeXAI could not generate the code. Please try again.");
+            setResult("⚠️ Codenthra AI could not generate the code. Please try again.");
         } finally {
             setAutoCodeGenerating(false);
         }
@@ -829,14 +830,14 @@ export default function AIResultPanel() {
                     <Sparkles size={14} className="text-cyan-500" />
                     <span>
                         {mode === "dictator"
-                            ? `CodeXAI Dictator (${language.name})`
+                            ? `Codenthra AI Dictator (${language.name})`
                             : mode === "autocode"
-                            ? "CodeXAI Auto Code"
+                            ? "Codenthra AI Auto Code"
                             : mode === "guide"
                             ? "Codenthra AI Guide"
                             : mode === "error"
-                            ? "CodeXAI Error Fix"
-                            : "CodeXAI Explanation"}
+                            ? "Codenthra AI Error Fix"
+                            : "Codenthra AI Explanation"}
                     </span>
                 </div>
 
@@ -905,7 +906,7 @@ export default function AIResultPanel() {
                             <span>
                                 {mode === "dictator"
                                     ? `Creating progressive ${language.name} teaching plan...`
-                                    : "CodeXAI is thinking..."}
+                                    : "Codenthra AI is thinking..."}
                             </span>
                         </div>
                     )}
@@ -965,7 +966,7 @@ export default function AIResultPanel() {
                                             darkMode ? "text-white" : "text-gray-900"
                                         }`}
                                     >
-                                        CodeXAI Auto Code
+                                        Codenthra AI Auto Code
                                     </h3>
                                     <p
                                         className={`text-xs ${
@@ -1805,12 +1806,12 @@ export default function AIResultPanel() {
                                             to get step-by-step debugging guidance for your code.
                                         </>
                                     ) : mode === "error" ? (
-                                        <>CodeXAI will explain your current coding errors here.</>
+                                        <>Codenthra AI will explain your current coding errors here.</>
                                     ) : (
                                         <>
                                             Click{" "}
                                             <span className="font-semibold">Explain</span>{" "}
-                                            to let CodeXAI analyze your code.
+                                            to let Codenthra AI analyze your code.
                                         </>
                                     )}
                                 </p>

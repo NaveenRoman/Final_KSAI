@@ -41,17 +41,9 @@ export async function POST(
           where: { token: rawToken },
           include: { user: true },
         });
-        user = session?.user ?? null;
-      }
-    }
-
-    if (!user) {
-      const defaultUser =
-        (await db.user.findFirst({
-          where: { role: "Student" },
-        })) || (await db.user.findFirst());
-      if (defaultUser) {
-        user = defaultUser;
+        if (session && new Date() < session.expiresAt) {
+          user = session.user;
+        }
       }
     }
 
@@ -214,33 +206,39 @@ export async function POST(
     });
 
     if (passed) {
-      // Award base quiz pass XP & update daily streak
+      // Award base quiz pass XP & update daily streak (idempotent: awarded once per user per chapter)
       const passResult = await awardXpAndStreak({
         userId: user.id,
         amount: XP_CONFIG.QUIZ_PASS,
         source: "quiz_pass",
         courseId: course.id,
+        idempotencyKey: `quiz_pass_${user.id}_${chapter.id}`,
       });
 
-      xpEarned += XP_CONFIG.QUIZ_PASS;
+      xpEarned += passResult.xpAwarded;
       currentStreak = passResult.user.currentStreak;
       longestStreak = passResult.user.longestStreak;
 
-      // Award accuracy bonus if perfect 100% score
+      // Award accuracy bonus if perfect 100% score (idempotent: awarded once per user per chapter)
       if (scorePercentage === 100) {
-        await awardXpAndStreak({
+        const bonusResult = await awardXpAndStreak({
           userId: user.id,
           amount: XP_CONFIG.ACCURACY_BONUS_PERFECT_QUIZ,
           source: "accuracy_bonus",
           courseId: course.id,
+          idempotencyKey: `accuracy_bonus_${user.id}_${chapter.id}`,
         });
-        xpEarned += XP_CONFIG.ACCURACY_BONUS_PERFECT_QUIZ;
+        xpEarned += bonusResult.xpAwarded;
       }
 
       await logUserActivity(user.id, "QUIZ_SUBMIT", {
         passed: true,
         score: scorePercentage,
         chapterTitle: chapter.title,
+        questionsCount: totalCount,
+        correctCount,
+        xpEarned,
+        skipXpAward: true,
       });
     } else {
       // Log participation activity
@@ -248,6 +246,10 @@ export async function POST(
         passed: false,
         score: scorePercentage,
         chapterTitle: chapter.title,
+        questionsCount: totalCount,
+        correctCount,
+        xpEarned: 0,
+        skipXpAward: true,
       });
     }
 

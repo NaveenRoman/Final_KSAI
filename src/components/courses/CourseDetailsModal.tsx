@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import {
   X,
@@ -142,6 +143,7 @@ export function CourseDetailsModal({
   onClose,
   onPaymentSuccess,
 }: CourseDetailsModalProps) {
+  const { data: session } = useSession();
   const [docViewerOpen, setDocViewerOpen] = useState(false);
   const [loadingRazorpay, setLoadingRazorpay] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -172,7 +174,11 @@ export function CourseDetailsModal({
 
   const syllabus = LANGUAGE_SYLLABUS[langKey] || LANGUAGE_SYLLABUS.python;
 
-  const completeEnrollment = async (paymentId: string) => {
+  const completeEnrollment = async (
+    paymentId: string,
+    razorpay_order_id?: string,
+    razorpay_signature?: string
+  ) => {
     try {
       const enrollRes = await fetch("/api/courses/enroll", {
         method: "POST",
@@ -180,8 +186,9 @@ export function CourseDetailsModal({
         body: JSON.stringify({
           userEmail,
           courseId: course.id,
-          paidAmount: course.price,
           paymentId,
+          razorpay_order_id,
+          razorpay_signature,
         }),
       });
 
@@ -243,11 +250,13 @@ export function CourseDetailsModal({
         order_id: order.id, // REAL Order ID from Razorpay API!
         handler: async function (response: any) {
           const paymentId = response.razorpay_payment_id;
-          await completeEnrollment(paymentId);
+          const orderId = response.razorpay_order_id;
+          const signature = response.razorpay_signature;
+          await completeEnrollment(paymentId, orderId, signature);
         },
         prefill: {
-          name: "Ajmeera Chandu",
-          email: userEmail,
+          name: session?.user?.name || "Student",
+          email: userEmail || session?.user?.email || "student@knowledgestream.ai",
           contact: "9999999999",
         },
         theme: {

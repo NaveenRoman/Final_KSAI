@@ -83,6 +83,27 @@ export async function POST(req: Request) {
       data: { password: user.passwordHash },
     });
 
+    // Update user's lastActiveDate and record genuine LOGIN activity
+    await db.user.update({
+      where: { id: user.id },
+      data: { lastActiveDate: new Date() },
+    });
+
+    try {
+      await db.activityLog.create({
+        data: {
+          userId: user.id,
+          actionType: "LOGIN",
+          metadata: JSON.stringify({
+            ip: req.headers.get("x-forwarded-for") || "local",
+            userAgent: req.headers.get("user-agent") || "unknown",
+          }),
+        },
+      });
+    } catch (logErr) {
+      console.warn("Login activity log notice:", logErr);
+    }
+
     const response = NextResponse.json({
       success: true,
       user: {

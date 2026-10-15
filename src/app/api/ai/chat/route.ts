@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
+import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { parseSessionToken } from "@/lib/auth-cookie";
 import { findTrainedAnswer } from "@/lib/copilot-knowledge-base";
 
 // Contextual fallback mentor if all external models are offline
@@ -6,10 +10,11 @@ function generateContextualFallbackResponse(
   question: string,
   code: string,
   language: string,
-  learningLevel: string = "beginner"
+  learningLevel: string = "beginner",
+  userName?: string | null
 ): string {
   // Check trained Knowledge Base first
-  const trainedAns = findTrainedAnswer(question);
+  const trainedAns = findTrainedAnswer(question, userName);
   if (trainedAns) return trainedAns;
 
   const qLower = question.toLowerCase().trim();
@@ -61,6 +66,41 @@ function generateContextualFallbackResponse(
 
 export async function POST(request: NextRequest) {
   try {
+    // ---------------------------------------------------------
+    // 0. Authoritative Authentication Resolution
+    // ---------------------------------------------------------
+    let user: any = null;
+    try {
+      const cookieStore = await cookies();
+      const sessionTokenRaw =
+        cookieStore.get("better-auth.session_token")?.value ||
+        cookieStore.get("sessionToken")?.value;
+
+      // 1. Primary check: Resolve user via Better Auth session API
+      const session = await auth.api.getSession({
+        headers: await headers(),
+      });
+
+      user = session?.user as any;
+
+      // 2. Fallback check: Resolve user via cookie session token lookup in DB
+      if (!user && sessionTokenRaw) {
+        const rawToken = parseSessionToken(sessionTokenRaw);
+        const dbSession = await db.session.findUnique({
+          where: { token: rawToken },
+          include: { user: true },
+        });
+
+        if (dbSession && new Date() < dbSession.expiresAt) {
+          user = dbSession.user;
+        }
+      }
+    } catch (authErr) {
+      console.warn("[AI CHAT] Auth resolution warning:", authErr);
+    }
+
+    const userName = user?.name || null;
+
     let body: any = {};
     try {
       body = await request.json();
@@ -75,7 +115,7 @@ export async function POST(request: NextRequest) {
     const learningLevel = body.learningLevel || body.level || "beginner";
     const history = Array.isArray(body.history) ? body.history : [];
 
-    console.log("[AI CHAT] Request received");
+    console.log("[AI CHAT] Request received for user:", userName || "Anonymous");
     console.log(`[AI CHAT] Language: ${language}, Level: ${learningLevel}, Code length: ${code.length}`);
     console.log(`[AI CHAT] Question: ${question}`);
 
@@ -93,9 +133,9 @@ export async function POST(request: NextRequest) {
     // ---------------------------------------------------------
     // Tier 0: Instant Copilot Knowledge Base (Platform / Pricing / Founder)
     // ---------------------------------------------------------
-    const trainedResponse = findTrainedAnswer(question);
+    const trainedResponse = findTrainedAnswer(question, userName);
     if (trainedResponse) {
-      console.log("[AI CHAT] Answered via Copilot Knowledge Base");
+      console.log("[AI CHAT] Answered via Copilot Knowledge Base for user:", userName || "Anonymous");
       return NextResponse.json({
         success: true,
         response: trainedResponse,
@@ -117,9 +157,10 @@ export async function POST(request: NextRequest) {
             ? "Provide a clear, moderately technical explanation with good programming practices and concept definitions."
             : "Provide a friendly, simple, easy-to-understand explanation avoiding unnecessary jargon, explaining beginner concepts clearly.";
 
-        const prompt = `You are Codenthra AI (CodeXAI), an intelligent programming mentor.
+        const studentContext = userName ? `STUDENT NAME: ${userName}\n` : "";
+        const prompt = `You are Codenthra AI, an intelligent programming mentor.
 
-LEARNING LEVEL: ${learningLevel.toUpperCase()} (${levelGuidance})
+${studentContext}LEARNING LEVEL: ${learningLevel.toUpperCase()} (${levelGuidance})
 LANGUAGE: ${language}
 CURRENT FILE: ${fileName}
 
@@ -233,7 +274,8 @@ INSTRUCTIONS:
       question,
       code,
       language,
-      learningLevel
+      learningLevel,
+      userName
     );
 
     return NextResponse.json({

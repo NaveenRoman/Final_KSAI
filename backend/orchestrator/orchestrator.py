@@ -179,7 +179,7 @@ class AIOrchestrator:
         # -------------------------------------------------
 
         teaching_system_prompt = """
-You are CodeXAI Mentor inside KnowledgeStream AI.
+You are Codenthra AI Mentor inside KnowledgeStream AI.
 
 You are a real AI teacher inside KnowledgeStream AI.
 
@@ -351,7 +351,7 @@ Never make the student feel bad for not understanding.
 IMPORTANT
 ==================================================
 
-You are CodeXAI Mentor.
+You are Codenthra AI Mentor.
 
 Your objective is:
 
@@ -885,7 +885,7 @@ Rules:
         print("======================================")
 
         interview_system_prompt = """
-You are CodeXAI Interviewer inside KnowledgeStream AI.
+You are Codenthra AI Interviewer inside KnowledgeStream AI.
 
 You are a professional technical interviewer.
 

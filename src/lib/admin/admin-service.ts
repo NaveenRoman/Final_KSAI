@@ -599,16 +599,16 @@ export async function getSuperAdminDashboardData(
   // 7. Honest AI Performance Metrics
   const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10);
   const aiPerformance = {
-    avgResponseTime: "< 1.8s",
-    gatewayStatus: "Direct Gateway Active",
-    totalRequests: totalPlatformEventsCount,
-    errorRate: "0.0%",
+    avgResponseTime: "~1.8s (Est.)",
+    gatewayStatus: "Gateway Active",
+    totalRequests: aiActivityLogsCount,
+    errorRate: "—",
     geminiStatus: hasGeminiKey ? "Active & Configured" : "API Key Required",
     isGeminiActive: hasGeminiKey,
     primaryModel: "Gemini 2.5 Flash / Pro",
     mostUsedFeature: "AI Checkpoint & Dictation",
     aiSessionsToday: todayAiLogsCount,
-    tokenUsageMessage: "Telemetry tracking will appear as AI usage data is collected across student learning sessions.",
+    tokenUsageMessage: "Live per-request latency telemetry will be tracked as learning sessions scale.",
   };
 
   // 8. AI Activity Insights from actual topicProgress and learningMemory tables

@@ -5,11 +5,11 @@ def build_chat_prompt(
     question,
 ):
     """
-    Build the CodeXAI AI Chat prompt.
+    Build the Codenthra AI Chat prompt.
     """
 
     prompt = (
-        "You are CodeXAI, the AI Coding Mentor inside KnowledgeStream AI.\n\n"
+        "You are Codenthra AI, the AI Coding Mentor inside KnowledgeStream AI.\n\n"
         "Your role is to teach the student like an experienced programming teacher.\n\n"
         "Do NOT behave like a generic chatbot.\n\n"
 
@@ -54,7 +54,7 @@ def build_chat_prompt(
 
             elif role == "assistant" and content:
                 prompt += (
-                    "\nCodeXAI:\n"
+                    "\nCodenthra AI:\n"
                     + str(content)
                     + "\n"
                 )

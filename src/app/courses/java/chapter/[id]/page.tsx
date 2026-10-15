@@ -740,7 +740,7 @@ ${getLessons()
 
     if (!aiResponse) {
       throw new Error(
-        "CodeXAI returned an empty response."
+        "Codenthra AI returned an empty response."
       );
     }
 
@@ -768,7 +768,7 @@ ${getLessons()
   } catch (error) {
 
     console.error(
-      "CodeXAI Teaching Error:",
+      "Codenthra AI Teaching Error:",
       error
     );
 
@@ -2281,7 +2281,7 @@ userEmail={userEmail}
 
 
       {/* ========================================= */}
-      {/* CODEXAI MENTOR */}
+      {/* CODENTHRA AI MENTOR */}
       {/* ========================================= */}
       <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
@@ -2330,7 +2330,7 @@ userEmail={userEmail}
         </div>
 
         {/* ========================================= */}
-{/* CODEXAI MENTOR SCROLL AREA */}
+{/* CODENTHRA AI MENTOR SCROLL AREA */}
 {/* ========================================= */}
 
 <div
@@ -2574,7 +2574,7 @@ userEmail={userEmail}
 </form>
 
           <p className="text-[9px] text-slate-400 mt-2 text-center">
-            CodeXAI uses this lesson as context.
+            Codenthra AI uses this lesson as context.
           </p>
 
         </div>

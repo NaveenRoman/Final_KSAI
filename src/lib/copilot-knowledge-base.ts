@@ -128,7 +128,7 @@ export const COPILOT_KNOWLEDGE_BASE: KnowledgeEntry[] = [
     category: "Greetings",
     keywords: ["hi", "hello", "hey", "namaste", "good morning", "good evening", "yo"],
     patterns: [/^(hi|hello|hey|yo|namaste|good\s+morning|good\s+evening)$/i],
-    answer: "👋 **Hi Chandu! Welcome to KnowledgeStream Copilot.**\n\nI am your dedicated **Course & Platform Advisor**!\n\nAsk me anything about:\n- 👨‍💼 **Founder & CEO** (Kasi)\n- 💎 **Course Prices & Subscriptions** (e.g. *\"prices of courses\"*)\n- 📚 **Our Courses** (Java Full Stack, DBMS & SQL, Python AI, C++)\n- ✨ **Platform Features** (Certificates, Resume Builder, Mock Interviews, Pomodoro Timer)\n- 💡 **Course Recommendations** (e.g. *\"Which course is best for IT jobs?\"*)"
+    answer: "👋 **Hi {{NAME}}! Welcome to KnowledgeStream Copilot.**\n\nI am your dedicated **Course & Platform Advisor**!\n\nAsk me anything about:\n- 👨‍💼 **Founder & CEO** (Kasi)\n- 💎 **Course Prices & Subscriptions** (e.g. *\"prices of courses\"*)\n- 📚 **Our Courses** (Java Full Stack, DBMS & SQL, Python AI, C++)\n- ✨ **Platform Features** (Certificates, Resume Builder, Mock Interviews, Pomodoro Timer)\n- 💡 **Course Recommendations** (e.g. *\"Which course is best for IT jobs?\"*)"
   },
   {
     id: "g2",
@@ -139,11 +139,16 @@ export const COPILOT_KNOWLEDGE_BASE: KnowledgeEntry[] = [
   }
 ];
 
+function formatAnswer(answer: string, userName?: string | null): string {
+  const displayName = userName && userName.trim() ? userName.trim().split(" ")[0] : "there";
+  return answer.replace(/\{\{NAME\}\}/g, displayName);
+}
+
 /**
  * Searches the Knowledge Base for exact pattern or keyword matches.
  * Returns formatted trained answer or null if no match.
  */
-export function findTrainedAnswer(question: string): string | null {
+export function findTrainedAnswer(question: string, userName?: string | null): string | null {
   const qClean = question.trim().toLowerCase();
   if (!qClean) return null;
 
@@ -156,7 +161,7 @@ export function findTrainedAnswer(question: string): string | null {
     qClean.includes("creator") ||
     qClean.includes("leadership")
   ) {
-    return COPILOT_KNOWLEDGE_BASE[0].answer;
+    return formatAnswer(COPILOT_KNOWLEDGE_BASE[0].answer, userName);
   }
 
   // 2. Direct Pricing Match
@@ -170,14 +175,14 @@ export function findTrainedAnswer(question: string): string | null {
     qClean.includes("rate") ||
     qClean.includes("amount")
   ) {
-    return COPILOT_KNOWLEDGE_BASE[1].answer;
+    return formatAnswer(COPILOT_KNOWLEDGE_BASE[1].answer, userName);
   }
 
   // 3. Exact Pattern Match
   for (const entry of COPILOT_KNOWLEDGE_BASE) {
     for (const pattern of entry.patterns) {
       if (pattern.test(qClean)) {
-        return entry.answer;
+        return formatAnswer(entry.answer, userName);
       }
     }
   }
@@ -200,20 +205,23 @@ export function findTrainedAnswer(question: string): string | null {
   }
 
   if (bestEntry) {
-    return bestEntry.answer;
+    return formatAnswer(bestEntry.answer, userName);
   }
 
   // 5. Explicit Keyword Match (no loose fallback)
   if (qClean.includes("certificate") || qClean.includes("passport")) {
-    return COPILOT_KNOWLEDGE_BASE.find(e => e.id === "f3")?.answer || null;
+    const ans = COPILOT_KNOWLEDGE_BASE.find(e => e.id === "f3")?.answer;
+    return ans ? formatAnswer(ans, userName) : null;
   }
 
   if (qClean.includes("feature")) {
-    return COPILOT_KNOWLEDGE_BASE.find(e => e.id === "f1")?.answer || null;
+    const ans = COPILOT_KNOWLEDGE_BASE.find(e => e.id === "f1")?.answer;
+    return ans ? formatAnswer(ans, userName) : null;
   }
 
   if (qClean.includes("recommend") || (qClean.includes("which course") && qClean.includes("best"))) {
-    return COPILOT_KNOWLEDGE_BASE.find(e => e.id === "c1")?.answer || null;
+    const ans = COPILOT_KNOWLEDGE_BASE.find(e => e.id === "c1")?.answer;
+    return ans ? formatAnswer(ans, userName) : null;
   }
 
   return null;

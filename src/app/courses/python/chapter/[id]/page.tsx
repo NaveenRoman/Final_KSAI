@@ -862,7 +862,7 @@ ${getLessons()
     const aiResponse = data.data?.response ?? data.response ?? "";
 
     if (!aiResponse) {
-      throw new Error("CodeXAI returned an empty response.");
+      throw new Error("Codenthra AI returned an empty response.");
     }
 
     // Display AI response
@@ -907,7 +907,7 @@ ${getLessons()
   } catch (error) {
 
     console.error(
-      "CodeXAI Teaching Error:",
+      "Codenthra AI Teaching Error:",
       error
     );
 
@@ -2432,7 +2432,7 @@ const startMentorListening = () => {
 
 
       {/* ========================================= */}
-      {/* CODEXAI MENTOR */}
+      {/* CODENTHRA AI MENTOR */}
       {/* ========================================= */}
       <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
 
@@ -2481,7 +2481,7 @@ const startMentorListening = () => {
         </div>
 
         {/* ========================================= */}
-{/* CODEXAI MENTOR SCROLL AREA */}
+{/* CODENTHRA AI MENTOR SCROLL AREA */}
 {/* ========================================= */}
 
 <div
@@ -2750,7 +2750,7 @@ const startMentorListening = () => {
           </form>
 
           <p className="text-[9px] text-slate-400 text-center">
-            CodeXAI uses this lesson and visual context.
+            Codenthra AI uses this lesson and visual context.
           </p>
         </div>
 

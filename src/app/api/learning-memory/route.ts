@@ -1,24 +1,95 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { parseSessionToken } from "@/lib/auth-cookie";
+
+export const dynamic = "force-dynamic";
+
+async function resolveAuthenticatedUser(request: NextRequest) {
+  let sessionData = null;
+  try {
+    sessionData = await auth.api.getSession({ headers: request.headers });
+  } catch {
+    try {
+      sessionData = await auth.api.getSession({ headers: await headers() });
+    } catch {
+      // ignore
+    }
+  }
+
+  let user = sessionData?.user as any;
+
+  if (!user) {
+    let sessionTokenRaw =
+      request.cookies.get("better-auth.session_token")?.value ||
+      request.cookies.get("sessionToken")?.value;
+
+    if (!sessionTokenRaw) {
+      try {
+        const cookieStore = await cookies();
+        sessionTokenRaw =
+          cookieStore.get("better-auth.session_token")?.value ||
+          cookieStore.get("sessionToken")?.value;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (sessionTokenRaw) {
+      const rawToken = parseSessionToken(sessionTokenRaw);
+      const dbSession = await db.session.findUnique({
+        where: { token: rawToken },
+        include: { user: true },
+      });
+
+      if (dbSession && new Date() < dbSession.expiresAt) {
+        user = dbSession.user;
+      }
+    }
+  }
+
+  return user;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const userEmail =
-      request.nextUrl.searchParams.get("userEmail");
-
-    if (!userEmail) {
+    const authUser = await resolveAuthenticatedUser(request);
+    if (!authUser) {
       return NextResponse.json(
         {
           success: false,
-          error: "userEmail is required.",
+          error: "Not authenticated",
         },
-        { status: 400 }
+        { status: 401 }
       );
     }
 
+    const queryEmail = request.nextUrl.searchParams.get("userEmail");
+    const isAdmin =
+      authUser.role === "Admin" ||
+      authUser.role === "SUPER_ADMIN" ||
+      authUser.role === "SuperAdmin";
+
+    if (
+      queryEmail &&
+      queryEmail.trim().toLowerCase() !== authUser.email.toLowerCase() &&
+      !isAdmin
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Cannot access another user's learning records",
+        },
+        { status: 403 }
+      );
+    }
+
+    const targetEmail = queryEmail?.trim() || authUser.email;
+
     const user = await db.user.findUnique({
       where: {
-        email: userEmail,
+        email: targetEmail,
       },
       select: {
         id: true,
@@ -148,6 +219,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authUser = await resolveAuthenticatedUser(request);
+    if (!authUser) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Not authenticated",
+        },
+        { status: 401 }
+      );
+    }
+
     const body = await request.json();
 
     const {
@@ -162,8 +244,26 @@ export async function POST(request: NextRequest) {
       priority = 1,
     } = body;
 
+    const isAdmin =
+      authUser.role === "Admin" ||
+      authUser.role === "SUPER_ADMIN" ||
+      authUser.role === "SuperAdmin";
+
     if (
-      !userEmail ||
+      userEmail &&
+      String(userEmail).trim().toLowerCase() !== authUser.email.toLowerCase() &&
+      !isAdmin
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Cannot record learning memory for another user",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (
       !courseId ||
       !chapterId ||
       !topic ||
@@ -199,9 +299,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const targetEmail = userEmail ? String(userEmail).trim() : authUser.email;
+
     const user = await db.user.findUnique({
       where: {
-        email: userEmail,
+        email: targetEmail,
       },
       select: {
         id: true,

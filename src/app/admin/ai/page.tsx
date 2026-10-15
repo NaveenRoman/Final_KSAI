@@ -9,7 +9,22 @@ export const dynamic = "force-dynamic";
 export default async function AdminAIPage() {
   const admin = await requireAdminPage();
 
-  const totalAIRequests = await db.activityLog.count();
+  const totalAIRequests = await db.activityLog.count({
+    where: {
+      actionType: {
+        in: [
+          "AI_CHAT",
+          "AI_DICTATE",
+          "AI_GUIDE",
+          "AI_DEBUG",
+          "AI_INTERVIEW",
+          "AI_TEACHER",
+          "AI_EXPLAIN",
+          "INTERVIEW_COMPLETE",
+        ],
+      },
+    },
+  });
   const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10);
 
   const aiFeatures = [
@@ -53,18 +68,18 @@ export default async function AdminAIPage() {
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Avg Latency</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">&lt; 1.8s</div>
-          <span className="text-[10px] text-emerald-600 font-bold">Direct Gateway Active</span>
+          <div className="text-2xl font-black text-slate-900 mt-1">~1.8s <span className="text-xs font-normal text-slate-500">(Est.)</span></div>
+          <span className="text-[10px] text-amber-600 font-bold">Telemetry tracking pending</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total AI Requests</span>
           <div className="text-2xl font-black text-slate-900 mt-1">{totalAIRequests.toLocaleString("en-IN")}</div>
-          <span className="text-[10px] text-blue-600 font-bold">Logged platform events</span>
+          <span className="text-[10px] text-blue-600 font-bold">Genuine AI interactions</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">AI Error Rate</span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">0.0%</div>
-          <span className="text-[10px] text-emerald-600 font-bold">Zero gateway timeouts</span>
+          <div className="text-2xl font-black text-slate-900 mt-1">—</div>
+          <span className="text-[10px] text-slate-500 font-medium">Monitoring pending</span>
         </div>
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Primary Model</span>

@@ -57,4 +57,48 @@ export type XpSourceType =
   | "quiz_pass"
   | "challenge_solved"
   | "streak_bonus"
-  | "accuracy_bonus";
+  | "accuracy_bonus"
+  | "ai_practice_lab"
+  | "interview_mock"
+  | "editor_practice"
+  | "seed_baseline";
+
+export interface LevelInfo {
+  level: number;
+  currentLevelFloor: number;
+  nextLevelFloor: number;
+  levelProgressXp: number;
+  targetXp: number;
+}
+
+/**
+ * Calculates level and progress metrics monotonically from cumulative lifetime XP.
+ * XP is NEVER decremented on level-up.
+ * Tier thresholds:
+ * - Levels 1-4:  1,000 XP per level
+ * - Levels 5-9:  2,500 XP per level
+ * - Levels 10+: 5,000 XP per level
+ */
+export function calculateLevelFromLifetimeXp(lifetimeXp: number): LevelInfo {
+  const safeXp = Math.max(0, Math.floor(lifetimeXp || 0));
+
+  let level = 1;
+  let floor = 0;
+
+  while (true) {
+    const step = level >= 10 ? 5000 : level >= 5 ? 2500 : 1000;
+    const nextFloor = floor + step;
+    if (safeXp < nextFloor) {
+      return {
+        level,
+        currentLevelFloor: floor,
+        nextLevelFloor: nextFloor,
+        levelProgressXp: safeXp - floor,
+        targetXp: step,
+      };
+    }
+    floor = nextFloor;
+    level += 1;
+  }
+}
+

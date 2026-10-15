@@ -43,7 +43,7 @@ def generate_response(prompt: str):
 
 
 # =========================================================
-# CODEXAI TEACHING ENGINE
+# CODENTHRA AI TEACHING ENGINE
 # =========================================================
 
 def generate_teaching_response(

@@ -34,17 +34,6 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. Fallback check: Default active student
-    if (!user) {
-      const defaultUser =
-        (await db.user.findFirst({
-          where: { role: "Student" },
-        })) || (await db.user.findFirst());
-      if (defaultUser) {
-        user = defaultUser;
-      }
-    }
-
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Not authenticated", accessibleLanguages: [] },

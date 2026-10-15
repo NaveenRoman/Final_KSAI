@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
+import { safeParseResponse } from "@/lib/safe-json";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 import {
   Clock,
@@ -72,21 +73,21 @@ export default function CourseOverviewPage() {
       try {
         const firstChapter = (courseSlug === "cpp" || courseSlug === "java") ? "1" : "0";
         const res = await fetch(`/api/courses/${courseSlug}/chapters/${firstChapter}`);
-        const data = await res.json();
+        const parsed = await safeParseResponse(res, `${courseSlug.toUpperCase()} course`);
 
-        if (res.ok && data.success) {
-          setCourseTitle(data.courseTitle);
-          setCourseId(data.courseId);
-          setCoursePrice(data.coursePrice);
-          setIsEnrolled(data.isEnrolled);
-          setChapters(data.chapters);
-          setProgresses(data.progresses);
+        if (parsed.ok && parsed.data?.success) {
+          setCourseTitle(parsed.data.courseTitle);
+          setCourseId(parsed.data.courseId);
+          setCoursePrice(parsed.data.coursePrice);
+          setIsEnrolled(parsed.data.isEnrolled);
+          setChapters(parsed.data.chapters || []);
+          setProgresses(parsed.data.progresses || []);
         } else {
-          setError(data.error || "Failed to load course details.");
+          setError(parsed.error || parsed.data?.error || "Failed to load course details.");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        setError("Network error loading overview data.");
+        setError(err?.message || "Network error loading overview data.");
       } finally {
         setLoading(false);
       }
