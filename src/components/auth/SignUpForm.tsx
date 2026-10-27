@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { safeParseResponse } from "@/lib/safe-json";
 import {
   User,
   Mail,
@@ -263,15 +264,15 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
         body: JSON.stringify({ email, purpose: "signup" }),
       });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "Failed to send OTP code.");
+      const parsed = await safeParseResponse<{ error?: string; success?: boolean }>(res, "Signup OTP");
+      if (!parsed.ok || parsed.data?.error) {
+        setError(parsed.data?.error || parsed.error || "Failed to send OTP code.");
         setSendingOtp(false);
         return;
       }
 
       setOtpDigits(Array(6).fill(""));
-      setOtpCountdown(600);
+      setOtpCountdown(60);
       setSuccessMessage("Verification code sent successfully. We have sent a verification code to your email.");
       setStep("otp");
     } catch (err) {
@@ -299,9 +300,9 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
         body: JSON.stringify({ email, otp: code }),
       });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "Verification failed.");
+      const parsed = await safeParseResponse<{ error?: string; success?: boolean }>(res, "OTP Verification");
+      if (!parsed.ok || parsed.data?.error) {
+        setError(parsed.data?.error || parsed.error || "Verification failed.");
         setVerifyingOtp(false);
         return;
       }
@@ -371,15 +372,15 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
         }),
       });
 
-      const data = await res.json();
+      const parsed = await safeParseResponse<{ user?: any; error?: string }>(res, "Registration");
 
-      if (!res.ok || data.error) {
-        setError(data.error || "Registration failed.");
+      if (!parsed.ok || !parsed.data?.user) {
+        setError(parsed.data?.error || parsed.error || "Registration failed.");
         setSubmitting(false);
         return;
       }
 
-      onSubmitSuccess(data.user);
+      onSubmitSuccess(parsed.data.user);
     } catch (err) {
       console.error(err);
       setError("Network error creating your account.");

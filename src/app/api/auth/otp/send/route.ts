@@ -69,11 +69,24 @@ export async function POST(req: Request) {
       },
     });
 
-    await sendOtpEmail({
+    const emailResult = await sendOtpEmail({
       to: cleanEmail,
       otp: otpCode,
       purpose: purpose === "reset-password" ? "reset-password" : "signup",
     });
+
+    if (!emailResult.ok) {
+      if (emailResult.reason === "missing-provider") {
+        return NextResponse.json(
+          { error: "Email delivery service is currently not configured. Please contact support." },
+          { status: 503 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Failed to deliver verification email. Please check your email address or try again shortly." },
+        { status: 502 }
+      );
+    }
 
     console.log(`[OTP SENT] ${cleanEmail} | purpose=${purpose}`);
 

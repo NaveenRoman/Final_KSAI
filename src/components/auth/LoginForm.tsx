@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { safeParseResponse } from "@/lib/safe-json";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, Loader2, KeyRound, RotateCcw, Edit2 } from "lucide-react";
 
 interface LoginFormProps {
@@ -87,15 +88,18 @@ export function LoginForm({
         body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
       });
 
-      const data = await res.json();
+      const parsed = await safeParseResponse<{ success?: boolean; user?: any; error?: string }>(
+        res,
+        "Login"
+      );
 
-      if (!res.ok || data.error) {
-        setError(data.error || "Login failed. Please check your credentials.");
+      if (!parsed.ok || !parsed.data?.user) {
+        setError(parsed.data?.error || parsed.error || "Login failed. Please check your credentials.");
         setSubmitting(false);
         return;
       }
 
-      onSubmitSuccess(data.user);
+      onSubmitSuccess(parsed.data.user);
     } catch (err) {
       console.error(err);
       setError("Network error connecting to authentication server.");
@@ -143,15 +147,15 @@ export function LoginForm({
         body: JSON.stringify({ email: forgotEmail, purpose: "reset-password" }),
       });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "Unable to send a reset code right now.");
+      const parsed = await safeParseResponse<{ error?: string; success?: boolean }>(res, "Password reset OTP");
+      if (!parsed.ok || parsed.data?.error) {
+        setError(parsed.data?.error || parsed.error || "Unable to send a reset code right now.");
         setForgotSendingOtp(false);
         return;
       }
 
       setForgotOtpDigits(Array(6).fill(""));
-      setForgotCountdown(600);
+      setForgotCountdown(60);
       setSuccessMessage("Verification code sent successfully. We have sent a reset code to your email.");
       setForgotStep("otp");
     } catch (err) {
@@ -176,9 +180,9 @@ export function LoginForm({
         body: JSON.stringify({ email: forgotEmail, otp: code }),
       });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "The reset code is invalid or has expired.");
+      const parsed = await safeParseResponse<{ error?: string; success?: boolean }>(res, "OTP Verification");
+      if (!parsed.ok || parsed.data?.error) {
+        setError(parsed.data?.error || parsed.error || "The reset code is invalid or has expired.");
         setForgotVerifyingOtp(false);
         return;
       }
@@ -215,9 +219,9 @@ export function LoginForm({
         body: JSON.stringify({ email: forgotEmail, password: forgotPassword }),
       });
 
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setError(data.error || "Unable to reset password.");
+      const parsed = await safeParseResponse<{ error?: string; success?: boolean }>(res, "Password reset");
+      if (!parsed.ok || parsed.data?.error) {
+        setError(parsed.data?.error || parsed.error || "Unable to reset password.");
         setForgotSubmitting(false);
         return;
       }
