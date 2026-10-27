@@ -5,7 +5,9 @@ import bcrypt from "bcryptjs";
 
 export const auth = betterAuth({
   database: prismaAdapter(db, {
-    provider: "sqlite",
+    provider: process.env.DATABASE_URL?.startsWith("postgres")
+      ? "postgresql"
+      : "sqlite",
   }),
   emailAndPassword: {
     enabled: true,
@@ -48,7 +50,10 @@ export const auth = betterAuth({
     storeStateStrategy: "database",
   },
   trustedOrigins: [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    ...(process.env.NODE_ENV !== "production"
+      ? ["http://localhost:3000", "http://127.0.0.1:3000"]
+      : []),
+    ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
+    ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
   ],
 });

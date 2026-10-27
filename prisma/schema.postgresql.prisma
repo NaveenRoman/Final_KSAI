@@ -1,0 +1,586 @@
+// Prisma Schema for KnowledgeStream AI Production PostgreSQL (Neon) Database
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String  @id @default(uuid())
+  name            String
+  email           String  @unique
+  emailVerified   Boolean @default(false)
+  image           String?
+  passwordHash    String?
+  phone           String?
+  college         String?
+  department      String?
+  collegeId       String?
+  departmentId    String?
+  currentYear     String?
+  role            String  @default("Student") // Student | Employee | Admin | Recruiter | Company
+  country         String? @default("United States")
+  provider        String  @default("CREDENTIALS")
+  googleId        String?
+  activeSessionId String?
+
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  currentStreak              Int                         @default(0)
+  longestStreak              Int                         @default(0)
+  lastActiveDate             DateTime?
+  xp                         Int                         @default(0)
+  level                      Int                         @default(1)
+  sessions                   Session[]
+  accounts                   Account[]
+  enrollments                Enrollment[]
+  progresses                 ChapterProgress[]
+  xpTransactions             XpTransaction[]
+  weeklyLeaderboardSnapshots WeeklyLeaderboardSnapshot[]
+  activityLogs               ActivityLog[]
+  notifications              Notification[]
+  weeklyGoals                WeeklyGoal[]
+  submissions                Submission[]
+  lessonProgresses           LessonProgress[]
+  learningNotes              LearningNote[]
+  learningEvents             LearningEvent[]
+  learningMemories           LearningMemory[]
+  topicProgresses            TopicProgress[]
+  dailyRecaps                DailyRecap[]
+  chapterRecaps              ChapterRecap[]
+  notebookPages              NotebookPage[]
+}
+
+model Contest {
+  id          String      @id @default(uuid())
+  title       String
+  description String
+  status      String      @default("DRAFT") // DRAFT | PUBLISHED
+  startTime   DateTime
+  endTime     DateTime
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  challenges  Challenge[]
+}
+
+model Challenge {
+  id          String       @id @default(uuid())
+  contestId   String
+  contest     Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  difficulty  String       @default("EASY") // EASY | MEDIUM | HARD
+  testCases   String // JSON string of test cases
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  submissions Submission[]
+}
+
+model Submission {
+  id          String    @id @default(uuid())
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String
+  language    String    @default("javascript")
+  status      String // PASSED | FAILED
+  xpAwarded   Int       @default(0)
+  errorDetail String?
+  createdAt   DateTime  @default(now())
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String   @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Otp {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  otpHash    String
+  expiresAt  DateTime
+  attempts   Int      @default(0)
+  lastSentAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Course {
+  id             String          @id @default(uuid())
+  title          String // C Programming | C++ Mastery | Python AI | Java Enterprise
+  description    String
+  language       String          @default("cpp") // c | cpp | python | java
+  price          Float // e.g. 1999
+  validityDays   Int             @default(90) // 90 Days validity
+  instructor     String
+  level          String // Beginner | Intermediate | Advanced
+  category       String
+  thumbnail      String
+  duration       String
+  lessons        Int
+  rating         Float           @default(4.9)
+  createdAt      DateTime        @default(now())
+  chapters       Chapter[]
+  enrollments    Enrollment[]
+  xpTransactions XpTransaction[]
+  learningNotes  LearningNote[]
+  chapterRecaps  ChapterRecap[]
+  notebookPages  NotebookPage[]
+}
+
+model Chapter {
+  id               String            @id @default(uuid())
+  courseId         String
+  course           Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  orderNumber      Int // 1, 2, 3, 4...
+  title            String // e.g. "Topic 1: Variables & Data Types"
+  explanation      String // Full text content for AI Speech Synthesis
+  quizData         String // JSON string of 5-10 quiz questions
+  challenges       String // JSON string of Easy, Medium, Hard coding problems
+  createdAt        DateTime          @default(now())
+  progresses       ChapterProgress[]
+  lessonProgresses LessonProgress[]
+  learningNotes    LearningNote[]
+  chapterRecaps    ChapterRecap[]
+}
+
+model ChapterProgress {
+  id          String   @id @default(uuid())
+  userId      String
+  chapterId   String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  isCompleted Boolean  @default(false)
+  quizScore   Int      @default(0)
+  codeSolved  Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, chapterId])
+}
+
+model Enrollment {
+  id         String   @id @default(uuid())
+  userId     String
+  courseId   String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  paidAmount Float
+  paymentId  String // Razorpay Payment ID (e.g. pay_Rzp987123)
+  progress   Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model XpTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int
+  source    String // e.g. chapter_complete | quiz_pass | challenge_solved | streak_bonus | accuracy_bonus
+  courseId  String?
+  course    Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([userId, createdAt])
+}
+
+model WeeklyLeaderboardSnapshot {
+  id        String   @id @default(uuid())
+  weekStart DateTime
+  weekEnd   DateTime
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rank      Int
+  xp        Int
+  locked    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([weekStart, userId])
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String
+  actionType String
+  metadata   String?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WeeklyGoal {
+  id             String   @id @default(uuid())
+  userId         String
+  targetChapters Int      @default(2)
+  targetQuizzes  Int      @default(10)
+  targetAIChats  Int      @default(5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Practice {
+  id        String   @id @default(cuid())
+  userEmail String
+  courseId  String
+  meta      String
+  createdAt DateTime @default(now())
+}
+
+model LessonProgress {
+  id             String   @id @default(uuid())
+  userId         String
+  chapterId      String
+  lesson         String
+  status         String   @default("NOT_STARTED")
+  attempts       Int      @default(0)
+  correctAnswers Int      @default(0)
+  totalQuestions Int      @default(0)
+  lastScore      Int      @default(0)
+  lastActivity   DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId, lesson])
+  @@index([userId])
+  @@index([chapterId])
+}
+
+model LearningNote {
+  id String @id @default(uuid())
+
+  userId    String
+  courseId  String
+  chapterId String
+
+  topicId  String?
+  subtopic String?
+
+  topic    String
+  title    String
+  type     String // NOTEBOOK | EXPLANATION | EXAMPLE | QUESTION | CORRECTION | CODE | VISUAL | TIP | MISTAKE | PRACTICE | QUICK_RECAP | CHAPTER_RECAP
+  content  String
+  metadata String?
+
+  importance Int     @default(1)
+  isPinned   Boolean @default(false)
+
+  // A4 Physical Notebook fields
+  pageNumber    Int           @default(1)
+  sequenceOrder Int           @default(0) // Monotonic sequence within (userId, courseId)
+  pageId        String?
+  page          NotebookPage? @relation(fields: [pageId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course  Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapter Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([courseId])
+  @@index([chapterId])
+  @@index([userId, chapterId])
+  @@index([userId, courseId, pageNumber])
+  @@index([userId, courseId, sequenceOrder])
+}
+
+model NotebookPage {
+  id         String   @id @default(uuid())
+  userId     String
+  courseId   String
+  pageNumber Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  notes  LearningNote[]
+
+  @@unique([userId, courseId, pageNumber])
+  @@index([userId, courseId])
+}
+
+model LearningEvent {
+  id String @id @default(uuid())
+
+  userId    String
+  courseId  String
+  chapterId String
+
+  topic     String
+  eventType String // EXPLANATION | EXAMPLE | QUESTION | ANSWER | MISTAKE | CORRECTION | VISUAL | PRACTICE | CHAT
+  content   String
+  metadata  String?
+
+  shouldSave Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([chapterId])
+  @@index([userId, chapterId])
+  @@index([createdAt])
+}
+
+model TopicProgress {
+  id String @id @default(uuid())
+
+  userId    String
+  courseId  String
+  chapterId String
+
+  topic String
+
+  status String @default("NOT_STARTED")
+  // NOT_STARTED | LEARNING | PRACTICED | NEEDS_REVIEW | MASTERED
+
+  attempts       Int @default(0)
+  correctAnswers Int @default(0)
+  totalQuestions Int @default(0)
+
+  masteryScore Int @default(0)
+
+  // Genuine Adaptive Mastery & Learning Profile fields
+  masteryLevel          String?   @default("NOT_ENOUGH_DATA")
+  recommendedDifficulty String?   @default("INTERMEDIATE")
+  understandingScore    Float?    @default(0)
+  assessmentScore       Float?    @default(0)
+  codingScore           Float?    @default(0)
+  recentPerformance     Float?    @default(0)
+  consistencyScore      Float?    @default(0)
+  evidenceCount         Int       @default(0)
+  reteachCount          Int       @default(0)
+  strengths             String? // JSON array of verified conceptual strengths
+  weaknesses            String? // JSON array of areas needing practice
+  misconceptions        String? // JSON array of detected misconceptions
+  lastEvaluated         DateTime?
+
+  lastActivity DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, chapterId, topic])
+  @@index([userId])
+  @@index([courseId])
+  @@index([chapterId])
+}
+
+model LearningMemory {
+  id String @id @default(uuid())
+
+  userId    String
+  courseId  String
+  chapterId String
+
+  topic String
+
+  memoryType String
+  // STRUGGLE | STRENGTH | PREFERENCE | MISTAKE | MASTERY | REVIEW
+
+  key     String
+  content String
+
+  confidence Int @default(50)
+  priority   Int @default(1)
+
+  occurrences Int @default(1)
+
+  lastObserved DateTime  @default(now())
+  lastReviewed DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, topic, memoryType, key])
+  @@index([userId])
+  @@index([courseId])
+  @@index([chapterId])
+  @@index([userId, topic])
+}
+
+model DailyRecap {
+  id              String   @id @default(uuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date            String // "YYYY-MM-DD" in user's local date
+  summary         String
+  topics          String // JSON string array of topics studied
+  keyConcepts     String // JSON string of key concepts
+  importantSyntax String? // JSON string / text of syntax rules
+  revisionAreas   String? // JSON string / text of revision suggestions
+  stats           String? // JSON string of stats: chapters, questions, xp, etc.
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}
+
+model ChapterRecap {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId          String
+  course            Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  chapterId         String
+  chapter           Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  summary           String
+  keyConcepts       String // JSON string of key concepts
+  importantExamples String? // JSON string of code examples
+  importantSyntax   String? // JSON string of syntax rules
+  whatYouLearned    String? // JSON string of learning points
+  revisionPoints    String? // JSON string of revision notes
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, chapterId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([chapterId])
+}
+
+model College {
+  id            String                @id @default(uuid())
+  name          String                @unique
+  code          String?               @unique
+  location      String?
+  logo          String?
+  status        String                @default("ACTIVE") // ACTIVE | PENDING | INACTIVE | SUSPENDED
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  departments   Department[]
+  announcements CollegeAnnouncement[]
+  placements    PlacementBatch[]
+}
+
+model Department {
+  id            String                   @id @default(uuid())
+  name          String
+  code          String // e.g. "CSM", "CSE", "AI & DS", "ECE", "EEE", "MECH", "CIVIL"
+  collegeId     String
+  college       College                  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  classes       AcademicClass[]
+  announcements DepartmentAnnouncement[]
+
+  @@unique([collegeId, code])
+}
+
+model AcademicClass {
+  id            String     @id @default(uuid())
+  name          String // e.g. "CSM 3rd Year - A"
+  subject       String // e.g. "Data Structures & Algorithms"
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  facultyName   String?
+  facultyEmail  String?
+  avgScore      Float      @default(80.0)
+  totalStudents Int        @default(35)
+  active        Boolean    @default(true)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model CollegeAnnouncement {
+  id        String   @id @default(uuid())
+  collegeId String
+  college   College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  category  String   @default("GENERAL") // EXAM | EVENT | PLACEMENT | GENERAL
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model DepartmentAnnouncement {
+  id           String     @id @default(uuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  title        String
+  content      String
+  date         DateTime   @default(now())
+  createdAt    DateTime   @default(now())
+}
+
+model PlacementBatch {
+  id               String   @id @default(uuid())
+  collegeId        String
+  college          College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  batchYear        String // e.g. "2025 Batch", "2026 Batch"
+  totalEligible    Int      @default(320)
+  placedCount      Int      @default(160)
+  inProcessCount   Int      @default(90)
+  preparingCount   Int      @default(50)
+  notEligibleCount Int      @default(20)
+  highestPackage   Float    @default(12.5) // LPA
+  averagePackage   Float    @default(4.6) // LPA
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([collegeId, batchYear])
+}

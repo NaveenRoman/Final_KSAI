@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "node scripts/generate-client.js"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",
