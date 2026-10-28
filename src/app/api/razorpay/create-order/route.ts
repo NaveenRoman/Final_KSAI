@@ -1,22 +1,20 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import Razorpay from "razorpay";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { FREE_COURSE_TEST_MODE } from "@/lib/course-config";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
     const { courseId, service, currency = "INR" } = body;
 
-    // 1. Authenticate requesting user session
-    const sessionData = await auth.api.getSession({ headers: req.headers });
-    let user = sessionData?.user ?? null;
-
-    if (!user && body.userEmail) {
-      user = await db.user.findUnique({
-        where: { email: String(body.userEmail).toLowerCase().trim() },
-      });
-    }
+    // 1. Authenticate user strictly using Better Auth standard getSession
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    const user = session?.user;
 
     if (!user) {
       return NextResponse.json(
@@ -27,12 +25,19 @@ export async function POST(req: Request) {
 
     // 2. Derive price strictly from server-side database records (NEVER trust client price)
     let serverAmount = 0;
-    let orderNotes: Record<string, string> = {
+    const orderNotes: Record<string, string> = {
       userId: user.id,
       userEmail: user.email || "",
     };
 
     if (courseId) {
+      if (typeof courseId !== "string") {
+        return NextResponse.json(
+          { error: "Invalid course ID." },
+          { status: 400 }
+        );
+      }
+
       const course = await db.course.findUnique({ where: { id: courseId } });
       if (!course) {
         return NextResponse.json({ error: "Course not found." }, { status: 404 });
@@ -44,9 +49,22 @@ export async function POST(req: Request) {
       });
       if (existingEnrollment) {
         return NextResponse.json(
-          { error: "User is already enrolled in this course.", alreadyEnrolled: true },
-          { status: 400 }
+          {
+            success: true,
+            message: "User is already enrolled in this course.",
+            alreadyEnrolled: true,
+          },
+          { status: 200 }
         );
+      }
+
+      // Check Free Course Test Mode (strictly server-side configured)
+      if (FREE_COURSE_TEST_MODE) {
+        return NextResponse.json({
+          success: true,
+          freeTestMode: true,
+          message: "Free Course Test Mode is active.",
+        });
       }
 
       serverAmount = course.price;
@@ -114,10 +132,11 @@ export async function POST(req: Request) {
       order,
       key: key_id,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Razorpay Order Creation Error:", error);
+    const err = error as { error?: { description?: string }; message?: string };
     const errorMsg =
-      error?.error?.description || error?.message || "Failed to create Razorpay order.";
+      err?.error?.description || err?.message || "Failed to create Razorpay order.";
     return NextResponse.json(
       { error: errorMsg, details: error },
       { status: 500 }

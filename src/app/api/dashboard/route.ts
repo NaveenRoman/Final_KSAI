@@ -8,7 +8,7 @@ import { calculateLevelFromLifetimeXp } from "@/lib/xp-config";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
+export async function GET() {
   try {
     const cookieStore = await cookies();
     const sessionTokenRaw =
@@ -20,10 +20,10 @@ export async function GET(req: Request) {
       headers: await headers(),
     });
 
-    let user = session?.user as any;
+    let sessionUserId = session?.user?.id;
 
     // 2. Fallback check: Resolve user via cookie session token lookup in DB
-    if (!user && sessionTokenRaw) {
+    if (!sessionUserId && sessionTokenRaw) {
       const rawToken = parseSessionToken(sessionTokenRaw);
       const dbSession = await db.session.findUnique({
         where: { token: rawToken },
@@ -31,12 +31,20 @@ export async function GET(req: Request) {
       });
 
       if (dbSession && new Date() < dbSession.expiresAt) {
-        user = dbSession.user;
+        sessionUserId = dbSession.userId;
       }
     }
 
-    if (!user) {
+    if (!sessionUserId) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
+    }
+
+    const user = await db.user.findUnique({
+      where: { id: sessionUserId },
+    });
+
+    if (!user) {
+      return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
     }
 
     // --- Dynamic Computations ---
@@ -114,6 +122,8 @@ export async function GET(req: Request) {
     });
 
     for (const enroll of enrollments) {
+      if (!enroll.course) continue;
+
       const courseChapters = await db.chapter.findMany({
         where: { courseId: enroll.courseId },
         orderBy: { orderNumber: "asc" }
@@ -153,7 +163,7 @@ export async function GET(req: Request) {
           id: currentChapter.id,
           title: currentChapter.title,
           orderNumber: currentChapter.orderNumber,
-          description: currentChapter.title.includes("Topic") ? currentChapter.title.split(":")[1]?.trim() || "Concept overview" : "Concept overview",
+          description: currentChapter.title?.includes("Topic") ? currentChapter.title.split(":")[1]?.trim() || "Concept overview" : "Concept overview",
         } : null,
         upNext: nextChapter ? {
           title: nextChapter.title,
@@ -192,14 +202,18 @@ export async function GET(req: Request) {
     });
 
     if (!weeklyGoal) {
-      weeklyGoal = await db.weeklyGoal.create({
-        data: {
-          userId: user.id,
-          targetChapters: 2,
-          targetQuizzes: 10,
-          targetAIChats: 5
-        }
-      });
+      try {
+        weeklyGoal = await db.weeklyGoal.create({
+          data: {
+            userId: user.id,
+            targetChapters: 2,
+            targetQuizzes: 10,
+            targetAIChats: 5
+          }
+        });
+      } catch (goalErr) {
+        console.warn("Failed to create default weekly goal:", goalErr);
+      }
     }
 
     const thisWeeksActivities = await db.activityLog.findMany({
@@ -221,7 +235,7 @@ export async function GET(req: Request) {
           } else if (meta && typeof meta.correctCount === "number") {
             quizQuestionsSolvedThisWeek += meta.correctCount;
           }
-        } catch (e) {
+        } catch {
           // ignore corrupted metadata without inflating counts
         }
       }
@@ -232,15 +246,15 @@ export async function GET(req: Request) {
     const weeklyGoalsData = {
       chapters: {
         current: chaptersCompletedThisWeek,
-        target: weeklyGoal.targetChapters
+        target: weeklyGoal?.targetChapters ?? 2
       },
       quizzes: {
         current: quizQuestionsSolvedThisWeek,
-        target: weeklyGoal.targetQuizzes
+        target: weeklyGoal?.targetQuizzes ?? 10
       },
       aiSessions: {
         current: aiChatsThisWeek,
-        target: weeklyGoal.targetAIChats
+        target: weeklyGoal?.targetAIChats ?? 5
       }
     };
 
@@ -304,10 +318,14 @@ export async function GET(req: Request) {
 
     // Quiz reinforcement check
     for (const enroll of enrollments) {
+      if (!enroll.course) continue;
+      const chapterIds = (enroll.course.chapters || []).map(ch => ch.id);
+      if (chapterIds.length === 0) continue;
+
       const courseChapterProgresses = await db.chapterProgress.findMany({
         where: {
           userId: user.id,
-          chapterId: { in: enroll.course.chapters.map(ch => ch.id) },
+          chapterId: { in: chapterIds },
           quizScore: { gt: 0 }
         }
       });
@@ -519,7 +537,8 @@ export async function GET(req: Request) {
     };
 
     // K. Profile Widget Progress (Unified Gamification Engine)
-    const levelInfo = calculateLevelFromLifetimeXp(user.xp);
+    const userXp = typeof user.xp === "number" ? user.xp : 0;
+    const levelInfo = calculateLevelFromLifetimeXp(userXp);
 
     return NextResponse.json({
       success: true,
@@ -530,7 +549,7 @@ export async function GET(req: Request) {
         role: user.role,
         country: user.country,
         level: levelInfo.level,
-        xp: user.xp,
+        xp: userXp,
         levelProgressXp: levelInfo.levelProgressXp,
         targetXp: levelInfo.targetXp,
       },
@@ -566,8 +585,9 @@ export async function GET(req: Request) {
       }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Dashboard API Error:", error);
-    return NextResponse.json({ error: "Failed to compile dashboard metrics." }, { status: 500 });
+    const err = error as { message?: string };
+    return NextResponse.json({ success: false, error: err?.message || "Failed to compile dashboard metrics." }, { status: 500 });
   }
 }

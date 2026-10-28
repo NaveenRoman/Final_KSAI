@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { RightAIPanel } from "@/components/dashboard/RightAIPanel";
-import { Sparkles, BookOpen, Star, Clock, Compass, ShieldCheck, CheckCircle } from "lucide-react";
+import { Sparkles, BookOpen, Star, Clock, ShieldCheck, CheckCircle } from "lucide-react";
 
 interface CourseCatalogItem {
   id: string;
@@ -27,11 +28,71 @@ interface EnrollmentItem {
   courseId: string;
 }
 
+interface CatalogUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+interface SessionUserWithRole {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  role?: string | null;
+}
+
+interface RazorpaySuccessResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (response: RazorpaySuccessResponse) => void | Promise<void>;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  theme?: {
+    color?: string;
+  };
+}
+
+interface RazorpayInstance {
+  open: () => void;
+  on?: (event: string, handler: (response: unknown) => void) => void;
+}
+
+interface RazorpayConstructor {
+  new (options: RazorpayOptions): RazorpayInstance;
+}
+
+interface WindowWithRazorpay {
+  Razorpay?: RazorpayConstructor;
+}
+
 export default function ExploreCoursesCatalogPage() {
   const router = useRouter();
-  const sessionData = useSession();
-  const session = (sessionData?.data as any) ?? null;
-  const isPending = sessionData?.isPending ?? false;
+  const { data: session, isPending } = useSession();
+
+  const user = useMemo<CatalogUser | null>(() => {
+    if (!session?.user) return null;
+    const sessionUser = session.user as SessionUserWithRole;
+    return {
+      id: sessionUser.id,
+      name: sessionUser.name ?? "",
+      email: sessionUser.email ?? "",
+      role: sessionUser.role ?? "Student",
+    };
+  }, [session]);
 
   const [activeTab, setActiveTab] = useState("Explore Courses");
   const [courses, setCourses] = useState<CourseCatalogItem[]>([]);
@@ -40,20 +101,15 @@ export default function ExploreCoursesCatalogPage() {
   const [buyingCourseId, setBuyingCourseId] = useState<string | null>(null);
   const [notifiedCourses, setNotifiedCourses] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<{
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  } | null>(null);
 
   // Success Modal State
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successCourseLanguage, setSuccessCourseLanguage] = useState("");
 
   const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) {
+    return new Promise<boolean>((resolve) => {
+      const razorpayObj = typeof window !== "undefined" ? (window as unknown as WindowWithRazorpay).Razorpay : undefined;
+      if (razorpayObj) {
         resolve(true);
         return;
       }
@@ -65,11 +121,11 @@ export default function ExploreCoursesCatalogPage() {
     });
   };
 
-  const fetchCatalogAndEnrollments = async (email: string) => {
+  const fetchCatalogAndEnrollments = useCallback(async (email: string) => {
     try {
       const [coursesRes, enrollmentsRes] = await Promise.all([
         fetch("/api/courses"),
-        fetch(`/api/courses/my-courses?email=${email}`)
+        fetch(`/api/courses/my-courses?email=${encodeURIComponent(email)}`)
       ]);
 
       const coursesData = await coursesRes.json();
@@ -90,24 +146,24 @@ export default function ExploreCoursesCatalogPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  const fetchedEmailRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!isPending) {
-      if (session?.user) {
-        const currentUser = {
-          id: (session.user as any).id,
-          name: session.user.name ?? "",
-          email: session.user.email ?? "",
-          role: (session.user as any).role ?? "Student",
-        };
-        setUser(currentUser);
-        fetchCatalogAndEnrollments(currentUser.email);
-      } else {
-        router.push("/auth");
-      }
+    if (isPending) return;
+
+    if (!session?.user) {
+      router.push("/auth");
+      return;
     }
-  }, [session, isPending, router]);
+
+    const email = session.user.email || "";
+    if (fetchedEmailRef.current !== email) {
+      fetchedEmailRef.current = email;
+      fetchCatalogAndEnrollments(email);
+    }
+  }, [session, isPending, router, fetchCatalogAndEnrollments]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -118,13 +174,6 @@ export default function ExploreCoursesCatalogPage() {
     setBuyingCourseId(course.id);
 
     try {
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        alert("Failed to load Razorpay SDK. Please check your internet connection.");
-        setBuyingCourseId(null);
-        return;
-      }
-
       const res = await fetch("/api/razorpay/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -137,9 +186,37 @@ export default function ExploreCoursesCatalogPage() {
       });
 
       const data = await res.json();
+
+      // If user is already enrolled
+      if (data.alreadyEnrolled) {
+        alert("You are already enrolled in this course!");
+        fetchCatalogAndEnrollments(user.email);
+        return;
+      }
+
       if (!res.ok || !data.success) {
         alert(data.error || "Order creation failed.");
-        setBuyingCourseId(null);
+        return;
+      }
+
+      // Free Course Test Mode: Immediate enrollment without opening Razorpay
+      if (data.freeTestMode) {
+        const enrollRes = await fetch("/api/courses/enroll", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            courseId: course.id,
+          }),
+        });
+
+        const enrollData = await enrollRes.json();
+        if (enrollData.success) {
+          setSuccessCourseLanguage(course.language.toLowerCase());
+          setShowSuccessModal(true);
+          fetchCatalogAndEnrollments(user.email);
+        } else {
+          alert(enrollData.error || "Enrollment failed.");
+        }
         return;
       }
 
@@ -169,14 +246,21 @@ export default function ExploreCoursesCatalogPage() {
           alert(enrollData.error || "Enrollment failed.");
         }
       } else {
-        const options = {
+        const scriptLoaded = await loadRazorpayScript();
+        const RazorpayCtor = typeof window !== "undefined" ? (window as unknown as WindowWithRazorpay).Razorpay : undefined;
+        if (!scriptLoaded || !RazorpayCtor) {
+          alert("Failed to load Razorpay SDK. Please check your internet connection.");
+          return;
+        }
+
+        const options: RazorpayOptions = {
           key: data.key,
           amount: data.order.amount,
           currency: data.order.currency,
           name: "KnowledgeStream AI",
           description: course.title,
           order_id: data.order.id,
-          handler: async function (response: any) {
+          handler: async function (response: RazorpaySuccessResponse) {
             const enrollRes = await fetch("/api/courses/enroll", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -185,6 +269,8 @@ export default function ExploreCoursesCatalogPage() {
                 courseId: course.id,
                 paidAmount: course.price,
                 paymentId: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
               }),
             });
             const enrollData = await enrollRes.json();
@@ -201,7 +287,7 @@ export default function ExploreCoursesCatalogPage() {
             email: user.email,
           },
         };
-        const rzp = new (window as any).Razorpay(options);
+        const rzp = new RazorpayCtor(options);
         rzp.open();
       }
     } catch (err) {
@@ -289,10 +375,12 @@ export default function ExploreCoursesCatalogPage() {
                       >
                         {/* Thumbnail Banner */}
                         <div className="relative h-28 w-full overflow-hidden">
-                          <img
+                          <Image
                             src={course.thumbnail}
                             alt={course.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            fill
+                            unoptimized
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                           <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
@@ -344,7 +432,7 @@ export default function ExploreCoursesCatalogPage() {
                               className="px-3 py-1.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95 shadow-xs flex items-center gap-1 transition-all cursor-pointer"
                             >
                               <CheckCircle size={12} />
-                              Learn Now
+                              View Course
                             </button>
                           ) : (
                             <button
@@ -443,10 +531,12 @@ export default function ExploreCoursesCatalogPage() {
                       <div>
                         {/* Thumbnail Banner - Identical to active cards */}
                         <div className="relative h-28 w-full overflow-hidden">
-                          <img
+                          <Image
                             src={item.thumbnail}
                             alt={item.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            fill
+                            unoptimized
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                           <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
