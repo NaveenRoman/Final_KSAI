@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { RightAIPanel } from "@/components/dashboard/RightAIPanel";
-import { Sparkles, BookOpen, Star, Clock, ShieldCheck, CheckCircle } from "lucide-react";
+import { Sparkles, BookOpen, Star, Clock, ShieldCheck, CheckCircle, X, ArrowRight } from "lucide-react";
 
 interface CourseCatalogItem {
   id: string;
@@ -79,6 +79,52 @@ interface WindowWithRazorpay {
   Razorpay?: RazorpayConstructor;
 }
 
+// ============================================================================
+// DEMO PURCHASE MODE:
+// When true, clicking "Subscribe" triggers an interactive visual demo success flow
+// without creating Razorpay payment orders or altering real database enrollments.
+// Toggle this to false once Razorpay production credentials are configured.
+// ============================================================================
+const DEMO_PURCHASE_MODE = true;
+
+const DEMO_CONFETTI_PIECES = [
+  { left: 8, width: 8, height: 12, color: "#3B82F6", delay: 0.05, duration: 2.2, rotate: 25 },
+  { left: 16, width: 6, height: 10, color: "#10B981", delay: 0.15, duration: 2.5, rotate: -40 },
+  { left: 24, width: 9, height: 14, color: "#8B5CF6", delay: 0.1, duration: 2.1, rotate: 60 },
+  { left: 32, width: 7, height: 11, color: "#F59E0B", delay: 0.25, duration: 2.7, rotate: -20 },
+  { left: 40, width: 8, height: 12, color: "#EC4899", delay: 0.08, duration: 2.3, rotate: 45 },
+  { left: 48, width: 10, height: 10, color: "#06B6D4", delay: 0.2, duration: 2.4, rotate: 90 },
+  { left: 56, width: 7, height: 13, color: "#6366F1", delay: 0.12, duration: 2.6, rotate: -65 },
+  { left: 64, width: 9, height: 11, color: "#10B981", delay: 0.3, duration: 2.2, rotate: 30 },
+  { left: 72, width: 6, height: 12, color: "#F59E0B", delay: 0.05, duration: 2.8, rotate: -15 },
+  { left: 80, width: 8, height: 10, color: "#EC4899", delay: 0.18, duration: 2.4, rotate: 75 },
+  { left: 88, width: 7, height: 14, color: "#3B82F6", delay: 0.22, duration: 2.1, rotate: -50 },
+  { left: 94, width: 8, height: 9, color: "#14B8A6", delay: 0.35, duration: 2.9, rotate: 40 },
+  { left: 12, width: 7, height: 11, color: "#F43F5E", delay: 0.4, duration: 2.3, rotate: -35 },
+  { left: 28, width: 9, height: 9, color: "#8B5CF6", delay: 0.28, duration: 2.5, rotate: 80 },
+  { left: 44, width: 7, height: 11, color: "#F59E0B", delay: 0.32, duration: 2.6, rotate: -45 },
+  { left: 60, width: 8, height: 13, color: "#3B82F6", delay: 0.45, duration: 2.4, rotate: 15 },
+  { left: 76, width: 6, height: 10, color: "#10B981", delay: 0.38, duration: 2.7, rotate: -70 },
+  { left: 84, width: 9, height: 12, color: "#A855F7", delay: 0.42, duration: 2.2, rotate: 55 },
+  { left: 92, width: 7, height: 9, color: "#06B6D4", delay: 0.5, duration: 2.8, rotate: -30 },
+  { left: 5, width: 8, height: 11, color: "#EC4899", delay: 0.48, duration: 2.5, rotate: 65 },
+];
+
+const DEFAULT_PREVIEW_COURSE: CourseCatalogItem = {
+  id: "course-preview-sample",
+  title: "Python Pro: Zero to Hero Architecture",
+  description: "Master modern Python programming, AI systems, data pipelines, and distributed applications.",
+  language: "python",
+  price: 999,
+  level: "BEGINNER TO ADVANCED",
+  category: "ARTIFICIAL INTELLIGENCE",
+  thumbnail: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop",
+  duration: "40 Hours",
+  lessons: 32,
+  rating: 4.95,
+  instructor: "Codenthra AI",
+};
+
 export default function ExploreCoursesCatalogPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
@@ -102,9 +148,13 @@ export default function ExploreCoursesCatalogPage() {
   const [notifiedCourses, setNotifiedCourses] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
-  // Success Modal State
+  // Success Modal State (Production Gateway Flow)
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successCourseLanguage, setSuccessCourseLanguage] = useState("");
+
+  // Demo Purchase Success Modal State (Demo Simulation Flow)
+  const [showDemoSuccessModal, setShowDemoSuccessModal] = useState(false);
+  const [demoSuccessCourse, setDemoSuccessCourse] = useState<CourseCatalogItem | null>(null);
 
   const loadRazorpayScript = () => {
     return new Promise<boolean>((resolve) => {
@@ -169,7 +219,24 @@ export default function ExploreCoursesCatalogPage() {
     setActiveTab(tab);
   };
 
+  const handlePreviewPurchaseAnimation = () => {
+    const sampleCourse = courses.length > 0 ? courses[0] : DEFAULT_PREVIEW_COURSE;
+    setDemoSuccessCourse(sampleCourse);
+    setShowDemoSuccessModal(true);
+  };
+
   const handleBuyCourse = async (course: CourseCatalogItem) => {
+    // ------------------------------------------------------------------------
+    // DEMO-ONLY PURCHASE SUCCESS FLOW:
+    // Triggers client-side success animation directly. Bypasses payment gateway
+    // order creation and avoids database state changes during demo sessions.
+    // ------------------------------------------------------------------------
+    if (DEMO_PURCHASE_MODE) {
+      setDemoSuccessCourse(course);
+      setShowDemoSuccessModal(true);
+      return;
+    }
+
     if (!user) return;
     setBuyingCourseId(course.id);
 
@@ -313,16 +380,32 @@ export default function ExploreCoursesCatalogPage() {
       <main data-lenis-prevent className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 w-full custom-scrollbar bg-slate-50">
         
         {/* Welcome Header */}
-        <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-1 flex-shrink-0">
-          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
-            <Sparkles size={12} /> Professional Paths &bull; Browse Catalog
+        <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white shadow-xs flex-shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+              <Sparkles size={12} /> Professional Paths &bull; Browse Catalog
+            </div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              Explore Available Courses 🚀
+            </h1>
+            <p className="text-slate-500 text-xs font-medium">
+              Unlock access to interactive curricula, Sandbox coding workspaces, speech modules, and AI Mentor tutoring.
+            </p>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-            Explore Available Courses 🚀
-          </h1>
-          <p className="text-slate-500 text-xs font-medium">
-            Unlock access to interactive curricula, Sandbox coding workspaces, speech modules, and AI Mentor tutoring.
-          </p>
+
+          {DEMO_PURCHASE_MODE && (
+            <div className="flex-shrink-0">
+              <button
+                type="button"
+                onClick={handlePreviewPurchaseAnimation}
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black text-amber-900 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 border border-amber-300 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer"
+                title="Preview the purchase success animation and confirmation modal without modifying enrollments"
+              >
+                <Sparkles size={13} className="text-amber-600 animate-pulse" />
+                <span>Preview Purchase Animation</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -651,6 +734,212 @@ export default function ExploreCoursesCatalogPage() {
                 className="w-full py-3 rounded-xl font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
               >
                 Return to Explore Courses
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Demo Purchase Success Modal Overlay */}
+      {showDemoSuccessModal && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-md z-[10000] flex items-center justify-center p-4 overflow-y-auto"
+          onClick={() => setShowDemoSuccessModal(false)}
+        >
+          {/* Scoped CSS animations for confetti and checkmark */}
+          <style>{`
+            @keyframes ksaiConfettiFall {
+              0% { transform: translateY(-12px) rotate(0deg); opacity: 1; }
+              85% { opacity: 0.85; }
+              100% { transform: translateY(380px) rotate(720deg); opacity: 0; }
+            }
+            @keyframes ksaiModalPop {
+              0% { opacity: 0; transform: scale(0.92) translateY(12px); }
+              60% { transform: scale(1.02) translateY(-2px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            @keyframes ksaiDrawCircle {
+              0% { stroke-dashoffset: 214; }
+              100% { stroke-dashoffset: 0; }
+            }
+            @keyframes ksaiDrawCheck {
+              0% { stroke-dashoffset: 50; }
+              100% { stroke-dashoffset: 0; }
+            }
+            .animate-confetti-particle {
+              animation-name: ksaiConfettiFall;
+              animation-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+              animation-iteration-count: infinite;
+            }
+            .animate-ksai-modal {
+              animation: ksaiModalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            .animate-ksai-circle {
+              animation: ksaiDrawCircle 0.65s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+            }
+            .animate-ksai-check {
+              animation: ksaiDrawCheck 0.45s 0.35s cubic-bezier(0.65, 0, 0.45, 1) both;
+            }
+          `}</style>
+
+          <div
+            className="relative w-full max-w-md sm:max-w-lg rounded-3xl bg-white border border-slate-200/90 shadow-2xl overflow-hidden p-6 sm:p-8 text-center space-y-5 animate-ksai-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Ambient Background Glow */}
+            <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 bg-gradient-to-br from-emerald-400/20 via-blue-500/15 to-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            {/* Subtle Confetti Particles */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-3xl" aria-hidden="true">
+              {DEMO_CONFETTI_PIECES.map((piece, i) => (
+                <span
+                  key={i}
+                  className="absolute block rounded-sm opacity-0 animate-confetti-particle"
+                  style={{
+                    left: `${piece.left}%`,
+                    top: `-10px`,
+                    width: `${piece.width}px`,
+                    height: `${piece.height}px`,
+                    backgroundColor: piece.color,
+                    animationDelay: `${piece.delay}s`,
+                    animationDuration: `${piece.duration}s`,
+                    transform: `rotate(${piece.rotate}deg)`,
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Close 'X' Button in Top Corner */}
+            <button
+              type="button"
+              onClick={() => setShowDemoSuccessModal(false)}
+              aria-label="Close"
+              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer z-10"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Success Checkmark Animation with Ambient Pulse */}
+            <div className="relative mx-auto w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center pt-1">
+              <div className="absolute inset-0 rounded-full bg-emerald-400/20 animate-ping pointer-events-none" />
+              <div className="absolute inset-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 shadow-inner" />
+              <svg
+                className="relative w-16 h-16 sm:w-20 sm:h-20"
+                viewBox="0 0 80 80"
+                fill="none"
+              >
+                {/* Background Track */}
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  stroke="#D1FAE5"
+                  strokeWidth="5"
+                />
+                {/* Animated Emerald Ring */}
+                <circle
+                  cx="40"
+                  cy="40"
+                  r="34"
+                  stroke="#10B981"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray="214"
+                  strokeDashoffset="0"
+                  className="animate-ksai-circle"
+                />
+                {/* Animated Checkmark */}
+                <path
+                  d="M26 41 L36 51 L55 31"
+                  stroke="#059669"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeDasharray="50"
+                  strokeDashoffset="0"
+                  className="animate-ksai-check"
+                />
+              </svg>
+            </div>
+
+            {/* Primary Header & Message */}
+            <div className="space-y-1.5 relative z-10">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200/70">
+                <Sparkles size={13} className="text-emerald-500 animate-pulse" />
+                <span>Subscription Confirmed</span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                You have successfully purchased this course!
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+                Your enrollment is ready. Dive straight into interactive AI guidance, sandbox exercises, and full course lessons.
+              </p>
+            </div>
+
+            {/* Course Summary Card */}
+            {demoSuccessCourse && (
+              <div className="relative z-10 rounded-2xl bg-slate-50 border border-slate-200/90 p-3 sm:p-4 flex items-center gap-3.5 text-left shadow-xs">
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100">
+                  <Image
+                    src={demoSuccessCourse.thumbnail}
+                    alt={demoSuccessCourse.title}
+                    fill
+                    unoptimized
+                    className="object-cover"
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] font-mono font-black text-[#4F46E5] uppercase tracking-wider block truncate">
+                    {demoSuccessCourse.category}
+                  </span>
+                  <h4 className="text-sm font-extrabold text-slate-900 truncate">
+                    {demoSuccessCourse.title}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-medium">
+                    <span>{demoSuccessCourse.lessons} Lessons</span>
+                    <span>&bull;</span>
+                    <span className="font-bold text-emerald-600">Lifetime Access</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Demo Mode Notice Badge */}
+            <div className="relative z-10 inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-amber-50/90 border border-amber-200/70 text-amber-800 text-[11px] font-semibold">
+              <ShieldCheck size={13} className="text-amber-600 shrink-0" />
+              <span>Demo Simulation &bull; No charge was processed</span>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="relative z-10 flex flex-col sm:flex-row items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDemoSuccessModal(false);
+                  if (demoSuccessCourse) {
+                    const langClean = (demoSuccessCourse.language || "").toLowerCase().trim();
+                    const targetSlug =
+                      langClean === "c++" || langClean === "cpp"
+                        ? "cpp"
+                        : langClean === "c"
+                        ? "c"
+                        : langClean === "java"
+                        ? "java"
+                        : "python";
+                    router.push(`/courses/${targetSlug}`);
+                  }
+                }}
+                className="w-full sm:flex-1 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity shadow-md shadow-blue-500/20 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Continue Learning</span>
+                <ArrowRight size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDemoSuccessModal(false)}
+                className="w-full sm:w-auto py-3 px-5 rounded-xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>
