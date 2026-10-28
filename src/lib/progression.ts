@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
 import { extractLessonTitles } from "@/lib/curriculum-parser";
+import { loadChapterMarkdown } from "@/lib/course-content-loader";
 
 /**
  * Standard Python & Java Chapter Section Maps
@@ -238,21 +239,6 @@ export const DEFAULT_CHAPTER_SECTIONS: Record<string, Record<number, string[]>> 
   },
 };
 
-function safeReadFile(targetPath: string): string | null {
-  if (typeof window !== "undefined") return null;
-  try {
-    const fsMod = eval("require")("fs");
-    const pathMod = eval("require")("path");
-    const fullPath = pathMod.isAbsolute(targetPath) ? targetPath : pathMod.join(process.cwd(), targetPath);
-    if (fsMod.existsSync(fullPath)) {
-      return fsMod.readFileSync(fullPath, "utf8");
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 /**
  * Extract topic headings from chapter markdown or default section maps
  */
@@ -263,16 +249,10 @@ export function extractChapterTopics(
 ): string[] {
   const normSlug = courseSlug.toLowerCase();
 
-  // 1. If markdown content or file path provided, resolve and extract
-  if (markdownContent && typeof markdownContent === "string") {
-    let content = markdownContent;
-    if (content.endsWith(".md") || content.includes("/") || content.includes("\\")) {
-      const diskContent = safeReadFile(content);
-      if (diskContent) {
-        content = diskContent;
-      }
-    }
-    const extracted = extractLessonTitles(content, chapterOrder);
+  // 1. If markdown content or file path provided, resolve via authoritative loader
+  const resolvedContent = loadChapterMarkdown(normSlug, chapterOrder, markdownContent);
+  if (resolvedContent && resolvedContent.trim().length > 100) {
+    const extracted = extractLessonTitles(resolvedContent, chapterOrder);
     if (extracted.length > 0) return extracted;
   }
 
@@ -282,7 +262,7 @@ export function extractChapterTopics(
     return predefined;
   }
 
-  // 3. Fallback: check standard markdown path on disk
+  // 3. Fallback: check standard markdown path via bundled loader
   const candidateDirs: Record<string, string> = {
     python: "content/python",
     c: "content/c",
@@ -291,8 +271,8 @@ export function extractChapterTopics(
   };
   const dir = candidateDirs[normSlug];
   if (dir) {
-    const diskContent = safeReadFile(`${dir}/chapter${chapterOrder}.md`);
-    if (diskContent) {
+    const diskContent = loadChapterMarkdown(normSlug, chapterOrder, `${dir}/chapter${chapterOrder}.md`);
+    if (diskContent && diskContent.trim().length > 100) {
       const extracted = extractLessonTitles(diskContent, chapterOrder);
       if (extracted.length > 0) return extracted;
     }
@@ -415,10 +395,10 @@ export async function getAuthoritativeProgression(
   const progressMap = new Map(chapterProgresses.map((p) => [p.chapterId, p]));
 
   // 4. Calculate Chapter Unlock Hierarchy
-  // Chapter 0 is free preview. Chapter k is unlocked if Chapter k-1 is completed (quiz score >= 75%)
+  // Chapter 0 is free preview. Chapter k is unlocked if Chapter k-1 is completed (quiz score >= 75% and challenges passed)
   const chaptersSummary = course.chapters.map((ch, idx) => {
     const prog = progressMap.get(ch.id);
-    const isCompleted = !!prog?.isCompleted && (prog?.quizScore ?? 0) >= 75;
+    const isCompleted = !!prog?.isCompleted && (prog?.quizScore ?? 0) >= 75 && (prog?.codeSolved ?? false);
     const quizScore = prog?.quizScore ?? 0;
 
     let isUnlocked = false;
@@ -431,7 +411,7 @@ export async function getAuthoritativeProgression(
         course.chapters.find((c) => c.orderNumber === ch.orderNumber - 1) ||
         course.chapters[idx - 1];
       const prevProg = prevCh ? progressMap.get(prevCh.id) : undefined;
-      const prevCompleted = !!prevProg?.isCompleted && (prevProg?.quizScore ?? 0) >= 75;
+      const prevCompleted = !!prevProg?.isCompleted && (prevProg?.quizScore ?? 0) >= 75 && (prevProg?.codeSolved ?? false);
       isUnlocked = prevCompleted;
     }
 
@@ -592,7 +572,7 @@ export async function getAuthoritativeProgression(
  * Logs a user activity in the database, awards XP, handles leveling up,
  * and creates corresponding notifications.
  */
-export async function logUserActivity(userId: string, actionType: string, metadata?: any) {
+export async function logUserActivity(userId: string, actionType: string, metadata?: Record<string, unknown> | null) {
   try {
     // 1. Log the activity
     await db.activityLog.create({

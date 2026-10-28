@@ -297,7 +297,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       };
     }, [voiceEnabled, speed]);
 
-    // Fast Normalized Topic Extractor from Lesson Source
+    // Authoritative Topic Extractor from Lesson Source
     const extractTopicSourceContent = (topicName: string): string => {
       if (!chapterContent?.trim()) return "";
       const source = chapterContent.trim();
@@ -308,21 +308,143 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         idx = source.toLowerCase().indexOf(normTopic);
       }
       if (idx === -1) {
-        return source.slice(0, 1500);
+        return source;
       }
 
-      const afterTopic = source.slice(idx);
-      const nextHeadingMatch = afterTopic.slice(topicName.length).match(/\n#{1,4}\s+.+/m);
-      if (nextHeadingMatch && nextHeadingMatch.index !== undefined) {
-        return afterTopic.slice(0, topicName.length + nextHeadingMatch.index).trim();
+      // Check heading prefix before idx to detect level (e.g. ### is level 3)
+      const prefixBefore = source.slice(Math.max(0, idx - 10), idx);
+      const headingMatch = prefixBefore.match(/(#{1,6})\s*$/);
+      const headingLevel = headingMatch ? headingMatch[1].length : 3;
+
+      const afterTopic = source.slice(idx + topicName.length);
+
+      // 1. If next topic from allTopics is available, match its exact occurrence
+      if (allTopics && Array.isArray(allTopics)) {
+        const curIdx = allTopics.findIndex(
+          (t) => t.toLowerCase() === topicName.toLowerCase() || t.toLowerCase().includes(normTopic)
+        );
+        if (curIdx >= 0 && curIdx < allTopics.length - 1) {
+          const nextTopic = allTopics[curIdx + 1];
+          const nextNorm = nextTopic.replace(/^[\d\.\-\s:]+/, "").trim().toLowerCase();
+          let nextIdx = afterTopic.toLowerCase().indexOf(nextTopic.toLowerCase());
+          if (nextIdx === -1) {
+            nextIdx = afterTopic.toLowerCase().indexOf(nextNorm);
+          }
+          if (nextIdx !== -1) {
+            return source.slice(idx, idx + topicName.length + nextIdx).trim();
+          }
+        }
       }
-      return afterTopic.slice(0, 1800).trim();
+
+      // 2. Otherwise stop only at headings of equal or higher level (never subheadings like ####)
+      const headingRegex = new RegExp(`\\n#{1,${headingLevel}}\\s+.+`, "m");
+      const nextSiblingMatch = afterTopic.match(headingRegex);
+      if (nextSiblingMatch && nextSiblingMatch.index !== undefined) {
+        return source.slice(idx, idx + topicName.length + nextSiblingMatch.index).trim();
+      }
+
+      return source.slice(idx).trim();
     };
 
-    // Fast Cached Topic Explanation Fetcher (Single optimized request per topic)
+    // Sequential Learning Unit Interface and Topic Decomposer
+    interface DecomposedTopicUnit {
+      unitIndex: number;
+      totalUnits: number;
+      unitTitle: string;
+      unitContent: string;
+    }
+
+    const decomposeTopicUnits = (
+      topicTitle: string,
+      rawTopicMarkdown: string
+    ): DecomposedTopicUnit[] => {
+      if (!rawTopicMarkdown || rawTopicMarkdown.trim().length < 250) {
+        return [
+          {
+            unitIndex: 1,
+            totalUnits: 1,
+            unitTitle: topicTitle,
+            unitContent: rawTopicMarkdown || topicTitle,
+          },
+        ];
+      }
+
+      // Remove the primary heading line from the body if present
+      let body = rawTopicMarkdown.replace(/^(?:#+\s+)?[^\r\n]+[\r\n]+/, "").trim();
+      if (!body) body = rawTopicMarkdown.trim();
+
+      // Split along structural subsections: subheadings (####), callouts (> [!NOTE]), or code blocks
+      const parts = body.split(/(?=\n####\s+|\n>\s*\[!|\n```(?:java|c|cpp|python|bash))/);
+      const rawChunks: string[] = [];
+
+      for (const part of parts) {
+        const trimmed = part.trim();
+        if (trimmed.length > 0) {
+          rawChunks.push(trimmed);
+        }
+      }
+
+      // Merge heading-only or stub chunk (< 80 chars) immediately preceding a code block
+      const mergedChunks: string[] = [];
+      for (let i = 0; i < rawChunks.length; i++) {
+        const cur = rawChunks[i];
+        const next = rawChunks[i + 1];
+
+        if (
+          cur.length < 80 &&
+          !cur.startsWith("```") &&
+          !cur.startsWith("> [!") &&
+          !cur.includes("|") &&
+          next &&
+          next.startsWith("```")
+        ) {
+          mergedChunks.push(`${cur}\n\n${next}`);
+          i++;
+        } else {
+          mergedChunks.push(cur);
+        }
+      }
+
+      const chunks = mergedChunks.filter((c) => c.trim().length > 40);
+
+      if (chunks.length <= 1) {
+        return [
+          {
+            unitIndex: 1,
+            totalUnits: 1,
+            unitTitle: topicTitle,
+            unitContent: chunks[0] || body,
+          },
+        ];
+      }
+
+      return chunks.map((chunk, idx) => {
+        let subTitle = topicTitle;
+        const subHeadingMatch = chunk.match(/^####\s+(.+)$/m);
+        if (subHeadingMatch) {
+          subTitle = subHeadingMatch[1].trim();
+        } else if (chunk.startsWith("> [!")) {
+          const insightMatch = chunk.match(/>\s*\*\*([^*]+)\*\*/);
+          subTitle = insightMatch ? insightMatch[1].trim() : `Key Insight: ${topicTitle}`;
+        } else if (chunk.includes("```mermaid") || chunk.includes("graph TD")) {
+          subTitle = topicTitle;
+        } else if (/```(?:java|c|cpp|python|bash)/i.test(chunk)) {
+          subTitle = `Demonstration Code: ${topicTitle}`;
+        }
+        return {
+          unitIndex: idx + 1,
+          totalUnits: chunks.length,
+          unitTitle: subTitle,
+          unitContent: chunk,
+        };
+      });
+    };
+
+    // Fast Cached Topic/Unit Explanation Fetcher
     const getFastTopicExplanation = async (
       topicName: string,
-      sessionKey: string
+      sessionKey: string,
+      explicitContent?: string
     ): Promise<string> => {
       const cacheKey = `${course || "course"}_${chapterTitle || "chapter"}_${topicName}`.toLowerCase();
 
@@ -336,7 +458,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         return pending;
       }
 
-      const topicContent = extractTopicSourceContent(topicName);
+      const topicContent = explicitContent || extractTopicSourceContent(topicName);
       const requestPromise = (async () => {
         try {
           const explanation = await onExplain(
@@ -439,6 +561,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       sentenceSpanRefs.current = [];
 
       let sIdx = 0;
+      let sentenceRetries = 0;
       while (sIdx < sentences.length) {
         if (
           stopRef.current ||
@@ -497,8 +620,18 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
           continue;
         }
 
+        // Handle pause while speech was active
+        while (
+          pauseRef.current &&
+          !stopRef.current &&
+          isMountedRef.current &&
+          !nextRequestedRef.current &&
+          activeSessionKeyRef.current === sessionKey
+        ) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
         if (
-          !ok ||
           stopRef.current ||
           !isMountedRef.current ||
           nextRequestedRef.current ||
@@ -507,6 +640,15 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
           return false;
         }
 
+        // If speech was interrupted during pause or speech glitch, re-speak sentence on resume without skipping content
+        if (!ok) {
+          if (sentenceRetries < 2) {
+            sentenceRetries++;
+            continue;
+          }
+        }
+
+        sentenceRetries = 0;
         sIdx++;
 
         if (
@@ -589,8 +731,30 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
     // --------------------------------------------------
     const toggleSpeechInput = () => {
       if (typeof window === "undefined") return;
+      const windowWithSpeech = window as unknown as {
+        SpeechRecognition?: new () => {
+          lang: string;
+          interimResults: boolean;
+          continuous: boolean;
+          onstart: () => void;
+          onresult: (e: { resultIndex: number; results: Array<Array<{ transcript: string }>> }) => void;
+          onerror: () => void;
+          onend: () => void;
+          start: () => void;
+        };
+        webkitSpeechRecognition?: new () => {
+          lang: string;
+          interimResults: boolean;
+          continuous: boolean;
+          onstart: () => void;
+          onresult: (e: { resultIndex: number; results: Array<Array<{ transcript: string }>> }) => void;
+          onerror: () => void;
+          onend: () => void;
+          start: () => void;
+        };
+      };
       const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        windowWithSpeech.SpeechRecognition || windowWithSpeech.webkitSpeechRecognition;
 
       if (!SpeechRecognition) {
         alert("Voice recognition is not supported in this browser. Please type your answer.");
@@ -609,7 +773,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         recognition.continuous = false;
 
         recognition.onstart = () => setIsListening(true);
-        recognition.onresult = (event: any) => {
+        recognition.onresult = (event: { resultIndex: number; results: Array<Array<{ transcript: string }>> }) => {
           let transcript = "";
           for (let i = event.resultIndex; i < event.results.length; i++) {
             transcript += event.results[i][0].transcript;
@@ -642,11 +806,12 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         let evalResult: CheckpointEvaluation;
 
         if (onEvaluateCheckpoint) {
-          const raw = await onEvaluateCheckpoint(checkpointQuestion, answer);
-          if (typeof raw === "object" && "score" in raw && typeof (raw as any).score === "number") {
-            evalResult = raw as CheckpointEvaluation;
+          const raw = (await onEvaluateCheckpoint(checkpointQuestion, answer)) as unknown;
+          if (typeof raw === "object" && raw !== null && "score" in raw && typeof (raw as Record<string, unknown>).score === "number") {
+            evalResult = raw as unknown as CheckpointEvaluation;
           } else {
-            const rawText = (raw as any).feedback || "";
+            const rawObj = raw as Record<string, unknown> | null;
+            const rawText = typeof rawObj?.feedback === "string" ? rawObj.feedback : "";
             evalResult = parseCheckpointEvaluation(rawText, checkpointQuestion, answer);
           }
         } else {
@@ -709,11 +874,13 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       try {
         let evalResult: CheckpointEvaluation;
         if (onEvaluateCheckpoint) {
-          const raw = await onEvaluateCheckpoint(checkpointEvaluation.followUpQuestion, answer);
-          if (typeof raw === "object" && "score" in raw && typeof (raw as any).score === "number") {
-            evalResult = raw as CheckpointEvaluation;
+          const raw = (await onEvaluateCheckpoint(checkpointEvaluation.followUpQuestion, answer)) as unknown;
+          if (typeof raw === "object" && raw !== null && "score" in raw && typeof (raw as Record<string, unknown>).score === "number") {
+            evalResult = raw as unknown as CheckpointEvaluation;
           } else {
-            evalResult = parseCheckpointEvaluation((raw as any).feedback || "", checkpointEvaluation.followUpQuestion, answer);
+            const rawObj = raw as Record<string, unknown> | null;
+            const rawText = typeof rawObj?.feedback === "string" ? rawObj.feedback : "";
+            evalResult = parseCheckpointEvaluation(rawText, checkpointEvaluation.followUpQuestion, answer);
           }
         } else {
           evalResult = parseCheckpointEvaluation("", checkpointEvaluation.followUpQuestion, answer);
@@ -1265,23 +1432,57 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       onLessonStart?.(topicTitle);
       highlightTopicElement(topicTitle);
 
-      // STEP 1: Fast Single-Request AI Explanation
-      setState("THINKING");
-      const explanation = await getFastTopicExplanation(topicTitle, sessionKey);
-      if (stopRef.current || !isMountedRef.current || activeSessionKeyRef.current !== sessionKey) return;
-
+      // STEP 1: Decompose Topic into Sequential Source Material Units
+      const topicContent = extractTopicSourceContent(topicTitle);
+      const units = decomposeTopicUnits(topicTitle, topicContent);
       const courseLang = (course || "general").toLowerCase() as ProgrammingLanguage;
-      const parsedInstruction = parseTeachingInstruction(explanation, topicTitle, courseLang, "BEGINNER");
-      setCurrentInstruction(parsedInstruction);
 
-      // STEP 2: Spoken Teaching with Synchronous Visuals & Highlighting
-      setState("EXPLAINING");
-      setTeacherText(parsedInstruction.spokenExplanation);
-      sessionExplanationsRef.current.push(parsedInstruction.spokenExplanation);
+      for (let uIdx = 0; uIdx < units.length; uIdx++) {
+        if (stopRef.current || !isMountedRef.current || activeSessionKeyRef.current !== sessionKey) return;
 
-      const delivered = await deliverExplanation(parsedInstruction.spokenExplanation, sessionKey);
-      if (!delivered || stopRef.current || !isMountedRef.current || activeSessionKeyRef.current !== sessionKey) {
-        return;
+        const unit = units[uIdx];
+        const unitHeader =
+          units.length > 1
+            ? `${topicTitle} (${uIdx + 1}/${units.length}: ${unit.unitTitle})`
+            : topicTitle;
+        setCurrentTitle(unitHeader);
+
+        // Fetch or get explanation for this specific unit
+        setState("THINKING");
+        const explanation = await getFastTopicExplanation(
+          `${topicTitle} - ${unit.unitTitle}`,
+          sessionKey,
+          unit.unitContent
+        );
+        if (stopRef.current || !isMountedRef.current || activeSessionKeyRef.current !== sessionKey) return;
+
+        const parsedInstruction = parseTeachingInstruction(
+          explanation,
+          unit.unitTitle,
+          courseLang,
+          "BEGINNER"
+        );
+        setCurrentInstruction(parsedInstruction);
+
+        // Speak & Deliver Explanation with Sentence Highlighting
+        setState("EXPLAINING");
+        setTeacherText(parsedInstruction.spokenExplanation);
+        sessionExplanationsRef.current.push(parsedInstruction.spokenExplanation);
+
+        const delivered = await deliverExplanation(parsedInstruction.spokenExplanation, sessionKey);
+        if (
+          !delivered ||
+          stopRef.current ||
+          !isMountedRef.current ||
+          activeSessionKeyRef.current !== sessionKey
+        ) {
+          return;
+        }
+
+        // Brief natural pause between units
+        if (uIdx < units.length - 1) {
+          await new Promise((r) => setTimeout(r, 600));
+        }
       }
 
       // STEP 3: Mandatory Interactive Understanding Checkpoint

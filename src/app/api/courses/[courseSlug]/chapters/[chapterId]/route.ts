@@ -5,8 +5,7 @@ import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { getAuthoritativeProgression } from "@/lib/progression";
 import { getChapterUnlockStatus } from "@/lib/adaptive/unlock-service";
-import fs from "fs";
-import path from "path";
+import { loadChapterMarkdown } from "@/lib/course-content-loader";
 
 export const dynamic = "force-dynamic";
 
@@ -145,18 +144,12 @@ export async function GET(
       );
     }
 
-    // Extract raw markdown explanation
-    let notesContent = currentChapter.explanation;
-    try {
-      const absolutePath = path.join(process.cwd(), currentChapter.explanation);
-      if (fs.existsSync(absolutePath)) {
-        notesContent = fs.readFileSync(absolutePath, "utf-8");
-      } else {
-        notesContent = currentChapter.explanation;
-      }
-    } catch (e) {
-      notesContent = currentChapter.explanation;
-    }
+    // Extract raw markdown explanation using authoritative loader
+    const notesContent = loadChapterMarkdown(
+      courseSlug,
+      currentChapter.orderNumber,
+      currentChapter.explanation
+    );
 
     // Metadata defaults
     const estimatedTime = currentChapter.orderNumber === 0 ? "15 mins" : "30 mins";
