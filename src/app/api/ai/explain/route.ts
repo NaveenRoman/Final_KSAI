@@ -5,6 +5,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const code = (body.code || "").trim();
     const language = body.language || "Java";
+    const isSelection = Boolean(body.isSelection);
 
     // 1. Guard against empty code
     if (!code) {
@@ -22,15 +23,25 @@ export async function POST(request: Request) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-      const response = await fetch("http://127.0.0.1:8000/api/ai/explain/", {
+      const explainUrl =
+        process.env.DJANGO_EXPLAIN_URL ||
+        (process.env.DJANGO_TEACH_URL
+          ? process.env.DJANGO_TEACH_URL.replace(/\/ai\/teach\/?$/, "/ai/explain/")
+          : "http://127.0.0.1:8000/api/ai/explain/");
+
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (process.env.INTERNAL_API_SECRET) {
+        headers["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
+      }
+
+      const response = await fetch(explainUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers,
         signal: controller.signal,
         body: JSON.stringify({
           language,
           code,
+          isSelection,
         }),
       });
 
@@ -46,11 +57,21 @@ export async function POST(request: Request) {
           "";
 
         if (explainText && typeof explainText === "string" && explainText.trim().length > 0) {
+          const label = isSelection
+            ? "🔍 **Explaining Selected Code Snippet:**\n\n"
+            : "📄 **Explaining Full Program:**\n\n";
+          const formatted =
+            explainText.includes("Explaining Selected Code Snippet") || explainText.includes("Explaining Full Program")
+              ? explainText
+              : label + explainText;
+
           return NextResponse.json({
             success: true,
-            response: explainText,
+            response: formatted,
+            explanation: formatted,
             data: {
-              response: explainText,
+              response: formatted,
+              explanation: formatted,
             },
           });
         }
@@ -60,7 +81,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Guaranteed Structured Fallback (Topic, What it does, Step-by-step, Concepts, I/O, Improvements)
-    const fallbackText = generateStructuredExplanation(code, language);
+    const fallbackText = generateStructuredExplanation(code, language, isSelection);
 
     return NextResponse.json({
       success: true,
@@ -81,7 +102,7 @@ export async function POST(request: Request) {
   }
 }
 
-function generateStructuredExplanation(code: string, language: string): string {
+function generateStructuredExplanation(code: string, language: string, isSelection: boolean = false): string {
   const lines = code.split("\n").filter((l) => l.trim().length > 0);
   const hasLoops = /for\s*\(|while\s*\(|for\s+\w+\s+in/i.test(code);
   const hasConditionals = /if\s*\(|if\s+\w+|else/i.test(code);
@@ -91,18 +112,20 @@ function generateStructuredExplanation(code: string, language: string): string {
   ).map((m) => m[1]).filter((f) => f !== "main" && f !== "if" && f !== "for" && f !== "while");
   const hasIO = /System\.out|print|cout|printf|console\.log|Scanner|cin|input\(/i.test(code);
 
-  let summary = `This ${language} program consists of ${lines.length} lines of code.`;
+  let summary = isSelection
+    ? `This selected ${language} code snippet consists of ${lines.length} lines of code.`
+    : `This ${language} program consists of ${lines.length} lines of code.`;
   if (classMatches.length > 0) summary += ` It defines ${classMatches.length} class(es): ${classMatches.join(", ")}.`;
   if (funcMatches.length > 0) summary += ` It contains ${funcMatches.length} modular function(s): ${funcMatches.join(", ")}.`;
   if (hasLoops) summary += " It employs iteration/loops for systematic data traversal.";
   if (hasConditionals) summary += " It uses conditional branching to handle decision logic.";
 
-  return `### 📌 1. Topic & Purpose
+  return `### 📌 1. Topic & Purpose ${isSelection ? "(Selected Code Snippet)" : "(Full Program)"}
 **Language:** ${language}
 **Overview:** ${summary}
 
 ### 📝 2. What the Code Does
-The program establishes necessary data structures and logic flow to execute operations:
+The ${isSelection ? "selected code snippet" : "program"} establishes necessary data structures and logic flow to execute operations:
 • Initializes variables, data types, and runtime configurations.
 • Processes inputs or state changes using standard ${language} constructs.
 ${hasIO ? "• Employs standard I/O streams to interact with the console and display results.\n" : "• Executes computations and state transformations in memory.\n"}

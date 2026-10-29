@@ -15,7 +15,11 @@ import { useTabs } from "./tabs/TabContext";
 import { useAIResult } from "./AIResultContext";
 import { useTerminal } from "./terminal/TerminalContext";
 import { useLanguage } from "./languages/LanguageContext";
+import { useEditor } from "./EditorContext";
 import { validateCodeBeforeRun } from "./runner/CodeValidator";
+
+import { useChallenge } from "./challenge/ChallengeContext";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
 const buttons = [
     {
@@ -45,6 +49,14 @@ export default function BottomDock() {
     const { setResult, setLoading, setMode } = useAIResult();
     const { output: terminalOutput } = useTerminal();
     const { language } = useLanguage();
+    const { editor } = useEditor();
+    const {
+        isChallengeMode,
+        testRunning,
+        runTestCode,
+        evaluating,
+        submitChallengeCode,
+    } = useChallenge();
 
     async function handleAIGuide() {
         if (!activeTab) {
@@ -53,6 +65,7 @@ export default function BottomDock() {
             return;
         }
 
+        const liveCode = (editor ? editor.getValue() : activeTab.content) || "";
         let diagnostics = diagnosticsByTab[activeTab.id] ?? [];
         const activeLang = activeTab.language || language?.id || "java";
 
@@ -60,7 +73,7 @@ export default function BottomDock() {
             const val = validateCodeBeforeRun({
                 language: activeLang,
                 fileName: activeTab.name || "Main",
-                code: activeTab.content,
+                code: liveCode,
             });
             if (val.diagnostics && val.diagnostics.length > 0) {
                 diagnostics = val.diagnostics.map((d) => ({
@@ -94,7 +107,7 @@ export default function BottomDock() {
                 },
                 body: JSON.stringify({
                     language: activeLang,
-                    code: activeTab.content,
+                    code: liveCode,
                     errors: diagnostics,
                     output: terminalOutput || "",
                     fileName: activeTab.name || "Main",
@@ -120,11 +133,12 @@ export default function BottomDock() {
             }
 
             setResult(guideResponse);
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("AI Guide Error:", error);
+            const errMsg = error instanceof Error ? error.message : String(error || "");
             setResult(
-                error.message
-                    ? `⚠️ Codenthra AI Guide: ${error.message}`
+                errMsg
+                    ? `⚠️ Codenthra AI Guide: ${errMsg}`
                     : "⚠️ Codenthra AI Guide could not process your code. Please try again."
             );
         } finally {
@@ -196,14 +210,34 @@ export default function BottomDock() {
 
             {buttons.map((button) => {
 
-                {/* RUN */}
+                {/* RUN & CHALLENGE SUBMIT */}
 
                 if (button.title === "Run") {
-
                     return (
-                        <RunButton
-                            key="run"
-                        />
+                        <div key="run-group" className="flex items-center gap-2">
+                            <RunButton key="run" />
+                            {isChallengeMode && (
+                                <button
+                                    type="button"
+                                    onClick={() => submitChallengeCode()}
+                                    disabled={evaluating || testRunning}
+                                    className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title="Submit your code against all test cases"
+                                >
+                                    {evaluating ? (
+                                        <>
+                                            <Loader2 size={18} className="animate-spin" />
+                                            <span>Submitting...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 size={18} />
+                                            <span>Submit Solution</span>
+                                        </>
+                                    )}
+                                </button>
+                            )}
+                        </div>
                     );
                 }
 
@@ -211,30 +245,30 @@ export default function BottomDock() {
                     button.icon;
 
                 return (
-    <button
-        key={button.title}
-        type="button"
-        onClick={
-            button.title === "Dictator"
-                ? handleDictator
-                : button.title === "Auto Code"
-                    ? handleAutoCode
-                    : undefined
-        }
-        className={`group flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r ${button.color}
-        hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl text-white`}
-    >
+                    <button
+                        key={button.title}
+                        type="button"
+                        onClick={
+                            button.title === "Dictator"
+                                ? handleDictator
+                                : button.title === "Auto Code"
+                                    ? handleAutoCode
+                                    : undefined
+                        }
+                        className={`group flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r ${button.color}
+                        hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl text-white`}
+                    >
 
-        {Icon && (
-            <Icon size={20} />
-        )}
+                        {Icon && (
+                            <Icon size={20} />
+                        )}
 
-        <span className="font-semibold text-sm">
-            {button.title}
-        </span>
+                        <span className="font-semibold text-sm">
+                            {button.title}
+                        </span>
 
-    </button>
-);
+                    </button>
+                );
             })}
 
         </div>

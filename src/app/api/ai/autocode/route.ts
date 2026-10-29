@@ -2,16 +2,17 @@ import { NextResponse } from "next/server";
 import { synthesizeUniversalProgram } from "@/components/editor/dictator/DictatorTokenizer";
 
 function cleanAndParseAutoCodeResponse(
-  raw: any,
+  raw: unknown,
   project: string,
   language: string
 ): { code: string; explanation: string } {
   if (!raw) return { code: "", explanation: "" };
 
-  if (typeof raw === "object" && raw.code) {
+  if (typeof raw === "object" && raw !== null && "code" in raw) {
+    const obj = raw as Record<string, unknown>;
     return {
-      code: String(raw.code),
-      explanation: String(raw.explanation || ""),
+      code: String(obj.code),
+      explanation: String(obj.explanation || ""),
     };
   }
 
@@ -25,7 +26,7 @@ function cleanAndParseAutoCodeResponse(
 
     try {
       const parsed = JSON.parse(text);
-      if (parsed && typeof parsed === "object" && parsed.code) {
+      if (parsed && typeof parsed === "object" && "code" in parsed) {
         return {
           code: String(parsed.code),
           explanation: String(parsed.explanation || ""),
@@ -60,16 +61,18 @@ function cleanAndParseAutoCodeResponse(
 }
 
 export async function POST(request: Request) {
-  let body: any = {};
+  let body: Record<string, unknown> = {};
   try {
-    body = await request.json().catch(() => ({}));
+    body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   } catch {
     body = {};
   }
 
-  const language = body.language || "java";
-  const project = (body.project || "").trim();
-  const level = body.level || body.learningLevel || "beginner";
+  const language = typeof body.language === "string" ? body.language : "java";
+  const project = typeof body.project === "string" ? body.project.trim() : "";
+  const level = typeof body.level === "string" ? body.level : (typeof body.learningLevel === "string" ? body.learningLevel : "beginner");
+  const category = typeof body.category === "string" ? body.category : undefined;
+  const practiceLevel = typeof body.practiceLevel === "number" || typeof body.practiceLevel === "string" ? Number(body.practiceLevel) : undefined;
 
   if (!project) {
     return NextResponse.json(
@@ -86,14 +89,27 @@ export async function POST(request: Request) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    const response = await fetch("http://127.0.0.1:8000/api/ai/autocode/", {
+    const targetUrl =
+      process.env.DJANGO_AUTOCODE_URL ||
+      (process.env.DJANGO_TEACH_URL
+        ? process.env.DJANGO_TEACH_URL.replace(/\/ai\/teach\/?$/, "/ai/autocode/")
+        : "http://127.0.0.1:8000/api/ai/autocode/");
+
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (process.env.INTERNAL_API_SECRET) {
+      headers["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
+    }
+
+    const response = await fetch(targetUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       signal: controller.signal,
       body: JSON.stringify({
         language,
         project,
         level,
+        category,
+        practiceLevel,
       }),
     });
 
@@ -106,6 +122,13 @@ export async function POST(request: Request) {
         const cleaned = cleanAndParseAutoCodeResponse(rawResponse, project, language);
 
         if (cleaned.code) {
+          if (!cleaned.explanation || cleaned.explanation.trim().length === 0) {
+            cleaned.explanation =
+              `### 📖 ${project} (${language.toUpperCase()} — ${level.toUpperCase()})\n\n` +
+              `Complete working implementation generated for **${project}** at **${level}** level.\n\n` +
+              `This code demonstrates the appropriate data structures, logic flow, and idioms for the **${level}** practice tier.`;
+          }
+
           return NextResponse.json({
             success: true,
             data: {
@@ -127,7 +150,7 @@ export async function POST(request: Request) {
 
   // 2. Guaranteed Universal Curriculum Synthesizer
   try {
-    const units = synthesizeUniversalProgram(project, language, level);
+    const units = synthesizeUniversalProgram(project, language, level, category, practiceLevel);
     if (units && units.length > 0) {
       const fullCode = units[units.length - 1].fullAccumulatedCode;
       const explanation =

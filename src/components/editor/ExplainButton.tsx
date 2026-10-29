@@ -26,6 +26,20 @@ export default function ExplainButton() {
         // Read live code from Monaco editor instance first, falling back to activeTab content
         const liveCode = (editor ? editor.getValue() : activeTab?.content) || "";
 
+        // Check for active text selection in Monaco Editor
+        const selection = editor?.getSelection();
+        const hasSelection = Boolean(
+            selection &&
+            !selection.isEmpty() &&
+            editor?.getModel()?.getValueInRange(selection)?.trim().length
+        );
+        const selectedCode = hasSelection
+            ? editor?.getModel()?.getValueInRange(selection!)?.trim() || ""
+            : "";
+
+        const isSelection = Boolean(hasSelection && selectedCode.length > 0);
+        const codeToExplain = isSelection ? selectedCode : liveCode;
+
         // Switch to Explanation mode and focus the Explanation panel tab
         setMode("explain");
         if (typeof window !== "undefined") {
@@ -35,7 +49,7 @@ export default function ExplainButton() {
         }
 
         // Empty code check
-        if (!liveCode.trim()) {
+        if (!codeToExplain.trim()) {
             setResult("Write or paste some code first, then I can explain it.");
             return;
         }
@@ -63,7 +77,8 @@ export default function ExplainButton() {
                     },
                     body: JSON.stringify({
                         language: langName,
-                        code: liveCode,
+                        code: codeToExplain,
+                        isSelection,
                     }),
                 }
             );
@@ -93,7 +108,17 @@ export default function ExplainButton() {
                 );
             }
 
-            setResult(aiResponse);
+            const prefix = isSelection
+                ? "🔍 **Explaining Selected Code Snippet:**\n\n"
+                : "📄 **Explaining Full Program:**\n\n";
+
+            const labeledResponse =
+                aiResponse.startsWith("🔍 **Explaining Selected Code") ||
+                aiResponse.startsWith("📄 **Explaining Full Program")
+                    ? aiResponse
+                    : `${prefix}${aiResponse}`;
+
+            setResult(labeledResponse);
 
         } catch (error) {
             console.error(
@@ -101,7 +126,12 @@ export default function ExplainButton() {
                 error
             );
 
-            setResult(generateClientFallbackExplanation(liveCode, langName));
+            const fallbackText = generateClientFallbackExplanation(codeToExplain, langName, isSelection);
+            const prefix = isSelection
+                ? "🔍 **Explaining Selected Code Snippet:**\n\n"
+                : "📄 **Explaining Full Program:**\n\n";
+
+            setResult(`${prefix}${fallbackText}`);
 
         } finally {
             setLoading(false);
@@ -155,7 +185,7 @@ export default function ExplainButton() {
     );
 }
 
-function generateClientFallbackExplanation(code: string, language: string): string {
+function generateClientFallbackExplanation(code: string, language: string, isSelection: boolean = false): string {
     const lines = code.split("\n").filter((l) => l.trim().length > 0);
     const hasLoops = /for\s*\(|while\s*\(|for\s+\w+\s+in/i.test(code);
     const hasConditionals = /if\s*\(|if\s+\w+|else/i.test(code);
@@ -164,18 +194,21 @@ function generateClientFallbackExplanation(code: string, language: string): stri
         code.matchAll(/(?:def|function|void|int|double|String|boolean)\s+([a-zA-Z_]\w*)\s*\(/g)
     ).map((m) => m[1]).filter((f) => f !== "main" && f !== "if" && f !== "for" && f !== "while");
 
-    let summary = `This ${language} program consists of ${lines.length} lines of code.`;
+    let summary = isSelection
+        ? `This selected ${language} code snippet consists of ${lines.length} lines of code.`
+        : `This ${language} program consists of ${lines.length} lines of code.`;
+
     if (classMatches.length > 0) summary += ` It defines ${classMatches.length} class(es): ${classMatches.join(", ")}.`;
     if (funcMatches.length > 0) summary += ` It contains ${funcMatches.length} modular function(s): ${funcMatches.join(", ")}.`;
     if (hasLoops) summary += " It employs iteration/loops for repetitive task processing.";
     if (hasConditionals) summary += " It uses conditional branching to handle decision logic.";
 
-    return `### 📌 1. Topic & Purpose
+    return `### 📌 1. Topic & Purpose ${isSelection ? "(Selected Code Snippet)" : "(Full Program)"}
 **Language:** ${language}
 **Overview:** ${summary}
 
 ### 📝 2. What the Code Does
-The program sets up necessary data structures and logic to execute the requested operations:
+The ${isSelection ? "selected snippet" : "program"} sets up necessary data structures and logic to execute the requested operations:
 • Initializes variables and required runtime dependencies.
 • Processes inputs or configured state according to ${language} syntax.
 • Produces runtime output to the console or system stream.

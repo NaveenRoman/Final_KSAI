@@ -32,6 +32,7 @@ import {
 import {
     generateTeachingUnits,
     convertStepsToTeachingUnits,
+    synthesizeUniversalProgram,
     type DictatorTeachingUnit,
 } from "./dictator/DictatorTokenizer";
 import {
@@ -110,9 +111,12 @@ export default function AIResultPanel() {
     const [dictatorPracticeLevel, setDictatorPracticeLevel] = useState<"1" | "2" | "3">("1");
 
     // =========================
-    // Auto Code State
+    // Auto Code State (Decoupled from Dictator)
     // =========================
     const [autoCodeInput, setAutoCodeInput] = useState("");
+    const [autoCodeCategory, setAutoCodeCategory] = useState<"beginner" | "intermediate" | "advanced">("beginner");
+    const [autoCodePracticeLevel, setAutoCodePracticeLevel] = useState<"1" | "2" | "3">("1");
+    const [confirmReplaceOpen, setConfirmReplaceOpen] = useState(false);
     const [autoCodeGenerating, setAutoCodeGenerating] = useState(false);
     const [autoCodeResult, setAutoCodeResult] = useState<{
         code: string;
@@ -121,6 +125,8 @@ export default function AIResultPanel() {
         language: string;
         level: string;
     } | null>(null);
+
+    const latestDictatorSessionRef = useRef<number>(0);
 
     // =========================================================
     // LANGUAGE SWITCH HANDLING DURING DICTATOR
@@ -253,6 +259,7 @@ export default function AIResultPanel() {
 
         // Generate brand new unique session ID
         const currentSession = incrementSessionId();
+        latestDictatorSessionRef.current = currentSession;
 
         // 1. Synchronize active tab with selected language
         let targetTabId = activeTab?.id;
@@ -301,6 +308,12 @@ export default function AIResultPanel() {
                 pLevel,
                 currentAttempt
             );
+
+            // Discard stale response if a newer session was started during fetch
+            if (latestDictatorSessionRef.current !== currentSession) {
+                return;
+            }
+
             let units: DictatorTeachingUnit[] = [];
 
             if (planRes && planRes.steps && planRes.steps.length > 0) {
@@ -368,8 +381,14 @@ export default function AIResultPanel() {
                 updateTabContent(activeTab.id, "");
             }
 
-            // Speak first step
-            if (typeof window !== "undefined" && "speechSynthesis" in window && initialMsg.speechText) {
+            // Speak first step safely ensuring previous speech is cancelled and session is still current
+            if (
+                typeof window !== "undefined" &&
+                "speechSynthesis" in window &&
+                initialMsg.speechText &&
+                latestDictatorSessionRef.current === currentSession
+            ) {
+                window.speechSynthesis.cancel();
                 const cleaned = cleanTextForSpeech(initialMsg.speechText);
                 const speech = new SpeechSynthesisUtterance(cleaned);
                 speech.rate = 0.95;
@@ -377,9 +396,10 @@ export default function AIResultPanel() {
                 speech.volume = 1;
                 window.speechSynthesis.speak(speech);
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Dictator startup error:", err);
-            setResult(err.message || "Failed to start Dictator session.");
+            const errMsg = err instanceof Error ? err.message : String(err || "");
+            setResult(errMsg || "Failed to start Dictator session.");
         } finally {
             setLoading(false);
         }
@@ -673,6 +693,7 @@ export default function AIResultPanel() {
         }
 
         const currentLanguage = activeTab?.language || language?.id || "java";
+        const targetLevel = `${autoCodeCategory}_l${autoCodePracticeLevel}`;
 
         setAutoCodeGenerating(true);
         setMode("autocode");
@@ -689,8 +710,10 @@ export default function AIResultPanel() {
                     body: JSON.stringify({
                         language: currentLanguage,
                         project,
-                        level: dictatorLevel,
-                        learningLevel: dictatorLevel,
+                        level: targetLevel,
+                        learningLevel: targetLevel,
+                        category: autoCodeCategory,
+                        practiceLevel: autoCodePracticeLevel,
                     }),
                 });
 
@@ -741,14 +764,14 @@ export default function AIResultPanel() {
 
             // Fallback to universal curriculum synthesizer if API response was incomplete
             if (!generatedCode) {
-                const units = generateTeachingUnits(project, currentLanguage, dictatorLevel);
+                const units = synthesizeUniversalProgram(project, currentLanguage, targetLevel, autoCodeCategory, autoCodePracticeLevel);
                 if (units && units.length > 0) {
                     generatedCode = units[units.length - 1].fullAccumulatedCode;
                     explanation =
-                        `### 📖 ${project} (${language.name} — ${dictatorLevel.toUpperCase()})\n\n` +
-                        `Complete working implementation of **${project}** tailored for **${dictatorLevel}** level.\n\n` +
+                        `### 📖 ${project} (${language.name} — ${autoCodeCategory.toUpperCase()} Level ${autoCodePracticeLevel})\n\n` +
+                        `Complete working implementation of **${project}** tailored for **${autoCodeCategory}** (Level ${autoCodePracticeLevel}).\n\n` +
                         `**Overview:**\n` +
-                        units.map((u, idx) => `• Step ${idx + 1}: ${u.title} — ${u.explanation || u.instruction}`).join("\n");
+                        units.map((u: DictatorTeachingUnit, idx: number) => `• Step ${idx + 1}: ${u.title} — ${u.explanation || u.instruction}`).join("\n");
                 }
             }
 
@@ -761,7 +784,7 @@ export default function AIResultPanel() {
                 explanation: explanation || `Generated complete ${project} program in ${language.name}.`,
                 project,
                 language: language.name,
-                level: dictatorLevel,
+                level: `${autoCodeCategory.toUpperCase()} L${autoCodePracticeLevel}`,
             };
 
             setAutoCodeResult(resultObj);
@@ -1031,27 +1054,63 @@ export default function AIResultPanel() {
                                 {activeTab?.name ? ` — ${activeTab.name}` : ""}
                             </div>
 
-                            {/* Learning Level Selector */}
+                            {/* Learning Category Selector */}
                             <label
-                                className={`block text-sm font-medium mb-2 ${
-                                    darkMode ? "text-slate-300" : "text-gray-700"
+                                className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                                    darkMode ? "text-slate-400" : "text-gray-600"
                                 }`}
                             >
-                                Learning Level
+                                Architecture & Learning Category
                             </label>
-                            <select
-                                value={dictatorLevel}
-                                onChange={(e) => setDictatorLevel(e.target.value)}
-                                className={`w-full rounded-xl px-4 py-3 outline-none border mb-6 ${
-                                    darkMode
-                                        ? "bg-[#11131B] border-white/10 text-white"
-                                        : "bg-white border-gray-300 text-gray-900"
+                            <div className="grid grid-cols-3 gap-2 mb-4">
+                                {(["beginner", "intermediate", "advanced"] as const).map((cat) => (
+                                    <button
+                                        key={cat}
+                                        type="button"
+                                        onClick={() => setAutoCodeCategory(cat)}
+                                        className={`py-2 px-3 rounded-xl text-xs font-bold capitalize transition border ${
+                                            autoCodeCategory === cat
+                                                ? "bg-blue-600 border-blue-500 text-white shadow-sm"
+                                                : darkMode
+                                                ? "bg-[#11131B] border-white/10 text-slate-400 hover:text-white"
+                                                : "bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Practice Level (1, 2, 3) */}
+                            <label
+                                className={`block text-xs font-semibold uppercase tracking-wider mb-2 ${
+                                    darkMode ? "text-slate-400" : "text-gray-600"
                                 }`}
                             >
-                                <option value="beginner">Beginner (Simple & Direct)</option>
-                                <option value="intermediate">Intermediate (Modular & Functions)</option>
-                                <option value="advanced">Advanced (OOP & Robust Architecture)</option>
-                            </select>
+                                Depth & Complexity (Level 1 - 3)
+                            </label>
+                            <div className="grid grid-cols-3 gap-2 mb-6">
+                                {[
+                                    { id: "1" as const, label: "Level 1" },
+                                    { id: "2" as const, label: "Level 2" },
+                                    { id: "3" as const, label: "Level 3" },
+                                ].map((lvl) => (
+                                    <button
+                                        key={lvl.id}
+                                        type="button"
+                                        onClick={() => setAutoCodePracticeLevel(lvl.id)}
+                                        className={`py-1.5 px-2 rounded-lg text-xs font-bold transition border ${
+                                            autoCodePracticeLevel === lvl.id
+                                                ? "bg-indigo-600 border-indigo-500 text-white shadow-sm"
+                                                : darkMode
+                                                ? "bg-[#11131B] border-white/10 text-slate-400 hover:text-white"
+                                                : "bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200"
+                                        }`}
+                                    >
+                                        {lvl.label}
+                                    </button>
+                                ))}
+                            </div>
 
                             {/* Generate Button */}
                             <button
@@ -1099,27 +1158,59 @@ export default function AIResultPanel() {
                                                 {autoCodeResult.project} ({language.name} - {autoCodeResult.level})
                                             </span>
                                             <div className="flex items-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        if (autoCodeResult?.code) {
-                                                            applyCodeToEditor(autoCodeResult.code, false);
-                                                        }
-                                                    }}
-                                                    className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1 transition"
-                                                    title={activeTab?.content?.trim() ? `Replace contents of ${activeTab.name}` : "Insert code into editor"}
-                                                >
-                                                    <Edit3 size={12} />
-                                                    <span>
-                                                        {insertedStatus === "replaced"
-                                                            ? "Replaced!"
-                                                            : insertedStatus === "inserted"
-                                                            ? "Inserted!"
-                                                            : activeTab?.content?.trim()
-                                                            ? `Replace in ${activeTab.name}`
-                                                            : "Insert Code"}
-                                                    </span>
-                                                </button>
+                                                {confirmReplaceOpen ? (
+                                                    <div className="flex items-center gap-1.5 bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 rounded-lg">
+                                                        <span className="text-[11px] text-amber-300 font-semibold">Replace active file?</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                if (autoCodeResult?.code) {
+                                                                    applyCodeToEditor(autoCodeResult.code, false);
+                                                                }
+                                                                setConfirmReplaceOpen(false);
+                                                            }}
+                                                            className="px-2 py-0.5 rounded bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold transition"
+                                                        >
+                                                            Yes, Replace
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setConfirmReplaceOpen(false)}
+                                                            className="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 text-[11px] transition"
+                                                        >
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const currentEditorText = (editor ? editor.getValue() : activeTab?.content) || "";
+                                                            const hasExisting = Boolean(
+                                                                currentEditorText.trim() &&
+                                                                currentEditorText.trim() !== (language?.starterCode || "").trim()
+                                                            );
+                                                            if (hasExisting) {
+                                                                setConfirmReplaceOpen(true);
+                                                            } else if (autoCodeResult?.code) {
+                                                                applyCodeToEditor(autoCodeResult.code, false);
+                                                            }
+                                                        }}
+                                                        className="px-2.5 py-1 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1 transition"
+                                                        title={activeTab?.content?.trim() ? `Replace contents of ${activeTab.name}` : "Insert code into editor"}
+                                                    >
+                                                        <Edit3 size={12} />
+                                                        <span>
+                                                            {insertedStatus === "replaced"
+                                                                ? "Replaced!"
+                                                                : insertedStatus === "inserted"
+                                                                ? "Inserted!"
+                                                                : activeTab?.content?.trim()
+                                                                ? `Replace in ${activeTab.name}`
+                                                                : "Insert Code"}
+                                                        </span>
+                                                    </button>
+                                                )}
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -1271,6 +1362,9 @@ export default function AIResultPanel() {
                                         key={cat}
                                         type="button"
                                         onClick={() => {
+                                            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                                                window.speechSynthesis.cancel();
+                                            }
                                             setDictatorCategory(cat);
                                             setDictatorLevel(`${cat}_l${dictatorPracticeLevel}`);
                                             if (dictatorActive && dictatorProject) {
@@ -1308,6 +1402,9 @@ export default function AIResultPanel() {
                                         key={lvl.id}
                                         type="button"
                                         onClick={() => {
+                                            if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                                                window.speechSynthesis.cancel();
+                                            }
                                             const pId = lvl.id as "1" | "2" | "3";
                                             setDictatorPracticeLevel(pId);
                                             setDictatorLevel(`${dictatorCategory}_l${pId}`);
@@ -1403,6 +1500,9 @@ export default function AIResultPanel() {
                                             key={cat}
                                             type="button"
                                             onClick={() => {
+                                                if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                                                    window.speechSynthesis.cancel();
+                                                }
                                                 setDictatorCategory(cat);
                                                 setDictatorLevel(`${cat}_l${dictatorPracticeLevel}`);
                                                 startDictatorSession(dictatorProject, `${cat}_l${dictatorPracticeLevel}`, cat, dictatorPracticeLevel);
@@ -1423,6 +1523,9 @@ export default function AIResultPanel() {
                                             key={lvl}
                                             type="button"
                                             onClick={() => {
+                                                if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                                                    window.speechSynthesis.cancel();
+                                                }
                                                 setDictatorPracticeLevel(lvl);
                                                 setDictatorLevel(`${dictatorCategory}_l${lvl}`);
                                                 startDictatorSession(dictatorProject, `${dictatorCategory}_l${lvl}`, dictatorCategory, lvl);
