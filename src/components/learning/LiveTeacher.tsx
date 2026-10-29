@@ -63,6 +63,9 @@ export interface ChapterSummary {
   totalSections: number;
   learningTrend: "Improving 📈" | "Stable ⚡" | "Needs Attention 🎯";
   recommendedNextStep: string;
+  completedSections?: string[];
+  outstandingSections?: string[];
+  isChapterFullyTaught?: boolean;
 }
 
 export interface SessionLearningData {
@@ -294,10 +297,35 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       const source = chapterContent.trim();
       const normTopic = topicName.replace(/^[\d\.\-\s:]+/, "").trim().toLowerCase();
 
-      let idx = source.toLowerCase().indexOf(topicName.toLowerCase());
-      if (idx === -1) {
-        idx = source.toLowerCase().indexOf(normTopic);
-      }
+      const findHeadingOffset = (text: string, targetTopic: string): number => {
+        let i = text.toLowerCase().indexOf(targetTopic.toLowerCase());
+        if (i !== -1) return i;
+        const norm = targetTopic.replace(/^[\d\.\-\s:]+/, "").trim().toLowerCase();
+        i = text.toLowerCase().indexOf(norm);
+        if (i !== -1) return i;
+        const words = targetTopic
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, " ")
+          .trim()
+          .split(/\s+/)
+          .filter((w) => w.length > 2);
+        if (words.length === 0) return -1;
+        const lines = text.split("\n");
+        let offset = 0;
+        for (const line of lines) {
+          if (line.match(/^\s*#{1,6}\s+/)) {
+            const clean = line.toLowerCase().replace(/[^a-z0-9]/g, " ");
+            const matches = words.filter((w) => clean.includes(w)).length;
+            if (matches >= Math.min(2, words.length)) {
+              return offset;
+            }
+          }
+          offset += line.length + 1;
+        }
+        return -1;
+      };
+
+      const idx = findHeadingOffset(source, topicName);
       if (idx === -1) {
         return source;
       }
@@ -307,7 +335,8 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       const headingMatch = prefixBefore.match(/(#{1,6})\s*$/);
       const headingLevel = headingMatch ? headingMatch[1].length : 3;
 
-      const afterTopic = source.slice(idx + topicName.length);
+      const endOfHeading = source.indexOf("\n", idx);
+      const afterTopic = endOfHeading !== -1 ? source.slice(endOfHeading + 1) : "";
 
       // 1. If next topic from allTopics is available, match its exact occurrence
       if (allTopics && Array.isArray(allTopics)) {
@@ -316,22 +345,26 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         );
         if (curIdx >= 0 && curIdx < allTopics.length - 1) {
           const nextTopic = allTopics[curIdx + 1];
-          const nextNorm = nextTopic.replace(/^[\d\.\-\s:]+/, "").trim().toLowerCase();
-          let nextIdx = afterTopic.toLowerCase().indexOf(nextTopic.toLowerCase());
-          if (nextIdx === -1) {
-            nextIdx = afterTopic.toLowerCase().indexOf(nextNorm);
-          }
+          const nextIdx = findHeadingOffset(afterTopic, nextTopic);
           if (nextIdx !== -1) {
-            return source.slice(idx, idx + topicName.length + nextIdx).trim();
+            return source.slice(idx, endOfHeading + 1 + nextIdx).trim();
           }
         }
       }
 
-      // 2. Otherwise stop only at headings of equal or higher level (never subheadings like ####)
+      // 2. If this is the last lesson topic, do not cut off practice exercises/activities before the chapter summary
+      const stopAtSummaryMatch = afterTopic.match(
+        /\n#{1,3}\s+(?:Chapter Summary|Summary|Key Takeaways|Quiz|Chapter Assessment|Assessment|Interview Questions)/i
+      );
+      if (stopAtSummaryMatch && stopAtSummaryMatch.index !== undefined) {
+        return source.slice(idx, endOfHeading + 1 + stopAtSummaryMatch.index).trim();
+      }
+
+      // 3. Otherwise stop only at headings of equal or higher level (never subheadings like ####)
       const headingRegex = new RegExp(`\\n#{1,${headingLevel}}\\s+.+`, "m");
       const nextSiblingMatch = afterTopic.match(headingRegex);
       if (nextSiblingMatch && nextSiblingMatch.index !== undefined) {
-        return source.slice(idx, idx + topicName.length + nextSiblingMatch.index).trim();
+        return source.slice(idx, endOfHeading + 1 + nextSiblingMatch.index).trim();
       }
 
       return source.slice(idx).trim();
@@ -365,8 +398,8 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       if (!body) body = rawTopicMarkdown.trim();
       body = body.replace(/\r\n/g, "\n");
 
-      // Split along structural subsections: subheadings (####), callouts (> [!NOTE]), or code blocks
-      const parts = body.split(/(?=\n####\s+|\n>\s*\[!|\n```(?:java|c|cpp|python|bash))/);
+      // Split along structural subsections: subheadings (###, ####, #####), callouts (> [!NOTE], > **Key), or opening code blocks
+      const parts = body.split(/(?=\n#{3,5}\s+|\n\n>\s*(?:\[!|\*\*|\w)|\n```[a-zA-Z0-9_\-]+)/);
       const rawChunks: string[] = [];
 
       for (const part of parts) {
@@ -376,19 +409,19 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         }
       }
 
-      // Merge heading-only or stub chunk (< 80 chars) immediately preceding a code block
+      // Merge heading-only or intro paragraph immediately preceding a code block, or attach short code blocks
       const mergedChunks: string[] = [];
       for (let i = 0; i < rawChunks.length; i++) {
         const cur = rawChunks[i];
         const next = rawChunks[i + 1];
 
         if (
-          cur.length < 80 &&
           !cur.startsWith("```") &&
           !cur.startsWith("> [!") &&
           !cur.includes("|") &&
           next &&
-          next.startsWith("```")
+          next.startsWith("```") &&
+          (cur.length < 160 || next.length < 100)
         ) {
           mergedChunks.push(`${cur}\n\n${next}`);
           i++;
@@ -397,7 +430,9 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         }
       }
 
-      const chunks = mergedChunks.filter((c) => c.trim().length > 40);
+      const chunks = mergedChunks.filter(
+        (c) => c.trim().length > 20 || c.includes("```") || c.includes(">") || c.includes("|")
+      );
 
       // If the body is long (> 400 chars) with numbered application areas or list items, split into sequential parts
       if (chunks.length <= 1 && body.length > 400 && /\n\d+\.\s+\*\*/.test(body)) {
@@ -445,16 +480,18 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
 
       return chunks.map((chunk, idx) => {
         let subTitle = topicTitle;
-        const subHeadingMatch = chunk.match(/^####\s+(.+)$/m);
+        const subHeadingMatch = chunk.match(/^#{3,5}\s+(.+)$/m);
         if (subHeadingMatch) {
           subTitle = subHeadingMatch[1].trim();
-        } else if (chunk.startsWith("> [!")) {
-          const insightMatch = chunk.match(/>\s*\*\*([^*]+)\*\*/);
+        } else if (chunk.startsWith(">")) {
+          const insightMatch = chunk.match(/>\s*(?:\*\*|\[![\w]+\]\s*\*\*)?([^*]+)\*\*/);
           subTitle = insightMatch ? insightMatch[1].trim() : `Key Insight: ${topicTitle}`;
         } else if (chunk.includes("```mermaid") || chunk.includes("graph TD")) {
-          subTitle = topicTitle;
-        } else if (/```(?:java|c|cpp|python|bash)/i.test(chunk)) {
+          subTitle = `Architecture Diagram: ${topicTitle}`;
+        } else if (/```(?:[a-zA-Z0-9_\-]+)?/i.test(chunk)) {
           subTitle = `Demonstration Code: ${topicTitle}`;
+        } else if (chunk.includes("Try It Yourself") || chunk.includes("✏")) {
+          subTitle = `Hands-on Practice: ${topicTitle}`;
         }
         return {
           unitIndex: idx + 1,
@@ -1122,8 +1159,23 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       const masteredCount = strongAreas.length;
       const needingPracticeCount = weakAreas.length;
 
+      const completedSections = Object.keys(allPerfs);
+      const outstandingSections = (allTopics || []).filter(
+        (t) =>
+          !completedSections.some(
+            (c) =>
+              c.toLowerCase() === t.toLowerCase() ||
+              c.toLowerCase().includes(t.toLowerCase()) ||
+              t.toLowerCase().includes(c.toLowerCase())
+          )
+      );
+
+      const isChapterFullyTaught = (allTopics || []).length > 0
+        ? outstandingSections.length === 0
+        : completedSections.length > 0;
+
       let overallUnderstanding: "Strong" | "Good" | "Needs Practice" = "Strong";
-      if (needingPracticeCount >= 2 || masteredCount < totalSections * 0.5) {
+      if (!isChapterFullyTaught || needingPracticeCount >= 2 || masteredCount < totalSections * 0.5) {
         overallUnderstanding = "Needs Practice";
       } else if (needingPracticeCount > 0) {
         overallUnderstanding = "Good";
@@ -1136,9 +1188,14 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
         masteredCount,
         needingPracticeCount,
         totalSections,
-        learningTrend: needingPracticeCount === 0 ? "Improving 📈" : "Stable ⚡",
+        completedSections,
+        outstandingSections,
+        isChapterFullyTaught,
+        learningTrend: needingPracticeCount === 0 && isChapterFullyTaught ? "Improving 📈" : "Stable ⚡",
         recommendedNextStep:
-          weakAreas.length > 0
+          outstandingSections.length > 0
+            ? `Complete the remaining ${outstandingSections.length} section(s): ${outstandingSections.join(", ")} before taking the Chapter Assessment Quiz.`
+            : weakAreas.length > 0
             ? "Review weak areas before starting the Chapter Assessment Quiz."
             : "Mastered all topics! Ready for the Chapter Assessment Quiz.",
       };

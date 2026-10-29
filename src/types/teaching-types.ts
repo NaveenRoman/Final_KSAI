@@ -254,36 +254,37 @@ export interface TeachingInstruction {
  * Safely parse a raw string or object into a TeachingInstruction
  */
 export function parseTeachingInstruction(
-  raw: any,
+  raw: Record<string, unknown> | string | null | undefined,
   fallbackTitle: string,
   fallbackLanguage: ProgrammingLanguage = "general",
   fallbackDifficulty: LearningLevel = "BEGINNER"
 ): TeachingInstruction {
-  if (typeof raw === "object" && raw !== null && raw.spokenExplanation) {
+  if (typeof raw === "object" && raw !== null && "spokenExplanation" in raw && typeof raw.spokenExplanation === "string") {
+    const rawObj = raw as Record<string, unknown>;
     return {
-      type: raw.type || "concept",
-      title: raw.title || fallbackTitle,
+      type: (rawObj.type as TeachingInstruction["type"]) || "concept",
+      title: (rawObj.title as string) || fallbackTitle,
       spokenExplanation: raw.spokenExplanation,
-      bulletPoints: Array.isArray(raw.bulletPoints) ? raw.bulletPoints : [],
-      visualType: raw.visualType || detectVisualType(raw, fallbackTitle),
-      language: (raw.language || fallbackLanguage).toLowerCase() as ProgrammingLanguage,
-      difficulty: raw.difficulty || fallbackDifficulty,
-      memoryData: raw.memoryData,
-      variablesData: raw.variablesData,
-      codeWalkthrough: raw.codeWalkthrough,
-      flowDiagram: raw.flowDiagram,
-      loopData: raw.loopData,
-      conditionalData: raw.conditionalData,
-      arrayData: raw.arrayData,
-      stackQueueData: raw.stackQueueData,
-      linkedListData: raw.linkedListData,
-      treeData: raw.treeData,
-      objectClassData: raw.objectClassData,
-      pointerData: raw.pointerData,
-      questionData: raw.questionData,
-      predictionData: raw.predictionData,
-      debuggingData: raw.debuggingData,
-      shouldWaitForStudent: Boolean(raw.shouldWaitForStudent),
+      bulletPoints: Array.isArray(rawObj.bulletPoints) ? (rawObj.bulletPoints as string[]) : [],
+      visualType: (rawObj.visualType as VisualType) || detectVisualType(rawObj, fallbackTitle),
+      language: ((rawObj.language as string) || fallbackLanguage).toLowerCase() as ProgrammingLanguage,
+      difficulty: (rawObj.difficulty as LearningLevel) || fallbackDifficulty,
+      memoryData: rawObj.memoryData as TeachingInstruction["memoryData"],
+      variablesData: rawObj.variablesData as TeachingInstruction["variablesData"],
+      codeWalkthrough: rawObj.codeWalkthrough as TeachingInstruction["codeWalkthrough"],
+      flowDiagram: rawObj.flowDiagram as TeachingInstruction["flowDiagram"],
+      loopData: rawObj.loopData as TeachingInstruction["loopData"],
+      conditionalData: rawObj.conditionalData as TeachingInstruction["conditionalData"],
+      arrayData: rawObj.arrayData as TeachingInstruction["arrayData"],
+      stackQueueData: rawObj.stackQueueData as TeachingInstruction["stackQueueData"],
+      linkedListData: rawObj.linkedListData as TeachingInstruction["linkedListData"],
+      treeData: rawObj.treeData as TeachingInstruction["treeData"],
+      objectClassData: rawObj.objectClassData as TeachingInstruction["objectClassData"],
+      pointerData: rawObj.pointerData as TeachingInstruction["pointerData"],
+      questionData: rawObj.questionData as TeachingInstruction["questionData"],
+      predictionData: rawObj.predictionData as TeachingInstruction["predictionData"],
+      debuggingData: rawObj.debuggingData as TeachingInstruction["debuggingData"],
+      shouldWaitForStudent: Boolean(rawObj.shouldWaitForStudent),
     };
   }
 
@@ -310,12 +311,41 @@ export function parseTeachingInstruction(
       }
     }
 
+    let flowDiagram: FlowDiagramData | undefined = undefined;
+    if (
+      trimmed.includes("Step 1: Notice") ||
+      trimmed.includes("architecture diagram") ||
+      fallbackTitle.toLowerCase().includes("diagram")
+    ) {
+      const stepMatches = trimmed.match(/Step \d+:[^\n]+/g);
+      if (stepMatches && stepMatches.length > 0) {
+        const nodes = stepMatches.map((s, idx) => {
+          const cleanLabel = s.replace(/^Step \d+:\s*(?:Notice the connection from\s*)?/, "").trim();
+          return {
+            id: `node_${idx + 1}`,
+            label: cleanLabel.slice(0, 45),
+            annotation: `Step ${idx + 1}`,
+            isActive: idx === 0,
+          };
+        });
+        flowDiagram = {
+          title: fallbackTitle || "Architecture Flow",
+          nodes,
+        };
+      }
+    }
+
+    const detectedVisualType = flowDiagram
+      ? "FLOW_DIAGRAM"
+      : detectVisualTypeFromText(raw, fallbackTitle, fallbackLanguage);
+
     return {
       type: "concept",
       title: fallbackTitle,
       spokenExplanation: raw,
       bulletPoints: [],
-      visualType: detectVisualTypeFromText(raw, fallbackTitle, fallbackLanguage),
+      flowDiagram,
+      visualType: detectedVisualType,
       language: fallbackLanguage,
       difficulty: fallbackDifficulty,
       shouldWaitForStudent: false,
@@ -333,15 +363,17 @@ export function parseTeachingInstruction(
   };
 }
 
-function detectVisualType(obj: any, title: string): VisualType | undefined {
+function detectVisualType(obj: Record<string, unknown>, _title: string): VisualType | undefined {
   if (obj.codeWalkthrough) return "CODE_WALKTHROUGH";
   if (obj.memoryData) return "MEMORY_DIAGRAM";
-  if (obj.variablesData && obj.variablesData.length > 0) return "VARIABLE_VISUALIZATION";
+  if (Array.isArray(obj.variablesData) && obj.variablesData.length > 0) return "VARIABLE_VISUALIZATION";
   if (obj.pointerData) return "POINTER_MEMORY_VISUALIZATION";
   if (obj.loopData) return "LOOP_VISUALIZATION";
   if (obj.conditionalData) return "CONDITIONAL_FLOW";
   if (obj.arrayData) return "ARRAY_VISUALIZATION";
-  if (obj.stackQueueData) return obj.stackQueueData.type === "stack" ? "STACK_VISUALIZATION" : "QUEUE_VISUALIZATION";
+  if (obj.stackQueueData && typeof obj.stackQueueData === "object" && "type" in obj.stackQueueData) {
+    return (obj.stackQueueData as { type: string }).type === "stack" ? "STACK_VISUALIZATION" : "QUEUE_VISUALIZATION";
+  }
   if (obj.linkedListData) return "LINKED_LIST_VISUALIZATION";
   if (obj.treeData) return "TREE_VISUALIZATION";
   if (obj.objectClassData) return "OBJECT_CLASS_VISUALIZATION";

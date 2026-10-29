@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 const GEMINI_MODELS = [
+  "gemini-3.1-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-flash-latest",
   "gemini-3.5-flash",
   "gemini-3.6-flash",
   "gemini-3.7-flash",
-  "gemini-flash-latest",
-  "gemini-3.1-flash-lite",
-  "gemini-2.5-flash",
 ];
 
 interface TeachRequestBody {
@@ -104,7 +104,10 @@ TEACHING RULES:
 6. If the source material contains bullet points or numbered lists (such as Major Application Areas), explain EACH item and its real-world software role in detail. Do NOT skip, combine, or omit any item.
 7. Sound like an expert, patient teacher sitting beside the student.
 8. Do not jump ahead to future sections.
-9. Keep the explanation engaging, informative, and easy to follow.`;
+9. Keep the explanation engaging, informative, and easy to follow.
+10. If the source material contains code blocks or callout notes, walk through each line and explain the key insights directly.
+11. If the source material contains a diagram (such as a Mermaid flowchart or architecture pipeline), explain each meaningful node, label, relationship, arrow direction, and sequence in simple language. Connect the explanation directly to the visual elements of the diagram.
+12. If the source material contains an interactive exercise or practice section, explain the objective, prerequisites, instructions, and expected result in detail. Clearly explain that code execution, testing, and diagnostics happen in the interactive editor workspace. Do not treat an exercise as taught by merely reading its heading.`;
 }
 
 /**
@@ -205,7 +208,106 @@ function synthesizeCodeWalkthrough(rawText: string): string {
     walkthrough += `7. Formatted Terminal Output: As demonstrated in the source output, running this code reports 'JVM Free Memory: 245 MB', 'JVM Total Memory: 512 MB', and 'Available CPU Cores: 8', showcasing Java's ability to inspect its runtime environment dynamically.\n\n`;
     return walkthrough.trim();
   }
+
+  // General code block analysis
+  const codeMatch = rawText.match(/```(?:[a-zA-Z0-9_\-]+)?\r?\n([\s\S]*?)```/);
+  if (codeMatch) {
+    const codeBody = codeMatch[1].trim();
+    const codeLines = codeBody
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0 && !l.startsWith("//") && !l.startsWith("#"));
+
+    if (codeLines.length > 0) {
+      let walkthrough = `Let's trace this code example step by step:\n\n`;
+      const sampleLines = codeLines.slice(0, 6);
+      sampleLines.forEach((line, idx) => {
+        walkthrough += `${idx + 1}. In \`${line}\`, the program executes key logic for this operation.\n\n`;
+      });
+      return walkthrough.trim();
+    }
+  }
+
   return "";
+}
+
+/**
+ * Parses Mermaid flowcharts/diagrams and synthesizes step-by-step sequential explanations.
+ */
+function synthesizeDiagramSpeech(raw: string): string {
+  const match =
+    raw.match(/```(?:mermaid|graph)[\s\S]*?```/i) ||
+    raw.match(/graph\s+(?:TD|LR|TB)[\s\S]*?(?=\n\n|```|$)/i);
+  if (!match) return "";
+  const text = match[0];
+  const nodeMap = new Map<string, string>();
+
+  // Extract all node definitions: ID["label"] or ID[label] or ID("label") or ID(label)
+  const nodeRegex = /([A-Za-z0-9_]+)\s*(?:\["([^"]+)"\]|\[([^\]]+)\]|\("([^"]+)"\)|\(([^)]+)\))/g;
+  let nm: RegExpExecArray | null;
+  while ((nm = nodeRegex.exec(text)) !== null) {
+    const id = nm[1].trim();
+    const label = (nm[2] || nm[3] || nm[4] || nm[5]).trim();
+    nodeMap.set(id, label);
+  }
+
+  // Extract all directed edges: ID1 (optionally [label]) --> (|edgeLabel|)? ID2 (optionally [label])
+  const edgeRegex = /([A-Za-z0-9_]+)(?:\s*\[[^\]]+\]|\s*\([^)]+\))?\s*-->\s*(?:\|([^|]+)\|\s*)?([A-Za-z0-9_]+)/g;
+  const edges: Array<{ from: string; to: string; label: string }> = [];
+  let em: RegExpExecArray | null;
+  while ((em = edgeRegex.exec(text)) !== null) {
+    edges.push({
+      from: em[1].trim(),
+      to: em[3].trim(),
+      label: em[2] ? em[2].trim() : "",
+    });
+  }
+
+  if (nodeMap.size === 0 && edges.length === 0) return "";
+
+  let speech = "Let's walk through the architecture diagram shown on your screen step by step:\n\n";
+  if (edges.length > 0) {
+    edges.forEach((edge, idx) => {
+      const fromLabel = nodeMap.get(edge.from) || edge.from;
+      const toLabel = nodeMap.get(edge.to) || edge.to;
+      const arrowDesc = edge.label ? `via '${edge.label}'` : "directly";
+      speech += `Step ${idx + 1}: Notice the connection from '${fromLabel}' pointing ${arrowDesc} to '${toLabel}'.\n`;
+    });
+  }
+  speech += "\nThis sequence visually illustrates how components interact and transfer data through the pipeline.";
+  return speech.trim();
+}
+
+/**
+ * Parses hands-on exercises and synthesizes objective, instructions, and interactive editor guidance.
+ */
+function synthesizeExerciseSpeech(raw: string): string {
+  const isExercise = /✏|Try It Yourself|Coding Exercise/i.test(raw);
+  if (!isExercise) return "";
+
+  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  const tasks: string[] = [];
+
+  lines.forEach((l) => {
+    if (l.startsWith("•") || l.startsWith("*") || /^\d+\./.test(l)) {
+      const clean = l.replace(/^[•*\d.]+\s*/, "").replace(/[*_`]/g, "").trim();
+      if (clean.length > 5) tasks.push(clean);
+    }
+  });
+
+  let speech = "Here is your hands-on interactive practice exercise:\n\n";
+  speech += "Objective: Put the concepts you just learned into immediate practice.\n\n";
+
+  if (tasks.length > 0) {
+    speech += "Instructions:\n";
+    tasks.forEach((t, i) => {
+      speech += `${i + 1}. ${t}\n`;
+    });
+    speech += "\n";
+  }
+
+  speech += "Important Note: Full code execution, interactive testing, and live diagnostics happen right here inside our Monaco code editor. When you are ready, enter your solution into the editor to test and verify your output!";
+  return speech.trim();
 }
 
 /**
@@ -250,7 +352,13 @@ function generateStructuredContentFallback(body: TeachRequestBody): string {
   // 2. Check for code blocks and generate line-by-line walkthrough
   const codeWalkthrough = synthesizeCodeWalkthrough(raw);
 
-  // 3. Extract regular explanatory paragraphs (excluding raw table lines, horizontal rules, and raw code fences)
+  // 3. Check for mermaid / architecture diagrams and generate node/edge speech
+  const diagramSpeech = synthesizeDiagramSpeech(raw);
+
+  // 4. Check for interactive exercises and generate practice instructions
+  const exerciseSpeech = synthesizeExerciseSpeech(raw);
+
+  // 5. Extract regular explanatory paragraphs (excluding raw table lines, horizontal rules, and raw code fences)
   const cleanLines = raw
     .split(/\r?\n/)
     .map((l: string) => l.trim())
@@ -260,7 +368,7 @@ function generateStructuredContentFallback(body: TeachRequestBody): string {
     (l: string) => !l.startsWith("#") && !l.startsWith(">")
   );
 
-  const noteMatch = raw.match(/>\s*\[!(?:NOTE|TIP|IMPORTANT)\]\s*([\s\S]*?)(?=\n\n|\n#|$)/);
+  const noteMatch = raw.match(/>\s*(?:\[!(?:NOTE|TIP|IMPORTANT|WARNING|CAUTION)\])?\s*([\s\S]*?)(?=\n\n|\n#|$)/);
   const noteText = noteMatch ? noteMatch[1].replace(/>/g, "").replace(/\n/g, " ").trim() : "";
 
   let explanation = "";
@@ -304,6 +412,14 @@ function generateStructuredContentFallback(body: TeachRequestBody): string {
     explanation += codeWalkthrough + "\n\n";
   }
 
+  if (diagramSpeech) {
+    explanation += diagramSpeech + "\n\n";
+  }
+
+  if (exerciseSpeech) {
+    explanation += exerciseSpeech + "\n\n";
+  }
+
   if (noteText) {
     explanation += `Key Insight to keep in mind: ${noteText}\n\n`;
   }
@@ -325,7 +441,7 @@ async function callGeminiDirectly(body: TeachRequestBody): Promise<string | null
   for (const model of GEMINI_MODELS) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
 
       const geminiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -348,6 +464,11 @@ async function callGeminiDirectly(body: TeachRequestBody): Promise<string | null
         }
       );
       clearTimeout(timeoutId);
+
+      if (geminiRes.status === 401 || geminiRes.status === 403) {
+        console.warn(`[TEACH API] Gemini API key unauthorized (${geminiRes.status}), falling back`);
+        break;
+      }
 
       if (geminiRes.ok) {
         const data = await geminiRes.json();
