@@ -212,7 +212,7 @@ const explainLiveTeacherUnit = async (
 ): Promise<string> => {
   try {
     const response = await fetch(
-      "http://127.0.0.1:8000/api/ai/teach/",
+      "/api/teach",
       {
         method: "POST",
         headers: {
@@ -238,39 +238,15 @@ ${title}
 SOURCE CONTENT:
 ${content}
 
-Your job is to teach this section, NOT simply summarize it.
+Your job is to thoroughly teach this section step-by-step.
 
 Teaching behavior:
-
-1. Start with the core idea.
-2. Explain it in simple student-friendly language.
-3. Assume the student is learning this concept for the first time.
-4. Connect the idea to something familiar when useful.
-5. Give ONE small practical example when useful.
-6. Explain why this concept matters.
-7. Do not explain future sections.
-8. Do not repeat the source content word-for-word.
-9. Do not dump large amounts of information.
-10. Keep the explanation focused on the current section.
-11. Sound like a teacher speaking directly to one student.
-12. Avoid unnecessary markdown.
-13. Do not ask a question yet. Checkpoints will be handled separately.
-
-Structure your explanation naturally:
-
-Core idea:
-Explain the main concept.
-
-Why it matters:
-Explain why the student should care.
-
-Example:
-Give one small example when appropriate.
-
-Key takeaway:
-End with one short sentence the student should remember.
-
-Keep the entire explanation concise enough for live classroom teaching.
+1. Teach the actual content thoroughly and sequentially.
+2. If there are numbered items, application domains, architectural features, or code elements, walk through each one in clear student-friendly detail.
+3. Explain why each concept matters with practical context.
+4. Sound like an engaging, patient teacher sitting beside the student.
+5. Do not skip or gloss over items from the source material.
+6. Do not ask a question yet. Interactive checkpoints will be handled separately.
 `,
 
           mode: "live-teaching",
@@ -324,7 +300,7 @@ const reteachLiveTeacherSection = async (
       reteachInstruction += `\nStudent's previous answer was: "${previousAnswer}". Gently correct this without shaming.`;
     }
 
-    const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+    const response = await fetch("/api/teach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -424,7 +400,7 @@ const evaluateCheckpointAnswer = async (
   }
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+    const response = await fetch("/api/teach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -529,7 +505,7 @@ Rules:
 `;
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+    const response = await fetch("/api/teach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -590,7 +566,7 @@ const evaluateResumeAnswer = async (
 ): Promise<string> => {
   if (!currentChapter) return "Good attempt. Let's continue learning.";
 
-  const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+  const response = await fetch("/api/teach", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -684,7 +660,7 @@ if (currentLesson) {
 
   try {
     const response = await fetch(
-      "http://127.0.0.1:8000/api/ai/teach/",
+      "/api/teach",
       {
         method: "POST",
         headers: {
@@ -1736,8 +1712,10 @@ const startMentorListening = () => {
                                 return;
                               }
 
+                              setAutoResumeTopic(undefined);
                               setCurrentLesson(sec);
                               setCurrentLessonIndex(secIdx);
+                              setTimeout(() => { liveTeacherRef.current?.startTeaching(); }, 100);
                             }}
                             className={`w-full text-left text-[11px] leading-relaxed flex items-center gap-1.5 py-0.5 transition-all ${
                               !isUnlocked

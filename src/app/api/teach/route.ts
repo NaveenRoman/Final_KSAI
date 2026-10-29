@@ -101,9 +101,10 @@ TEACHING RULES:
 3. If it covers architectural principles (e.g. Write Once Run Anywhere, javac compiler, bytecode .class, JVM execution and platform dependence), explain each step clearly.
 4. If it has code (e.g. FeatureDemo.java), walk through what each line does, including class declaration, main method, API calls, byte-to-megabyte conversion arithmetic (1024 * 1024), and expected output.
 5. If the source material contains a table (such as the 12 primary features or language comparisons), explain each row and column comparative meaning in clear, conversational English rather than summarizing or omitting rows. Do not read raw pipe symbols.
-6. Sound like an expert, patient teacher sitting beside the student.
-7. Do not jump ahead to future sections.
-8. Keep the explanation engaging, informative, and easy to follow.`;
+6. If the source material contains bullet points or numbered lists (such as Major Application Areas), explain EACH item and its real-world software role in detail. Do NOT skip, combine, or omit any item.
+7. Sound like an expert, patient teacher sitting beside the student.
+8. Do not jump ahead to future sections.
+9. Keep the explanation engaging, informative, and easy to follow.`;
 }
 
 /**
@@ -265,8 +266,24 @@ function generateStructuredContentFallback(body: TeachRequestBody): string {
   let explanation = "";
 
   if (paragraphs.length > 0) {
-    const mainPara = paragraphs.slice(0, 3).join(" ");
-    explanation += `Let's break down ${normTopic}. ${mainPara}\n\n`;
+    // Separate overview sentences from numbered list items or bullet points
+    const introParagraphs = paragraphs.filter((p: string) => !/^\d+\.\s+/.test(p) && !p.startsWith("- ") && !p.startsWith("* "));
+    const listItems = paragraphs.filter((p: string) => /^\d+\.\s+/.test(p) || p.startsWith("- ") || p.startsWith("* "));
+
+    if (introParagraphs.length > 0) {
+      explanation += `Let's break down ${normTopic}. ${introParagraphs.join(" ")}\n\n`;
+    } else {
+      explanation += `Let's understand ${normTopic} step by step.\n\n`;
+    }
+
+    if (listItems.length > 0) {
+      explanation += `Here are the essential areas and key components to understand in detail:\n\n`;
+      for (const item of listItems) {
+        // Strip markdown bold / formatting for natural speech flow
+        const cleanItem = item.replace(/\*\*/g, "").replace(/`/g, "").trim();
+        explanation += `• ${cleanItem}\n\n`;
+      }
+    }
   } else {
     explanation += `Let's understand ${normTopic} step by step.\n\n`;
   }
@@ -325,7 +342,7 @@ async function callGeminiDirectly(body: TeachRequestBody): Promise<string | null
             ],
             generationConfig: {
               temperature: 0.3,
-              maxOutputTokens: 1024,
+              maxOutputTokens: 8192,
             },
           }),
         }

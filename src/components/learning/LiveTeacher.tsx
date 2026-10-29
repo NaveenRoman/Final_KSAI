@@ -4,7 +4,6 @@ import React, {
   forwardRef,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -18,18 +17,9 @@ import {
   Sparkles,
   RotateCcw,
   CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-  Award,
-  Zap,
   Mic,
   MicOff,
   BookOpen,
-  ArrowRight,
-  RefreshCw,
-  ThumbsUp,
-  MessageSquare,
-  Layers,
   Check,
   AlertTriangle,
 } from "lucide-react";
@@ -158,6 +148,7 @@ interface LiveTeacherProps {
 }
 
 export interface LiveTeacherHandle {
+  startTeaching: () => void;
   pause: () => void;
   resume: () => void;
   stop: () => void;
@@ -372,6 +363,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       // Remove the primary heading line from the body if present
       let body = rawTopicMarkdown.replace(/^(?:#+\s+)?[^\r\n]+[\r\n]+/, "").trim();
       if (!body) body = rawTopicMarkdown.trim();
+      body = body.replace(/\r\n/g, "\n");
 
       // Split along structural subsections: subheadings (####), callouts (> [!NOTE]), or code blocks
       const parts = body.split(/(?=\n####\s+|\n>\s*\[!|\n```(?:java|c|cpp|python|bash))/);
@@ -406,6 +398,39 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       }
 
       const chunks = mergedChunks.filter((c) => c.trim().length > 40);
+
+      // If the body is long (> 400 chars) with numbered application areas or list items, split into sequential parts
+      if (chunks.length <= 1 && body.length > 400 && /\n\d+\.\s+\*\*/.test(body)) {
+        const itemMatches = body.split(/(?=\n\d+\.\s+\*\*)/);
+        if (itemMatches.length >= 3) {
+          const intro = itemMatches[0].trim();
+          const listItems = itemMatches.slice(1);
+          const half = Math.ceil(listItems.length / 2);
+          const group1 = [intro, ...listItems.slice(0, half)].filter(Boolean).join("\n\n");
+          const group2 = listItems.slice(half).join("\n\n");
+
+          const title1Match = listItems[0].match(/\*\*([^*]+)\*\*/);
+          const title2Match = listItems[half]?.match(/\*\*([^*]+)\*\*/);
+
+          const title1 = title1Match ? title1Match[1].trim() : topicTitle;
+          const title2 = title2Match ? title2Match[1].trim() : topicTitle;
+
+          return [
+            {
+              unitIndex: 1,
+              totalUnits: 2,
+              unitTitle: `${topicTitle} (Part 1: ${title1})`,
+              unitContent: group1,
+            },
+            {
+              unitIndex: 2,
+              totalUnits: 2,
+              unitTitle: `${topicTitle} (Part 2: ${title2})`,
+              unitContent: group2,
+            },
+          ];
+        }
+      }
 
       if (chunks.length <= 1) {
         return [
@@ -1576,6 +1601,11 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
 
     // Imperative methods for external controls
     useImperativeHandle(ref, () => ({
+      startTeaching: () => {
+        stopRef.current = false;
+        pauseRef.current = false;
+        void startTeaching();
+      },
       pause: () => {
         pauseRef.current = true;
         if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -1680,17 +1710,19 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
       state === "PAUSED";
 
     const displayedTopic =
-      activeTopic || currentTitle || (allTopics && allTopics[0]) || chapterTitle || "Interactive Learning";
+      currentTitle || activeTopic || (allTopics && allTopics[0]) || chapterTitle || "Interactive Learning";
 
-    const score = checkpointEvaluation?.score ?? 0;
+    const score = checkpointEvaluation?.score ?? null;
     const scoreColor =
-      score >= 90
-        ? "bg-emerald-500 text-white"
-        : score >= 70
-        ? "bg-blue-500 text-white"
-        : score >= 50
-        ? "bg-amber-500 text-white"
-        : "bg-red-500 text-white";
+      score !== null
+        ? score >= 90
+          ? "bg-emerald-500 text-white"
+          : score >= 70
+          ? "bg-blue-500 text-white"
+          : score >= 50
+          ? "bg-amber-500 text-white"
+          : "bg-red-500 text-white"
+        : "bg-slate-500 text-white";
 
     return (
       <div className="w-full transition-all duration-300 sticky top-0 z-20 pt-1 pb-3">
@@ -2053,6 +2085,30 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                           </>
                         )}
                       </button>
+
+                      {state === "QUICK_RECAP" && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (typeof window !== "undefined" && userEmail && chapterId && autoResumeTopic) {
+                              try {
+                                sessionStorage.setItem(
+                                  `ksai_quick_recap_${userEmail}_${(course || "python").toLowerCase()}_${chapterId}_${autoResumeTopic}`,
+                                  "done"
+                                );
+                              } catch {}
+                            }
+                            checkpointContinueRef.current = true;
+                            setState("IDLE");
+                            setTimeout(() => {
+                              void startTeaching();
+                            }, 50);
+                          }}
+                          className="w-full py-1.5 text-center text-xs font-semibold text-slate-500 hover:text-slate-800 transition cursor-pointer"
+                        >
+                          Skip recap & start lesson →
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -2074,11 +2130,11 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <div
                             className={`h-full transition-all duration-500 ${
-                              score >= 90
+                              checkpointEvaluation.score >= 90
                                 ? "bg-emerald-500"
-                                : score >= 70
+                                : checkpointEvaluation.score >= 70
                                 ? "bg-blue-500"
-                                : score >= 50
+                                : checkpointEvaluation.score >= 50
                                 ? "bg-amber-500"
                                 : "bg-red-500"
                             }`}

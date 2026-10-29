@@ -42,6 +42,7 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  Code2,
 } from "lucide-react";
 import { CheckpointEvaluation, parseCheckpointEvaluation } from "@/types/teaching-types";
 import { ChapterLearningAnalysis } from "@/lib/adaptive/types";
@@ -232,7 +233,7 @@ export default function CourseChapterPage() {
   ): Promise<string> => {
     try {
       const response = await fetch(
-        "http://127.0.0.1:8000/api/ai/teach/",
+        "/api/teach",
         {
           method: "POST",
           headers: {
@@ -258,39 +259,15 @@ ${title}
 SOURCE CONTENT:
 ${content}
 
-Your job is to teach this section, NOT simply summarize it.
+Your job is to thoroughly teach this section step-by-step.
 
 Teaching behavior:
-
-1. Start with the core idea.
-2. Explain it in simple student-friendly language.
-3. Assume the student is learning this concept for the first time.
-4. Connect the idea to something familiar when useful.
-5. Give ONE small practical example when useful.
-6. Explain why this concept matters.
-7. Do not explain future sections.
-8. Do not repeat the source content word-for-word.
-9. Do not dump large amounts of information.
-10. Keep the explanation focused on the current section.
-11. Sound like a teacher speaking directly to one student.
-12. Avoid unnecessary markdown.
-13. Do not ask a question yet. Checkpoints will be handled separately.
-
-Structure your explanation naturally:
-
-Core idea:
-Explain the main concept.
-
-Why it matters:
-Explain why the student should care.
-
-Example:
-Give one small example when appropriate.
-
-Key takeaway:
-End with one short sentence the student should remember.
-
-Keep the entire explanation concise enough for live classroom teaching.
+1. Teach the actual content thoroughly and sequentially.
+2. If there are numbered items, application domains, architectural features, or code elements, walk through each one in clear student-friendly detail.
+3. Explain why each concept matters with practical context.
+4. Sound like an engaging, patient teacher sitting beside the student.
+5. Do not skip or gloss over items from the source material.
+6. Do not ask a question yet. Interactive checkpoints will be handled separately.
 `,
 
           mode: "live-teaching",
@@ -344,7 +321,7 @@ const reteachLiveTeacherSection = async (
       reteachInstruction += `\nStudent's previous answer was: "${previousAnswer}". Gently correct this without shaming.`;
     }
 
-    const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+    const response = await fetch("/api/teach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -444,7 +421,7 @@ const evaluateCheckpointAnswer = async (
   }
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+    const response = await fetch("/api/teach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -549,7 +526,7 @@ Rules:
 `;
 
   try {
-    const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+    const response = await fetch("/api/teach", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -610,7 +587,7 @@ const evaluateResumeAnswer = async (
 ): Promise<string> => {
   if (!currentChapter) return "Good attempt. Let's continue learning.";
 
-  const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+  const response = await fetch("/api/teach", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -713,7 +690,7 @@ const handleTeachingRequest = async (
 
   try {
     const response = await fetch(
-      "http://127.0.0.1:8000/api/ai/teach/",
+      "/api/teach",
       {
         method: "POST",
         headers: {
@@ -2217,22 +2194,33 @@ const startMentorListening = () => {
                       )}
                     </div>
 
-                    {quizQuestions.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-3">
+                      {quizQuestions.length > 0 && (
+                        <button
+                          onClick={() => router.push(`/courses/${courseSlug}/chapter/${chapterOrder}/quiz`)}
+                          className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-md shadow-blue-500/10 cursor-pointer"
+                        >
+                          <HelpCircle size={14} /> Take Chapter Assessment Quiz
+                        </button>
+                      )}
+
                       <button
-                        onClick={() => router.push(`/courses/${courseSlug}/chapter/${chapterOrder}/quiz`)}
-                        className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-md shadow-blue-500/10"
+                        onClick={() => router.push(`/editor?course=${courseSlug}&chapter=${chapterOrder}`)}
+                        className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
                       >
-                        <HelpCircle size={14} /> Take Chapter Assessment Quiz
+                        <Code2 size={14} /> Programming Challenges Gate
                       </button>
-                    ) : (
-                      <button
-                        onClick={handleMarkChapterComplete}
-                        disabled={completing}
-                        className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center gap-1.5 shadow-md shadow-emerald-500/10"
-                      >
-                        <CheckCircle2 size={14} /> {completing ? "Completing..." : "Mark Chapter Complete"}
-                      </button>
-                    )}
+
+                      {quizQuestions.length === 0 && (
+                        <button
+                          onClick={handleMarkChapterComplete}
+                          disabled={completing}
+                          className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
+                        >
+                          <CheckCircle2 size={14} /> {completing ? "Completing..." : "Mark Chapter Complete"}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                 </div>

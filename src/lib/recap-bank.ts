@@ -611,7 +611,7 @@ export function getChapterRecap(language: string, chapterOrder: number): Chapter
   // Synthesis fallback
   const langDisplay = langKey === "cpp" ? "C++" : langKey.toUpperCase();
   return {
-    language: langKey as any,
+    language: langKey as "python" | "c" | "cpp" | "java",
     chapterOrder,
     chapterTitle: `${langDisplay} Chapter ${chapterOrder} Masterclass`,
     summary: `Comprehensive study recap of ${langDisplay} Chapter ${chapterOrder}. Covers core language features, syntax rules, memory implications, and practical design patterns.`,
@@ -675,6 +675,14 @@ export function generateCheckpointQuestionForTopic(
 
   // Java-Specific Questions
   if (langKey === "Java") {
+    if (lower.includes("application") || lower.includes("enterprise") || lower.includes("sector") || lower.includes("industry") || lower.includes("major application")) {
+      return pick(
+        "Which major enterprise systems, distributed data frameworks (like Hadoop or Kafka), and mobile ecosystems rely heavily on Java?",
+        "Why do global banking platforms and high-frequency trading systems choose Java over other languages?",
+        "What popular enterprise web framework in Java is widely used for building scalable microservices: Spring Boot or Django?",
+        "Does Android mobile development support Java runtime interfaces and Kotlin-Java interoperability?"
+      );
+    }
     if (lower.includes("what is java") || lower.includes("intro") || lower.includes("overview")) {
       return pick(
         "What allows Java programs to run on different operating systems without recompiling?",
@@ -1029,7 +1037,7 @@ export function generateQuickRecap(language: string, chapterOrder: number, topic
   };
 
   return {
-    language: langKey as any,
+    language: langKey as "python" | "c" | "cpp" | "java",
     chapterOrder,
     topicTitle: cleanTopic,
     whatWeLearned: `Explored the core principles, syntax rules, and practical application of ${cleanTopic} in ${langKey.toUpperCase()}.`,
