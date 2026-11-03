@@ -438,10 +438,40 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const defaultChallengeContext: ChallengeContextType = {
+  isChallengeMode: false,
+  courseSlug: "",
+  chapterOrder: 0,
+  challenges: [],
+  activeChallenge: null,
+  activeChallengeId: null,
+  isChapterQuizPassed: true,
+  isAllChallengesPassed: false,
+  totalChallenges: 0,
+  passedChallenges: 0,
+  loading: false,
+  error: null,
+  evalResult: null,
+  evaluating: false,
+  testRunning: false,
+  testOutput: null,
+  hintIndex: 0,
+  aiAdvice: null,
+  aiLoading: false,
+  showAiModal: false,
+  setShowAiModal: () => {},
+  selectChallenge: () => {},
+  runTestCode: async () => {},
+  submitChallengeCode: async () => {},
+  requestAiHelp: async () => {},
+  resetCode: () => {},
+  refreshProgression: async () => {},
+};
+
 export function useChallenge() {
   const context = useContext(ChallengeContext);
   if (!context) {
-    throw new Error("useChallenge must be used inside ChallengeProvider");
+    return defaultChallengeContext;
   }
   return context;
 }

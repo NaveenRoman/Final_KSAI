@@ -20,25 +20,12 @@ export async function GET() {
       cookieStore.get("session_token")?.value ||
       cookieStore.get("ksai_session")?.value;
 
-    // 1. Primary check: Resolve user via Better Auth session API
+    // 1. Single source of truth: Better Auth cryptographic session resolution
     const session = await auth.api.getSession({
       headers: await headers(),
     });
 
-    let sessionUserId = session?.user?.id;
-
-    // 2. Fallback check: Resolve user via cookie session token lookup in DB
-    if (!sessionUserId && sessionTokenRaw) {
-      const rawToken = parseSessionToken(sessionTokenRaw);
-      const dbSession = await db.session.findUnique({
-        where: { token: rawToken },
-        include: { user: true },
-      });
-
-      if (dbSession && new Date() < dbSession.expiresAt) {
-        sessionUserId = dbSession.userId;
-      }
-    }
+    const sessionUserId = session?.user?.id;
 
     if (!sessionUserId) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });

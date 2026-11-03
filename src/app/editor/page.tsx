@@ -38,7 +38,10 @@ import { EditorProvider } from "@/components/editor/EditorContext";
 import { AIResultProvider } from "@/components/editor/AIResultContext";
 import { AIChatProvider } from "@/components/editor/AIChatContext";
 
-import { Sparkles, MessageSquare, Bot, BookOpen, Terminal } from "lucide-react";
+import { Sparkles, MessageSquare, Bot, BookOpen, Terminal, Target } from "lucide-react";
+import { ChallengeProvider, useChallenge } from "@/components/editor/challenge/ChallengeContext";
+import ChallengeHeaderBar from "@/components/editor/challenge/ChallengeHeaderBar";
+import ChallengePanel from "@/components/editor/challenge/ChallengePanel";
 
 export default function EditorPage() {
   return (
@@ -52,7 +55,9 @@ export default function EditorPage() {
                   <EditorProvider>
                     <AIResultProvider>
                       <AIChatProvider>
-                        <EditorLayout />
+                        <ChallengeProvider>
+                          <EditorLayout />
+                        </ChallengeProvider>
                       </AIChatProvider>
                     </AIResultProvider>
                   </EditorProvider>
@@ -67,15 +72,26 @@ export default function EditorPage() {
 }
 
 function EditorLayout() {
-  
   const { darkMode } = useEditorTheme();
   const { showTerminal, setShowTerminal } = useTerminal();
-  const [rightPanelTab, setRightPanelTab] = useState<"chat" | "explanation">("explanation");
+  const { isChallengeMode } = useChallenge();
+  const [rightPanelTab, setRightPanelTab] = useState<"chat" | "explanation" | "challenge">("explanation");
+
+  // Automatically activate challenge tab when in challenge mode
+  useEffect(() => {
+    if (isChallengeMode) {
+      setRightPanelTab("challenge");
+    }
+  }, [isChallengeMode]);
 
   useEffect(() => {
     const handleSwitch = (e: Event) => {
-      const customEvent = e as CustomEvent<"chat" | "explanation">;
-      if (customEvent.detail === "chat" || customEvent.detail === "explanation") {
+      const customEvent = e as CustomEvent<"chat" | "explanation" | "challenge">;
+      if (
+        customEvent.detail === "chat" ||
+        customEvent.detail === "explanation" ||
+        customEvent.detail === "challenge"
+      ) {
         setRightPanelTab(customEvent.detail);
       }
     };
@@ -97,6 +113,9 @@ function EditorLayout() {
 
           {/* Code Editor Workspace */}
           <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+            {/* Challenge Mode Navigation Header */}
+            {isChallengeMode && <ChallengeHeaderBar />}
+
             {/* File Tabs */}
             <TabBar />
 
@@ -132,16 +151,30 @@ function EditorLayout() {
           </div>
 
           {/* Right AI Copilot & Explanation Panel */}
-          <div className={`w-[400px] min-h-0 flex flex-col overflow-hidden border-l shrink-0 transition-all ${
+          <div className={`${isChallengeMode ? "w-[440px]" : "w-[400px]"} min-h-0 flex flex-col overflow-hidden border-l shrink-0 transition-all ${
             darkMode ? "bg-[#0D0F17] border-white/10" : "bg-white border-slate-200"
           }`}>
             {/* Right Panel Tab Controls */}
             <div className={`flex items-center p-2 border-b gap-1.5 shrink-0 ${
               darkMode ? "bg-[#11131E] border-white/10" : "bg-slate-50 border-slate-200"
             }`}>
+              {isChallengeMode && (
+                <button
+                  onClick={() => setRightPanelTab("challenge")}
+                  className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                    rightPanelTab === "challenge"
+                      ? "bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xs"
+                      : darkMode
+                      ? "text-slate-400 hover:text-white"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Target size={14} /> Challenge
+                </button>
+              )}
               <button
                 onClick={() => setRightPanelTab("explanation")}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
                   rightPanelTab === "explanation"
                     ? "bg-[#4F46E5] text-white shadow-xs"
                     : darkMode
@@ -153,7 +186,7 @@ function EditorLayout() {
               </button>
               <button
                 onClick={() => setRightPanelTab("chat")}
-                className={`flex-1 py-1.5 px-3 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
+                className={`flex-1 py-1.5 px-2.5 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 ${
                   rightPanelTab === "chat"
                     ? "bg-[#4F46E5] text-white shadow-xs"
                     : darkMode
@@ -167,7 +200,9 @@ function EditorLayout() {
 
             {/* Panel Views */}
             <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-              {rightPanelTab === "explanation" ? (
+              {rightPanelTab === "challenge" ? (
+                <ChallengePanel />
+              ) : rightPanelTab === "explanation" ? (
                 <AIResultPanel />
               ) : (
                 <AIChatPanel />

@@ -167,26 +167,24 @@ KnowledgeStream AI Execution
     );
 
     try {
-      const response = await fetch("/api/run/stream", {
+      const response = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code, language, fileName }),
       });
 
-      const contentType = response.headers.get("content-type") || "";
+      const data = await response.json().catch(() => ({}));
+      setIsRunning(false);
 
-      if (!response.ok || contentType.includes("application/json")) {
-        const errorData = await response.json().catch(() => ({}));
-        setIsRunning(false);
-
-        if (errorData.diagnostics || errorData.output) {
+      if (!response.ok) {
+        if (data.diagnostics || data.output) {
           if (onValidationError) {
             onValidationError({
-              message: errorData.output || "Execution Error",
-              diagnostics: errorData.diagnostics,
+              message: data.output || "Execution Error",
+              diagnostics: data.diagnostics,
             });
           } else {
-            setProblemsText(errorData.output || "Execution Error");
+            setProblemsText(data.output || "Execution Error");
             setActivePanel("problems");
           }
           return;
@@ -194,98 +192,34 @@ KnowledgeStream AI Execution
 
         setOutput((prev) =>
           prev +
-          `\nExecution Error: ${errorData.message || errorData.output || "Failed to start execution."}\n` +
+          `\nExecution Error: ${data.message || data.output || "Failed to execute code."}\n` +
           `\n========================================\n`
         );
         return;
       }
 
-      if (!response.body) {
-        throw new Error("No response stream body available.");
-      }
+      const outText = data.output || (data.success ? "Program finished successfully with no console output." : "Execution failed.");
+      const duration = data.executionTime ?? 0;
+      const codeVal = data.exitCode ?? (data.success ? 0 : 1);
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let hasReceivedOutput = false;
-      let rawStreamText = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith("data:")) {
-            const jsonStr = trimmed.replace(/^data:\s*/, "");
-            if (!jsonStr) continue;
-
-            try {
-              const event = JSON.parse(jsonStr);
-
-              if (event.type === "start") {
-                setActiveSessionId(event.sessionId);
-                activeSessionIdRef.current = event.sessionId;
-              } else if (event.type === "stdout") {
-                hasReceivedOutput = true;
-                rawStreamText += event.text;
-                setOutput((prev) => prev + event.text);
-              } else if (event.type === "stderr") {
-                hasReceivedOutput = true;
-                rawStreamText += event.text;
-                setOutput((prev) => prev + event.text);
-              } else if (event.type === "exit") {
-                setIsRunning(false);
-                setActiveSessionId(null);
-                activeSessionIdRef.current = null;
-
-                const codeVal = event.exitCode ?? 0;
-                const duration = event.executionTime ?? 0;
-
-                setOutput((prev) => {
-                  let finalMsg = prev;
-                  if (!rawStreamText.trim() && codeVal === 0) {
-                    finalMsg += "Program finished successfully with no console output.\n\n";
-                  } else if (!finalMsg.endsWith("\n")) {
-                    finalMsg += "\n\n";
-                  } else {
-                    finalMsg += "\n";
-                  }
-                  finalMsg += `Execution Time : ${duration} ms\n`;
-                  finalMsg += `Exit Code      : ${codeVal}\n\n`;
-                  finalMsg += `========================================`;
-                  return finalMsg;
-                });
-              } else if (event.type === "error") {
-                setIsRunning(false);
-                setActiveSessionId(null);
-                activeSessionIdRef.current = null;
-
-                setOutput((prev) =>
-                  prev +
-                  `\nRuntime Error: ${event.text || "Execution failed."}\n\n` +
-                  `Execution Time : ${event.executionTime ?? 0} ms\n` +
-                  `Exit Code      : ${event.exitCode ?? 1}\n\n` +
-                  `========================================`
-                );
-              }
-            } catch {}
-          }
+      setOutput((prev) => {
+        let finalMsg = prev + outText;
+        if (!finalMsg.endsWith("\n")) {
+          finalMsg += "\n\n";
+        } else {
+          finalMsg += "\n";
         }
-      }
+        finalMsg += `Execution Time : ${duration} ms\n`;
+        finalMsg += `Exit Code      : ${codeVal}\n\n`;
+        finalMsg += `========================================`;
+        return finalMsg;
+      });
     } catch (err: any) {
       setIsRunning(false);
-      setActiveSessionId(null);
-      activeSessionIdRef.current = null;
-
       setOutput((prev) =>
         prev +
-        `\nExecution Failed: ${err?.message || "Connection to execution server lost."}\n\n` +
-        `========================================`
+        `\nExecution Error: ${err.message || "Failed to communicate with execution service."}\n` +
+        `\n========================================\n`
       );
     }
   };

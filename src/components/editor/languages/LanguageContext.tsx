@@ -27,7 +27,11 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
-  const urlLang = searchParams?.get("lang") || "";
+  const urlLang =
+    searchParams?.get("course") ||
+    searchParams?.get("language") ||
+    searchParams?.get("lang") ||
+    "";
 
   const [accessibleList, setAccessibleList] = useState<LanguageConfig[]>(LANGUAGES);
   const [selectedLangId, setSelectedLangId] = useState<string>("java");

@@ -7,6 +7,7 @@ import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { RightAIPanel } from "@/components/dashboard/RightAIPanel";
 import { Sparkles, BookOpen, Star, Clock, ShieldCheck, CheckCircle, X, ArrowRight } from "lucide-react";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 interface CourseCatalogItem {
   id: string;
@@ -40,43 +41,6 @@ interface SessionUserWithRole {
   name?: string | null;
   email?: string | null;
   role?: string | null;
-}
-
-interface RazorpaySuccessResponse {
-  razorpay_payment_id: string;
-  razorpay_order_id: string;
-  razorpay_signature: string;
-}
-
-interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  handler: (response: RazorpaySuccessResponse) => void | Promise<void>;
-  prefill?: {
-    name?: string;
-    email?: string;
-    contact?: string;
-  };
-  theme?: {
-    color?: string;
-  };
-}
-
-interface RazorpayInstance {
-  open: () => void;
-  on?: (event: string, handler: (response: unknown) => void) => void;
-}
-
-interface RazorpayConstructor {
-  new (options: RazorpayOptions): RazorpayInstance;
-}
-
-interface WindowWithRazorpay {
-  Razorpay?: RazorpayConstructor;
 }
 
 // ============================================================================
@@ -156,20 +120,6 @@ export default function ExploreCoursesCatalogPage() {
   const [showDemoSuccessModal, setShowDemoSuccessModal] = useState(false);
   const [demoSuccessCourse, setDemoSuccessCourse] = useState<CourseCatalogItem | null>(null);
 
-  const loadRazorpayScript = () => {
-    return new Promise<boolean>((resolve) => {
-      const razorpayObj = typeof window !== "undefined" ? (window as unknown as WindowWithRazorpay).Razorpay : undefined;
-      if (razorpayObj) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
 
   const fetchCatalogAndEnrollments = useCallback(async (email: string) => {
     try {
@@ -201,18 +151,40 @@ export default function ExploreCoursesCatalogPage() {
   const fetchedEmailRef = useRef<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     if (isPending) return;
 
-    if (!session?.user) {
-      router.push("/auth");
-      return;
+    if (session?.user) {
+      const email = session.user.email || "";
+      if (fetchedEmailRef.current !== email) {
+        fetchedEmailRef.current = email;
+        fetchCatalogAndEnrollments(email);
+      }
+    } else {
+      // Fallback: verify server session before redirecting to avoid client-side race conditions
+      fetch("/api/auth/me")
+        .then((res) => {
+          if (!res.ok) {
+            if (active) router.push("/auth");
+            return null;
+          }
+          return res.json();
+        })
+        .then((data) => {
+          if (!active || !data?.user?.email) return;
+          const email = data.user.email;
+          if (fetchedEmailRef.current !== email) {
+            fetchedEmailRef.current = email;
+            fetchCatalogAndEnrollments(email);
+          }
+        })
+        .catch(() => {
+          if (active) router.push("/auth");
+        });
     }
-
-    const email = session.user.email || "";
-    if (fetchedEmailRef.current !== email) {
-      fetchedEmailRef.current = email;
-      fetchCatalogAndEnrollments(email);
-    }
+    return () => {
+      active = false;
+    };
   }, [session, isPending, router, fetchCatalogAndEnrollments]);
 
   const handleTabChange = (tab: string) => {
@@ -240,129 +212,37 @@ export default function ExploreCoursesCatalogPage() {
     if (!user) return;
     setBuyingCourseId(course.id);
 
-    try {
-      const res = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: course.price,
-          currency: "INR",
-          courseId: course.id,
-          userEmail: user.email,
-        }),
-      });
-
-      const data = await res.json();
-
-      // If user is already enrolled
-      if (data.alreadyEnrolled) {
-        alert("You are already enrolled in this course!");
+    await openRazorpayCheckout({
+      courseId: course.id,
+      courseTitle: course.title,
+      userEmail: user.email,
+      userName: user.name,
+      themeColor: "#3B82F6",
+      onSuccess: async (result) => {
+        setBuyingCourseId(null);
+        if (result.alreadyEnrolled) {
+          alert("You are already enrolled in this course!");
+        } else {
+          setSuccessCourseLanguage(course.language.toLowerCase());
+          setShowSuccessModal(true);
+        }
         fetchCatalogAndEnrollments(user.email);
-        return;
-      }
-
-      if (!res.ok || !data.success) {
-        alert(data.error || "Order creation failed.");
-        return;
-      }
-
-      // Free Course Test Mode: Immediate enrollment without opening Razorpay
-      if (data.freeTestMode) {
-        const enrollRes = await fetch("/api/courses/enroll", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            courseId: course.id,
-          }),
-        });
-
-        const enrollData = await enrollRes.json();
-        if (enrollData.success) {
-          setSuccessCourseLanguage(course.language.toLowerCase());
-          setShowSuccessModal(true);
-          fetchCatalogAndEnrollments(user.email);
-        } else {
-          alert(enrollData.error || "Enrollment failed.");
+      },
+      onError: (errMsg) => {
+        setBuyingCourseId(null);
+        alert(errMsg || "Failed to complete checkout order.");
+      },
+      onDismiss: () => {
+        setBuyingCourseId(null);
+      },
+      onStateChange: (state) => {
+        if (state === "creating_order" || state === "verifying") {
+          setBuyingCourseId(course.id);
+        } else if (state === "idle" || state === "error" || state === "success") {
+          setBuyingCourseId(null);
         }
-        return;
-      }
-
-      const { isMock } = data;
-
-      if (isMock) {
-        alert("🔧 Local Dev Mode: Simulating Razorpay Payment Gateway. Click OK to confirm purchase.");
-        
-        const enrollRes = await fetch("/api/courses/enroll", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userEmail: user.email,
-            courseId: course.id,
-            paidAmount: course.price,
-            paymentId: `pay_mock_${Date.now()}`,
-          }),
-        });
-
-        const enrollData = await enrollRes.json();
-        if (enrollData.success) {
-          setSuccessCourseLanguage(course.language.toLowerCase());
-          setShowSuccessModal(true);
-          // Refresh enrollments list
-          fetchCatalogAndEnrollments(user.email);
-        } else {
-          alert(enrollData.error || "Enrollment failed.");
-        }
-      } else {
-        const scriptLoaded = await loadRazorpayScript();
-        const RazorpayCtor = typeof window !== "undefined" ? (window as unknown as WindowWithRazorpay).Razorpay : undefined;
-        if (!scriptLoaded || !RazorpayCtor) {
-          alert("Failed to load Razorpay SDK. Please check your internet connection.");
-          return;
-        }
-
-        const options: RazorpayOptions = {
-          key: data.key,
-          amount: data.order.amount,
-          currency: data.order.currency,
-          name: "KnowledgeStream AI",
-          description: course.title,
-          order_id: data.order.id,
-          handler: async function (response: RazorpaySuccessResponse) {
-            const enrollRes = await fetch("/api/courses/enroll", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                userEmail: user.email,
-                courseId: course.id,
-                paidAmount: course.price,
-                paymentId: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-            const enrollData = await enrollRes.json();
-            if (enrollData.success) {
-              setSuccessCourseLanguage(course.language.toLowerCase());
-              setShowSuccessModal(true);
-              fetchCatalogAndEnrollments(user.email);
-            } else {
-              alert(enrollData.error || "Enrollment failed.");
-            }
-          },
-          prefill: {
-            name: user.name,
-            email: user.email,
-          },
-        };
-        const rzp = new RazorpayCtor(options);
-        rzp.open();
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to complete checkout order.");
-    } finally {
-      setBuyingCourseId(null);
-    }
+      },
+    });
   };
 
   return (
