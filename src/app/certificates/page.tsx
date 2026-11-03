@@ -52,24 +52,58 @@ function CertificatesContent() {
   const certPrintRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let active = true;
     if (!isPending) {
       if (sessionUser?.email) {
         fetch(`/api/certificates/my-certificates?email=${encodeURIComponent(sessionUser.email)}`)
           .then((r) => r.json())
           .then((d) => {
-            const certs = d.certificates || [];
-            setCertificates(certs);
-            if (certs.length > 0) {
-              const completed = certs.find((c: CertificateItem) => c.isCompleted || c.progress >= 100);
-              setSelectedCert(completed || certs[0]);
+            if (active) {
+              const certs = d.certificates || [];
+              setCertificates(certs);
+              if (certs.length > 0) {
+                const completed = certs.find((c: CertificateItem) => c.isCompleted || c.progress >= 100);
+                setSelectedCert(completed || certs[0]);
+              }
+              setLoading(false);
             }
-            setLoading(false);
           })
-          .catch(() => setLoading(false));
+          .catch(() => { if (active) setLoading(false); });
       } else {
-        router.push("/auth");
+        // Fallback: verify server session before redirecting to avoid client-side race conditions
+        fetch("/api/auth/me")
+          .then((res) => {
+            if (!res.ok) {
+              if (active) router.push("/auth");
+              return null;
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (!active || !data?.user?.email) return;
+            fetch(`/api/certificates/my-certificates?email=${encodeURIComponent(data.user.email)}`)
+              .then((r) => r.json())
+              .then((d) => {
+                if (active) {
+                  const certs = d.certificates || [];
+                  setCertificates(certs);
+                  if (certs.length > 0) {
+                    const completed = certs.find((c: CertificateItem) => c.isCompleted || c.progress >= 100);
+                    setSelectedCert(completed || certs[0]);
+                  }
+                  setLoading(false);
+                }
+              })
+              .catch(() => { if (active) setLoading(false); });
+          })
+          .catch(() => {
+            if (active) router.push("/auth");
+          });
       }
     }
+    return () => {
+      active = false;
+    };
   }, [isPending, sessionUser, router]);
 
   const handlePrint = () => {

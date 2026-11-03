@@ -33,6 +33,7 @@ export default function MyCoursesPage() {
   } | null>(null);
 
   useEffect(() => {
+    let active = true;
     if (!isPending) {
       if (session?.user) {
         const currentUser = {
@@ -46,19 +47,52 @@ export default function MyCoursesPage() {
         fetch(`/api/courses/my-courses?email=${currentUser.email}`)
           .then((res) => res.json())
           .then((data) => {
-            if (data.enrollments) {
+            if (active && data.enrollments) {
               setEnrollments(data.enrollments);
             }
-            setLoading(false);
+            if (active) setLoading(false);
           })
           .catch((err) => {
             console.error(err);
-            setLoading(false);
+            if (active) setLoading(false);
           });
       } else {
-        router.push("/auth");
+        // Fallback: verify server session before redirecting to avoid client-side race conditions
+        fetch("/api/auth/me")
+          .then((res) => {
+            if (!res.ok) {
+              if (active) router.push("/auth");
+              return null;
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (!active || !data?.user) return;
+            const currentUser = {
+              id: data.user.id,
+              name: data.user.name ?? "",
+              email: data.user.email ?? "",
+              role: data.user.role ?? "Student",
+            };
+            setUser(currentUser);
+            fetch(`/api/courses/my-courses?email=${currentUser.email}`)
+              .then((res) => res.json())
+              .then((d) => {
+                if (active && d.enrollments) setEnrollments(d.enrollments);
+                if (active) setLoading(false);
+              })
+              .catch(() => {
+                if (active) setLoading(false);
+              });
+          })
+          .catch(() => {
+            if (active) router.push("/auth");
+          });
       }
     }
+    return () => {
+      active = false;
+    };
   }, [session, isPending, router]);
 
   const handleTabChange = (tab: string) => {

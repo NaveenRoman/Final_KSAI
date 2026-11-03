@@ -86,7 +86,16 @@ export default function SettingsPage() {
     }
     if (!isPending) {
       if (!session) {
-        router.push("/auth");
+        // Fallback: verify server session before redirecting to avoid client-side race conditions
+        fetch("/api/auth/me")
+          .then((res) => {
+            if (!res.ok) {
+              router.push("/auth");
+            } else {
+              loadUserData();
+            }
+          })
+          .catch(() => router.push("/auth"));
       } else {
         loadUserData();
       }

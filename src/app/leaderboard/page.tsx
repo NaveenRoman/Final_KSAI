@@ -64,6 +64,7 @@ export default function LeaderboardPage() {
 
   // Auth Protection
   useEffect(() => {
+    let active = true;
     if (!isPending) {
       if (session?.user) {
         const currentUser = {
@@ -78,10 +79,38 @@ export default function LeaderboardPage() {
           setSelectedCollege(currentUser.college);
         }
       } else {
-        router.push("/auth");
+        // Fallback: verify server session before redirecting to avoid client-side race conditions
+        fetch("/api/auth/me")
+          .then((res) => {
+            if (!res.ok) {
+              if (active) router.push("/auth");
+              return null;
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (!active || !data?.user) return;
+            const currentUser = {
+              id: data.user.id,
+              name: data.user.name ?? "",
+              email: data.user.email ?? "",
+              role: data.user.role ?? "Student",
+              college: data.user.college ?? "",
+            };
+            setUser(currentUser);
+            if (currentUser.college && !selectedCollege) {
+              setSelectedCollege(currentUser.college);
+            }
+          })
+          .catch(() => {
+            if (active) router.push("/auth");
+          });
       }
     }
-  }, [session, isPending, router]);
+    return () => {
+      active = false;
+    };
+  }, [session, isPending, router, selectedCollege]);
 
   // Fetch Courses & Colleges
   useEffect(() => {

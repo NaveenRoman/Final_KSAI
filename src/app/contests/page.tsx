@@ -39,6 +39,7 @@ export default function StudentContestsPage() {
   } | null>(null);
 
   useEffect(() => {
+    let active = true;
     if (!isPending) {
       if (session?.user) {
         setUser({
@@ -49,19 +50,49 @@ export default function StudentContestsPage() {
         fetch("/api/contests")
           .then((res) => res.json())
           .then((data) => {
-            if (data.success && Array.isArray(data.contests)) {
+            if (active && data.success && Array.isArray(data.contests)) {
               setContests(data.contests);
             }
-            setLoading(false);
+            if (active) setLoading(false);
           })
           .catch((err) => {
             console.error(err);
-            setLoading(false);
+            if (active) setLoading(false);
           });
       } else {
-        router.push("/auth");
+        // Fallback: verify server session before redirecting to avoid client-side race conditions
+        fetch("/api/auth/me")
+          .then((res) => {
+            if (!res.ok) {
+              if (active) router.push("/auth");
+              return null;
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (!active || !data?.user) return;
+            setUser({
+              name: data.user.name ?? "Student",
+              role: data.user.role ?? "Student",
+            });
+            fetch("/api/contests")
+              .then((res) => res.json())
+              .then((d) => {
+                if (active && d.success && Array.isArray(d.contests)) {
+                  setContests(d.contests);
+                }
+                if (active) setLoading(false);
+              })
+              .catch(() => { if (active) setLoading(false); });
+          })
+          .catch(() => {
+            if (active) router.push("/auth");
+          });
       }
     }
+    return () => {
+      active = false;
+    };
   }, [session, isPending, router]);
 
   const handleTabChange = (tab: string) => {
