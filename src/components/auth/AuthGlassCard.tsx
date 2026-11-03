@@ -17,8 +17,6 @@ const PORTALS = [
     icon: "🎓",
     badge: "Student Workspace",
     target: "/dashboard",
-    demoEmail: "student.csm@kgrcet.edu",
-    demoPass: "Password@1234",
   },
   {
     id: "FACULTY",
@@ -26,8 +24,6 @@ const PORTALS = [
     icon: "👨‍🏫",
     badge: "Faculty Portal",
     target: "/dashboard/faculty",
-    demoEmail: "faculty.csm@kgrcet.edu",
-    demoPass: "Password@1234",
   },
   {
     id: "COLLEGE_ADMIN",
@@ -35,8 +31,6 @@ const PORTALS = [
     icon: "🏫",
     badge: "College Admin",
     target: "/dashboard/college",
-    demoEmail: "collegeadmin@kgrcet.edu",
-    demoPass: "Password@1234",
   },
   {
     id: "DEPARTMENT_ADMIN",
@@ -44,8 +38,6 @@ const PORTALS = [
     icon: "🏢",
     badge: "Dept Admin",
     target: "/dashboard/department",
-    demoEmail: "hod.csm@kgrcet.edu",
-    demoPass: "Password@1234",
   },
   {
     id: "SUPER_ADMIN",
@@ -53,16 +45,12 @@ const PORTALS = [
     icon: "👑",
     badge: "Super Admin",
     target: "/admin/dashboard",
-    demoEmail: "admin@ksai.local",
-    demoPass: "Admin@12345",
   },
 ];
 
 export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
   const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
   const [selectedPortalId, setSelectedPortalId] = useState<string>("STUDENT");
-  const [prefillEmail, setPrefillEmail] = useState<string>("");
-  const [prefillPassword, setPrefillPassword] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const isSignupActive = activeTab === "signup";
   const [authenticatedUser, setAuthenticatedUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
@@ -77,11 +65,6 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
 
   const handlePortalSelect = (portal: typeof PORTALS[0]) => {
     setSelectedPortalId(portal.id);
-  };
-
-  const handleQuickFill = () => {
-    setPrefillEmail(currentPortal.demoEmail);
-    setPrefillPassword(currentPortal.demoPass);
   };
 
   const handleStartAuth = (user: { name?: string; email?: string; role?: string }) => {
@@ -198,15 +181,8 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
               <div className="flex items-center gap-1.5 truncate">
                 <span className="text-sm">{currentPortal.icon}</span>
                 <span className="font-semibold text-slate-200 truncate">{currentPortal.badge}</span>
-                <span className="text-[10px] text-blue-400 font-mono hidden sm:inline">({currentPortal.target})</span>
               </div>
-              <button
-                type="button"
-                onClick={handleQuickFill}
-                className="px-2.5 py-1 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-300 hover:text-blue-200 text-[10px] font-bold transition-all shrink-0"
-              >
-                ⚡ Fill Demo
-              </button>
+              <span className="text-[10px] text-blue-400 font-mono hidden sm:inline">{currentPortal.target}</span>
             </div>
           </div>
         )}
@@ -226,8 +202,6 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
                   onSubmitSuccess={handleStartAuth}
                   onSwitchToSignUp={() => setActiveTab("signup")}
                   onGooglePrefill={handleGooglePrefill}
-                  prefillEmail={prefillEmail}
-                  prefillPassword={prefillPassword}
                 />
               </motion.div>
             ) : (

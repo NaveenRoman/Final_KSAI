@@ -9,7 +9,12 @@ export async function POST() {
     const cookieStore = await cookies();
     const sessionToken =
       cookieStore.get("better-auth.session_token")?.value ||
-      cookieStore.get("sessionToken")?.value;
+      cookieStore.get("__Secure-better-auth.session_token")?.value ||
+      cookieStore.get("better-auth.session-token")?.value ||
+      cookieStore.get("__Secure-better-auth.session-token")?.value ||
+      cookieStore.get("sessionToken")?.value ||
+      cookieStore.get("session_token")?.value ||
+      cookieStore.get("ksai_session")?.value;
 
     if (sessionToken) {
       try {
@@ -43,9 +48,17 @@ export async function POST() {
 
     const cookieNames = [
       "better-auth.session_token",
+      "__Secure-better-auth.session_token",
+      "better-auth.session-token",
+      "__Secure-better-auth.session-token",
       "better-auth.session_data",
       "better-auth.csrf_token",
+      "__Secure-better-auth.csrf_token",
+      "better-auth.dont_remember",
+      "better-auth.state",
       "sessionToken",
+      "session_token",
+      "ksai_session",
     ];
 
     for (const name of cookieNames) {

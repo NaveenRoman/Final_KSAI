@@ -13,21 +13,27 @@ export default function AuthPage() {
   const [authUser, setAuthUser] = useState<{ name?: string; email?: string; role?: string } | null>(null);
   const [redirectPath, setRedirectPath] = useState<string>("/dashboard");
 
-  // If already authenticated, redirect to their role dashboard
+  // If already authenticated with a valid server session, redirect to their role dashboard
   React.useEffect(() => {
+    let mounted = true;
     async function checkExistingSession() {
       try {
         const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.user?.role) {
-            const dest = getRoleDashboardPath(data.user.role);
-            window.location.href = dest;
-          }
+        if (!res.ok || res.status !== 200) return;
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.toLowerCase().includes("application/json")) return;
+        const data = await res.json();
+        if (mounted && data?.user?.id) {
+          const role = data.user.role || "Student";
+          const dest = getRoleDashboardPath(role);
+          window.location.replace(dest);
         }
       } catch {}
     }
     checkExistingSession();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const handleAuthSuccess = async (user: { name?: string; email?: string; role?: string }) => {

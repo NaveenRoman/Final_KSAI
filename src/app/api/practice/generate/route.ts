@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseSessionToken } from "@/lib/auth-cookie";
 import fs from "fs/promises";
 import path from "path";
 import {
@@ -32,7 +34,7 @@ async function safeReadMarkdown(relPath: string): Promise<string> {
   try {
     const base = process.cwd();
     const safe = path.normalize(relPath).replace(/^(\.\.(\/|\\|$))+/, "");
-    const abs = path.join(base, safe);
+    const abs = path.join(/*turbopackIgnore: true*/ base, safe);
     if (!abs.startsWith(base)) return "";
     return await fs.readFile(abs, "utf-8");
   } catch {
@@ -380,9 +382,39 @@ export async function POST(req: Request) {
   const existingHashes = new Set<string>();
 
   try {
-    const session = await auth.api.getSession({ headers: req.headers });
+    let sessionData = null;
+    try {
+      sessionData = await auth.api.getSession({ headers: req.headers });
+    } catch {
+      try {
+        sessionData = await auth.api.getSession({ headers: await headers() });
+      } catch {
+        // ignore
+      }
+    }
 
-    if (!session?.user?.email) {
+    let user = sessionData?.user as any;
+
+    if (!user) {
+      const cookieStore = await cookies();
+      const sessionTokenRaw =
+        cookieStore.get("better-auth.session_token")?.value ||
+        cookieStore.get("__Secure-better-auth.session_token")?.value ||
+        cookieStore.get("sessionToken")?.value;
+
+      if (sessionTokenRaw) {
+        const rawToken = parseSessionToken(sessionTokenRaw);
+        const dbSession = await db.session.findUnique({
+          where: { token: rawToken },
+          include: { user: true },
+        });
+        if (dbSession && new Date() < dbSession.expiresAt) {
+          user = dbSession.user;
+        }
+      }
+    }
+
+    if (!user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -405,7 +437,7 @@ export async function POST(req: Request) {
     const isRetryMode = retryMode === "wrong" || (Array.isArray(retryQuestions) && retryQuestions.length > 0);
 
     const enrollment = await db.enrollment.findFirst({
-      where: { userId: session.user.id, courseId },
+      where: { userId: user.id, courseId },
     });
 
     if (!enrollment) {
@@ -451,7 +483,7 @@ export async function POST(req: Request) {
 
     // Fetch user's previous practice attempts to enforce strict anti-repetition
     const pastPractices = await db.practice.findMany({
-      where: { userEmail: session.user.email, courseId },
+      where: { userEmail: user.email, courseId },
       orderBy: { createdAt: "desc" },
       take: 25,
     });
@@ -618,7 +650,7 @@ JSON Schema Required:
     // Create practice session record in Prisma
     const record = await db.practice.create({
       data: {
-        userEmail: session.user.email,
+        userEmail: user.email,
         courseId,
         meta: JSON.stringify({
           source: generationSource,

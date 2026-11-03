@@ -8,7 +8,8 @@ import crypto from "crypto";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { email, password } = body;
+    const { email, password, rememberMe } = body;
+    const isRemember = Boolean(rememberMe);
 
     if (!email || !password) {
       return NextResponse.json(
@@ -124,7 +125,7 @@ export async function POST(req: Request) {
         body: {
           email: user.email,
           password,
-          rememberMe: true,
+          rememberMe: isRemember,
         },
         asResponse: true,
         headers: req.headers,
@@ -145,7 +146,7 @@ export async function POST(req: Request) {
                   secure: process.env.NODE_ENV === "production",
                   sameSite: "lax",
                   path: "/",
-                  expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                  ...(isRemember ? { expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } : {}),
                 });
               }
             });
@@ -163,7 +164,7 @@ export async function POST(req: Request) {
                 secure: process.env.NODE_ENV === "production",
                 sameSite: "lax",
                 path: "/",
-                expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                ...(isRemember ? { expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } : {}),
               });
             }
             sessionCreated = true;
@@ -177,7 +178,8 @@ export async function POST(req: Request) {
     // Fallback Session Generation if Better Auth didn't emit cookies
     if (!sessionCreated) {
       const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const sessionDuration = isRemember ? 7 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+      const expiresAt = new Date(Date.now() + sessionDuration);
 
       await db.session.create({
         data: {
@@ -192,7 +194,7 @@ export async function POST(req: Request) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        expires: expiresAt,
+        ...(isRemember ? { expires: expiresAt } : {}),
       });
 
       response.cookies.set("sessionToken", token, {
@@ -200,7 +202,7 @@ export async function POST(req: Request) {
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
-        expires: expiresAt,
+        ...(isRemember ? { expires: expiresAt } : {}),
       });
     }
 

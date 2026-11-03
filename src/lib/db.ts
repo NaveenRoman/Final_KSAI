@@ -1,33 +1,44 @@
 import { PrismaClient } from "@/generated/client";
 
+// Cloud deployment markers (Vercel, Railway, Render, Fly, Netlify, or CI)
+const isVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+const isCloudDeployment =
+  isVercel ||
+  process.env.CI === "1" ||
+  process.env.CI === "true" ||
+  Boolean(process.env.RAILWAY_ENVIRONMENT) ||
+  Boolean(process.env.RENDER) ||
+  Boolean(process.env.FLY_APP_NAME) ||
+  process.env.NETLIFY === "true";
+
+// In local dev with generated SQLite client, normalize DATABASE_URL to SQLite before PrismaClient initializes
+if (process.env.NODE_ENV !== "production" && !isCloudDeployment && process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")) {
+  process.env.DATABASE_URL = "file:./dev.db";
+}
+
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function getDatabaseUrl(): string {
   const url = process.env.DATABASE_URL;
 
-  // Cloud deployment markers (Vercel, Railway, Render, Fly, Netlify, or CI)
-  const isVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
-  const isCloudDeployment =
-    isVercel ||
-    process.env.CI === "1" ||
-    process.env.CI === "true" ||
-    Boolean(process.env.RAILWAY_ENVIRONMENT) ||
-    Boolean(process.env.RENDER) ||
-    Boolean(process.env.FLY_APP_NAME) ||
-    process.env.NETLIFY === "true";
-
   const isPostgresUrl = Boolean(
     url && (url.startsWith("postgres://") || url.startsWith("postgresql://"))
   );
 
-  // Strictly require PostgreSQL in cloud deployments (especially Vercel), never allowing SQLite
-  if (isCloudDeployment || (process.env.NODE_ENV === "production" && url && !url.startsWith("file:"))) {
+  // Strictly require PostgreSQL in production (cloud deployments or self-hosted VPS), never allowing SQLite
+  if (isCloudDeployment || process.env.NODE_ENV === "production") {
     if (!isPostgresUrl) {
       throw new Error(
         "FATAL: Production database misconfigured. DATABASE_URL environment variable must be set and start with 'postgresql://' or 'postgres://'."
       );
     }
     return url!;
+  }
+
+  // If running in local development and client was generated for SQLite, fallback to local SQLite database
+  if (isPostgresUrl && !isCloudDeployment) {
+    process.env.DATABASE_URL = "file:./dev.db";
+    return "file:./dev.db";
   }
 
   return url || "file:./dev.db";

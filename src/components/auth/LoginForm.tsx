@@ -49,7 +49,7 @@ export function LoginForm({
   }, [prefillEmail, prefillPassword]);
 
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -85,7 +85,7 @@ export function LoginForm({
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, rememberMe }),
       });
 
       const parsed = await safeParseResponse<{ success?: boolean; user?: any; error?: string }>(
@@ -438,7 +438,7 @@ export function LoginForm({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDownEnter}
-                  placeholder="developer@knowledgestream.ai"
+                  placeholder="name@example.com"
                   className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#161626] border border-white/15 text-sm sm:text-base text-white placeholder-slate-400 font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all shadow-inner"
                 />
               </div>
@@ -461,7 +461,7 @@ export function LoginForm({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDownEnter}
-                  placeholder="••••••••••••"
+                  placeholder="Enter your password"
                   className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-[#161626] border border-white/15 text-sm sm:text-base text-white placeholder-slate-400 font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all shadow-inner"
                 />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 cursor-pointer">

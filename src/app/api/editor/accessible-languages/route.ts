@@ -3,7 +3,7 @@ import { cookies, headers } from "next/headers";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
-import { LANGUAGES, LanguageConfig } from "@/components/editor/languages/LanguageConfig";
+import { LANGUAGES, LanguageConfig } from "@/lib/editor-languages";
 
 export const dynamic = "force-dynamic";
 

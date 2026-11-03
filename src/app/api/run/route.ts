@@ -4,9 +4,12 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { executeCode } from "@/lib/code-execution";
-import { validateCodeBeforeRun } from "@/components/editor/runner/CodeValidator";
+import { validateCodeBeforeRun } from "@/lib/code-validator";
+import { getChallengeById } from "@/lib/challenges/challenge-bank";
+import { buildSignedExecutionEnvelope } from "@/lib/broker-signer";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 25;
 
 function normalizeLanguage(lang: string): string {
   const norm = (lang || "").toLowerCase().trim();
@@ -29,6 +32,15 @@ export async function POST(request: Request) {
         output: "Code cannot be empty.",
         executionTime: 0,
         exitCode: 1,
+      });
+    }
+
+    if (process.env.ENABLE_CODE_EXECUTION === "false") {
+      return NextResponse.json({
+        success: false,
+        output: "Code execution is temporarily disabled during platform launch. All courses, quizzes, and AI tutoring are fully active.",
+        executionTime: 0,
+        exitCode: 503,
       });
     }
 
@@ -116,7 +128,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // 2. Authorize course access for non-admin users
+    // 2. Authorize course or challenge access for non-admin users
     if (user.role !== "Admin") {
       const enrollment = await db.enrollment.findFirst({
         where: {
@@ -127,8 +139,22 @@ export async function POST(request: Request) {
         },
       });
 
-      // Also check preview eligibility if user is auto-enrolled or preview student
-      if (!enrollment) {
+      let challengeAllowed = false;
+      if (body.challengeId) {
+        const challengeIdStr = String(body.challengeId);
+        if (getChallengeById(challengeIdStr)) {
+          challengeAllowed = true;
+        } else {
+          const dbChallenge = await db.challenge.findUnique({
+            where: { id: challengeIdStr },
+          });
+          if (dbChallenge) {
+            challengeAllowed = true;
+          }
+        }
+      }
+
+      if (!enrollment && !challengeAllowed) {
         const langDisplayName =
           normLang === "cpp"
             ? "C++"
@@ -150,12 +176,14 @@ export async function POST(request: Request) {
       }
     }
 
-    // 3. Execute authorized code
+    // 3. Execute authorized code strictly via signed Django -> Broker pipeline
     const execResult = await executeCode({
       code,
       language: normLang,
+      studentId: user.id,
       stdin,
       files,
+      timeoutMs: 14000,
     });
 
     const duration = Date.now() - startTime;

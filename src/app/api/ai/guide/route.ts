@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateCodeBeforeRun } from "@/components/editor/runner/CodeValidator";
+import { validateCodeBeforeRun } from "@/lib/code-validator";
 
 interface RuntimeExceptionInfo {
     type: string;

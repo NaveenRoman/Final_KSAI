@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { synthesizeUniversalProgram } from "@/components/editor/dictator/DictatorTokenizer";
+import { synthesizeUniversalProgram } from "@/lib/dictator-tokenizer";
 
 function cleanAndParseAutoCodeResponse(
   raw: unknown,
