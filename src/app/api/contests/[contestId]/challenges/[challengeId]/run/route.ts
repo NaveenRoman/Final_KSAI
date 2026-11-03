@@ -97,6 +97,7 @@ export async function POST(
       const execRes = await executeCode({
         code,
         language,
+        studentId: user.id,
         stdin: stdinInput,
       });
 
