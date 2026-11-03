@@ -197,6 +197,16 @@ export async function POST(req: Request) {
         ...(isRemember ? { expires: expiresAt } : {}),
       });
 
+      if (process.env.NODE_ENV === "production") {
+        response.cookies.set("__Secure-better-auth.session_token", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          path: "/",
+          ...(isRemember ? { expires: expiresAt } : {}),
+        });
+      }
+
       response.cookies.set("sessionToken", token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",

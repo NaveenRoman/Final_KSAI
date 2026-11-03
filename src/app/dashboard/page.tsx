@@ -249,25 +249,22 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    if (!isPending) {
-      if (!session) {
-        router.push("/auth");
-      } else {
-        // Redirect non-student roles to their specialized dashboards
-        const rawRole = (session?.user as any)?.role;
-        if (rawRole) {
-          const normRole = normalizeUserRole(rawRole);
-          if (normRole !== "STUDENT") {
-            router.replace(getRoleDashboardPath(normRole));
-            return;
-          }
-        }
-        fetchDashboardData(controller.signal);
-      }
-    }
+    fetchDashboardData(controller.signal);
     return () => {
       controller.abort();
     };
+  }, []);
+
+  useEffect(() => {
+    if (!isPending && session?.user) {
+      const rawRole = (session.user as any)?.role;
+      if (rawRole) {
+        const normRole = normalizeUserRole(rawRole);
+        if (normRole !== "STUDENT") {
+          router.replace(getRoleDashboardPath(normRole));
+        }
+      }
+    }
   }, [session, isPending, router]);
 
   // Continue Learning Autoplay Control

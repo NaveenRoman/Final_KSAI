@@ -49,11 +49,21 @@ export const auth = betterAuth({
   account: {
     storeStateStrategy: "database",
   },
+  baseURL:
+    process.env.BETTER_AUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "https://www.knowledgestreamai.com"),
   trustedOrigins: [
-    ...(process.env.NODE_ENV !== "production"
-      ? ["http://localhost:3000", "http://127.0.0.1:3000"]
-      : []),
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "https://knowledgestreamai.com",
+    "https://www.knowledgestreamai.com",
     ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
     ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
+    ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
   ],
 });

@@ -13,7 +13,12 @@ export async function GET() {
     const cookieStore = await cookies();
     const sessionTokenRaw =
       cookieStore.get("better-auth.session_token")?.value ||
-      cookieStore.get("sessionToken")?.value;
+      cookieStore.get("__Secure-better-auth.session_token")?.value ||
+      cookieStore.get("better-auth.session-token")?.value ||
+      cookieStore.get("__Secure-better-auth.session-token")?.value ||
+      cookieStore.get("sessionToken")?.value ||
+      cookieStore.get("session_token")?.value ||
+      cookieStore.get("ksai_session")?.value;
 
     // 1. Primary check: Resolve user via Better Auth session API
     const session = await auth.api.getSession({
