@@ -55,6 +55,8 @@ model User {
   dailyRecaps                DailyRecap[]
   chapterRecaps              ChapterRecap[]
   notebookPages              NotebookPage[]
+  subscriptions              Subscription[]
+  paymentOrders              PaymentOrder[]
 }
 
 model Contest {
@@ -208,6 +210,55 @@ model Enrollment {
   paymentId  String // Razorpay Payment ID (e.g. pay_Rzp987123)
   progress   Int      @default(0)
   createdAt  DateTime @default(now())
+}
+
+model Subscription {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            String    // "BASIC" | "PRO"
+  status          String    @default("ACTIVE") // "ACTIVE" | "EXPIRED" | "CANCELLED"
+  billingInterval String    @default("MONTHLY")
+  durationMonths  Int       // 1, 2, or 6
+  startDate       DateTime  @default(now())
+  endDate         DateTime
+  orderId         String?
+  paymentId       String?   @unique
+  baseAmount      Float     // in INR
+  gstAmount       Float     @default(0) // in INR
+  feeAmount       Float     @default(0) // in INR
+  totalAmount     Float     // in INR
+  currency        String    @default("INR")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([endDate])
+}
+
+model PaymentOrder {
+  id              String    @id @default(uuid())
+  orderId         String    @unique
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            String    // "BASIC" | "PRO"
+  durationMonths  Int       // 1, 2, or 6
+  baseAmount      Float     // in INR
+  gstAmount       Float     // in INR
+  feeAmount       Float     @default(0) // in INR
+  totalAmount     Float     // in INR
+  amountPaise     Int       // in paise
+  currency        String    @default("INR")
+  status          String    @default("CREATED") // "CREATED" | "PAID" | "FAILED" | "EXPIRED"
+  receipt         String
+  paymentId       String?
+  signature       String?
+  metadata        String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([orderId])
 }
 
 model XpTransaction {

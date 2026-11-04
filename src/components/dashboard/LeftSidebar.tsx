@@ -150,27 +150,20 @@ export function LeftSidebar({
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  // Payment Flow state
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvv, setCardCvv] = useState("");
-  const [upiId, setUpiId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "upi">("card");
-
-  const [isProState, setIsProState] = useState<boolean | null>(null);
-  const [hasResumeUnlocked, setHasResumeUnlocked] = useState(true);
+  const [subscription, setSubscription] = useState<{
+    hasActiveSubscription: boolean;
+    plan: "BASIC" | "PRO" | null;
+    subscription?: {
+      daysRemaining: number;
+      endDate: string;
+    } | null;
+  } | null>(null);
 
   useEffect(() => {
-    const isProSession = sessionStorage.getItem("is_pro") === "true";
-    if (isProSession) {
-      setIsProState(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    setHasResumeUnlocked(true);
+    fetch("/api/subscription/status")
+      .then((res) => res.json())
+      .then((data) => setSubscription(data))
+      .catch(() => {});
   }, []);
 
   const [localProfile, setLocalProfile] = useState<{
@@ -231,7 +224,8 @@ export function LeftSidebar({
   } : null);
 
   const userRole = activeProfile?.role ?? "Student";
-  const isPro = isProState !== null ? isProState : (userRole !== "Student");
+  const isPro = subscription?.plan === "PRO" || userRole === "Admin";
+  const isBasic = subscription?.plan === "BASIC";
 
   return (
     <aside
@@ -317,7 +311,7 @@ export function LeftSidebar({
             }
           }
 
-          const isLocked = item.id === "Resume Builder" && !hasResumeUnlocked;
+          const isLocked = (item.id === "Resume Builder" || item.id === "Interview Prep") && !isPro;
 
           return (
             <button
@@ -366,8 +360,8 @@ export function LeftSidebar({
                 <span className="truncate">{item.label}</span>
               )}
               {isLocked ? (
-                <span className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-400 text-[10px] font-black border border-amber-500/40 shrink-0">
-                  <Lock size={10} className="text-amber-400" /> ₹1
+                <span className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-black border border-purple-500/30 shrink-0">
+                  <Lock size={10} className="text-purple-300" /> Pro
                 </span>
               ) : (
                 isActive && !collapsed && (
@@ -387,26 +381,35 @@ export function LeftSidebar({
       }`}>
         {!collapsed && (
           <>
-            {/* Upgrade to Pro Card */}
-            {!isPro && (
-              <div className={`p-2 rounded-xl border flex flex-col gap-1 text-center ${
+            {/* Live Subscription Status Widget */}
+            {!isPro ? (
+              <div className={`p-2.5 rounded-xl border flex flex-col gap-1.5 ${
                 isLight 
                   ? "bg-[#EEF2FF]/60 border-purple-100" 
                   : "glass-panel border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-blue-950/15"
               }`}>
-                <div className="flex items-center justify-between w-full gap-1">
-                  <span className={`text-[10px] font-black flex items-center gap-1 shrink-0 ${
+                <div className="flex items-center justify-between w-full">
+                  <span className={`text-[10px] font-black flex items-center gap-1 ${
                     isLight ? "text-[#0F172A]" : "text-white"
                   }`}>
-                    👑 Pro Upgrade
+                    {isBasic ? `⚡ Basic (${subscription?.subscription?.daysRemaining ?? 0}d)` : "⚡ Codexa Plans"}
                   </span>
                   <button 
-                    onClick={() => setShowPaymentModal(true)}
+                    onClick={() => router.push(isBasic ? "/plans/duration?plan=pro" : "/plans")}
                     className="px-2.5 py-1 rounded-lg text-[9px] font-black text-white bg-[#4F46E5] hover:bg-[#4338CA] transition-all cursor-pointer shadow-md shrink-0"
                   >
-                    Upgrade Now
+                    {isBasic ? "Upgrade Pro" : "Subscribe"}
                   </button>
                 </div>
+              </div>
+            ) : (
+              <div className="p-2 rounded-xl bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 flex items-center justify-between">
+                <span className="text-[10px] font-black text-purple-300 flex items-center gap-1">
+                  👑 Pro Member
+                </span>
+                <span className="text-[9px] font-mono text-slate-400 font-bold">
+                  {subscription?.subscription?.daysRemaining !== undefined ? `${subscription.subscription.daysRemaining}d left` : "Active"}
+                </span>
               </div>
             )}
 
@@ -487,158 +490,6 @@ export function LeftSidebar({
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </div>
-
-      {/* Razorpay-style Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-[#0F172A] border border-white/10 rounded-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-left">
-            {/* Header */}
-            <div className="bg-[#1E293B] p-4 flex items-center justify-between border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white text-sm">
-                  KS
-                </div>
-                <div>
-                  <h3 className="text-xs font-black text-white">KnowledgeStream AI</h3>
-                  <p className="text-[9px] text-slate-400 font-bold">Pro Developer Plan</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-[9px] text-slate-400 font-bold">Amount to Pay</p>
-                <p className="text-xs font-black text-emerald-400">₹499.00</p>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 space-y-3">
-              {/* Payment Method Selector */}
-              <div className="grid grid-cols-2 gap-1 bg-slate-900 p-1 rounded-xl border border-white/5">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("card")}
-                  className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                    paymentMethod === "card"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Card Payment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("upi")}
-                  className={`py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                    paymentMethod === "upi"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  UPI Payment
-                </button>
-              </div>
-
-              {paymentMethod === "card" ? (
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Card Number</label>
-                    <input
-                      type="text"
-                      placeholder="4111 2222 3333 4444"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Expiry (MM/YY)</label>
-                      <input
-                        type="text"
-                        placeholder="12/28"
-                        value={cardExpiry}
-                        onChange={(e) => setCardExpiry(e.target.value)}
-                        className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">CVV</label>
-                      <input
-                        type="password"
-                        placeholder="***"
-                        maxLength={3}
-                        value={cardCvv}
-                        onChange={(e) => setCardCvv(e.target.value)}
-                        className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">UPI ID</label>
-                    <input
-                      type="text"
-                      placeholder="dhanalaxmi@upi"
-                      value={upiId}
-                      onChange={(e) => setUpiId(e.target.value)}
-                      className="w-full bg-slate-900 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="p-3 bg-[#1E293B] flex items-center justify-between gap-2 border-t border-white/5">
-              <button
-                type="button"
-                onClick={() => setShowPaymentModal(false)}
-                className="px-3 py-1.5 rounded-lg text-xs font-extrabold text-slate-300 hover:text-white hover:bg-white/5 transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPaymentModal(false);
-                  sessionStorage.setItem("is_pro", "true");
-                  setIsProState(true);
-                  setShowSuccessModal(true);
-                }}
-                className="px-4 py-1.5 rounded-lg text-xs font-black text-white bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20"
-              >
-                Pay Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-xs bg-[#09090B] border border-white/10 rounded-2xl p-5 text-center space-y-3 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-2xl mx-auto">
-              ✅
-            </div>
-            <div className="space-y-1">
-              <h3 className="text-sm font-black text-white">Payment Successful</h3>
-              <p className="text-xs text-slate-400 font-bold">You are now a Pro member! 🎉</p>
-            </div>
-            <p className="text-[10px] text-slate-500 leading-relaxed">
-              Locked features (Resume Builder &amp; Interview Prep) have been unlocked successfully for your account.
-            </p>
-            <button
-              type="button"
-              onClick={() => setShowSuccessModal(false)}
-              className="w-full py-2 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90 transition-all"
-            >
-              Continue
-            </button>
-          </div>
-        </div>
-      )}
     </aside>
   );
 }

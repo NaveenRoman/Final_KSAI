@@ -314,7 +314,23 @@ function InterviewSetupContent() {
     }
   }, [queryType, queryTechnology]);
 
+  const [isPro, setIsPro] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/subscription/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setIsPro(data.plan === "PRO" || data.isAdmin);
+      })
+      .catch(() => setIsPro(false));
+  }, []);
+
   function startInterview() {
+    if (isPro === false) {
+      router.push("/plans/duration?plan=pro");
+      return;
+    }
+
     const params = new URLSearchParams();
 
     params.set("type", interviewType);

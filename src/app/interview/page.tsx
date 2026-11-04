@@ -101,6 +101,24 @@ export default function InterviewPage() {
     }>;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isPro, setIsPro] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    fetch("/api/subscription/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setIsPro(data.plan === "PRO" || data.isAdmin);
+      })
+      .catch(() => setIsPro(false));
+  }, []);
+
+  const handleStartInterview = (targetUrl: string) => {
+    if (isPro === false) {
+      router.push("/plans/duration?plan=pro");
+      return;
+    }
+    router.push(targetUrl);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -123,6 +141,28 @@ export default function InterviewPage() {
 
   return (
     <div className="min-h-screen bg-[#07070A] text-white overflow-x-hidden">
+      {/* Pro Subscription Gate Banner */}
+      {isPro === false && (
+        <div className="bg-gradient-to-r from-purple-900/80 via-blue-900/60 to-slate-900 border-b border-purple-500/30 px-4 py-3 sticky top-0 z-50 backdrop-blur-md">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-extrabold border border-purple-500/40 uppercase text-[10px]">
+                👑 Codexa Pro Feature
+              </span>
+              <span className="text-slate-300">
+                AI Interview Preparation &amp; Mock Evaluation is included in Codexa Pro (₹70/month).
+              </span>
+            </div>
+            <button
+              onClick={() => router.push("/plans/duration?plan=pro")}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 text-white font-black text-xs shadow-md cursor-pointer transition-all"
+            >
+              Upgrade to Pro (₹70/mo) ➔
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* =====================================================
           BACKGROUND
@@ -254,7 +294,7 @@ export default function InterviewPage() {
             <div className="flex flex-wrap gap-3 mt-7">
 
               <button
-                onClick={() => router.push("/interview/setup")}
+                onClick={() => handleStartInterview("/interview/setup")}
                 className="group flex items-center gap-3 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 text-white font-bold text-sm shadow-xl shadow-blue-900/20 hover:scale-[1.02] transition"
               >
 
@@ -427,7 +467,7 @@ export default function InterviewPage() {
                 <button
                   key={item.id}
                   onClick={() =>
-                    router.push(
+                    handleStartInterview(
                       `/interview/setup?type=${item.id}`
                     )
                   }
@@ -510,7 +550,7 @@ export default function InterviewPage() {
 
             <button
               onClick={() =>
-                router.push("/interview/setup?type=technical")
+                handleStartInterview("/interview/setup?type=technical")
               }
               className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
             >
@@ -528,7 +568,7 @@ export default function InterviewPage() {
               <button
                 key={technology}
                 onClick={() =>
-                  router.push(
+                  handleStartInterview(
                     `/interview/setup?type=technical&technology=${encodeURIComponent(
                       technology
                     )}`
@@ -689,7 +729,7 @@ export default function InterviewPage() {
 
             <button
               onClick={() =>
-                router.push("/interview/setup?type=mock")
+                handleStartInterview("/interview/setup?type=mock")
               }
               className="w-full mt-6 py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-xs font-bold transition"
             >

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import {
   FileText,
   Upload,
@@ -158,97 +159,27 @@ export default function ProfessionalResumeStudio() {
           },
         }));
 
-        // Always unlocked for now as requested
-        setIsUnlocked(true);
+        // Check Pro Subscription status
+        fetch("/api/subscription/status")
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.plan === "PRO" || data.isAdmin) {
+              setIsUnlocked(true);
+            } else {
+              const unlockKey = currentUser.email ? `ksai_resume_module_paid_v2_${currentUser.email}` : "ksai_resume_module_paid_v2_guest";
+              setIsUnlocked(localStorage.getItem(unlockKey) === "true");
+            }
+          })
+          .catch(() => setIsUnlocked(false));
       } else {
         router.push("/auth");
       }
     }
   }, [session, isPending, router]);
 
-  // Load Razorpay Checkout Script
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  // Handle Razorpay ₹1 Payment to Unlock Resume Builder
+  // Handle Upgrade to Codexa Pro to Unlock Resume Builder
   const handleUnlockModule = async () => {
-    if (!user) return;
-    setIsBuying(true);
-
-    try {
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        alert("Failed to load Razorpay SDK. Please check your internet connection.");
-        setIsBuying(false);
-        return;
-      }
-
-      const res = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: 1, // ₹1 INR
-          currency: "INR",
-          courseId: "codenthra-resume-builder",
-          userEmail: user.email,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        alert(data.error || "Order creation failed.");
-        setIsBuying(false);
-        return;
-      }
-
-      const { isMock } = data;
-
-      const unlockKey = user.email ? `ksai_resume_module_paid_v2_${user.email}` : "ksai_resume_module_paid_v2_guest";
-
-      if (isMock) {
-        alert("🔧 Razorpay Payment Simulation (₹1 INR). Click OK to confirm payment & unlock Codenthra AI Resume Studio!");
-        localStorage.setItem(unlockKey, "true");
-        setIsUnlocked(true);
-      } else {
-        const options = {
-          key: data.key,
-          amount: data.order.amount,
-          currency: data.order.currency,
-          name: "Codenthra AI Resume Studio",
-          description: "Lifetime Access to AI Resume Builder & FAANG ATS Optimizer (₹1)",
-          order_id: data.order.id,
-          handler: async function () {
-            localStorage.setItem(unlockKey, "true");
-            setIsUnlocked(true);
-          },
-          prefill: {
-            name: user.name,
-            email: user.email,
-          },
-          theme: {
-            color: "#4F46E5",
-          },
-        };
-        const rzp = new (window as any).Razorpay(options);
-        rzp.open();
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Failed to complete Razorpay payment.");
-    } finally {
-      setIsBuying(false);
-    }
+    router.push("/plans/duration?plan=pro");
   };
 
   const handleSidebarTabChange = (_tab: string) => {
@@ -550,29 +481,20 @@ export default function ProfessionalResumeStudio() {
 
               <div className="pt-2 border-t border-slate-100 flex flex-col items-center gap-3">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-xs font-bold text-slate-400 line-through">₹999</span>
-                  <span className="text-3xl font-black text-slate-950">₹1</span>
-                  <span className="text-xs font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Special Launch Price</span>
+                  <span className="text-3xl font-black text-slate-950 font-mono">₹70</span>
+                  <span className="text-xs font-bold text-slate-500">/ month</span>
+                  <span className="text-xs font-extrabold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">Included in Codexa Pro</span>
                 </div>
 
                 <button
                   onClick={handleUnlockModule}
-                  disabled={isBuying}
-                  className="w-full py-4 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:opacity-95 shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  className="w-full py-4 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:opacity-95 shadow-xl flex items-center justify-center gap-2 transition-all cursor-pointer"
                 >
-                  {isBuying ? (
-                    <>
-                      <RefreshCw size={18} className="animate-spin" /> Launching Razorpay Gateway...
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck size={18} className="text-cyan-300" /> Unlock Full Access for ₹1 (Razorpay Secured) ➔
-                    </>
-                  )}
+                  <ShieldCheck size={18} className="text-cyan-300" /> Upgrade to Codexa Pro (₹70/mo) ➔
                 </button>
 
                 <p className="text-[10.5px] text-slate-400 font-medium flex items-center gap-1">
-                  <ShieldCheck size={12} className="text-emerald-500" /> 100% Encrypted & Secured by Razorpay Gateway
+                  <ShieldCheck size={12} className="text-emerald-500" /> Includes AI Interview Preparation &amp; Resume Builder
                 </p>
               </div>
             </div>

@@ -1,7 +1,34 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { checkFeatureAccess } from "@/lib/subscription-service";
 
 export async function POST(request: Request) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers().catch(() => request.headers),
+    });
+    const user = session?.user;
+
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required to use AI Interview evaluation." },
+        { status: 401 }
+      );
+    }
+
+    const access = await checkFeatureAccess(user.id, "INTERVIEW_PREP");
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          error: "PRO_SUBSCRIPTION_REQUIRED",
+          message: "AI Interview Preparation requires an active Codexa Pro subscription.",
+          code: "UPGRADE_REQUIRED",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
     const {
       role = "Software Engineer",

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { awardXpAndStreak } from "@/lib/xp-service";
+import { checkFeatureAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,18 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 });
+    }
+
+    const access = await checkFeatureAccess(user.id, "INTERVIEW_PREP");
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "PRO_SUBSCRIPTION_REQUIRED",
+          message: "Saving interview sessions requires an active Codexa Pro subscription.",
+        },
+        { status: 403 }
+      );
     }
 
     // 2. Enforce strict completion criteria

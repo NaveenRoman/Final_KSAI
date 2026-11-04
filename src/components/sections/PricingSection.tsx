@@ -6,53 +6,40 @@ import { Check, Sparkles, Zap, ShieldAlert } from "lucide-react";
 
 const PLANS = [
   {
-    name: "Starter",
-    price: "$0",
-    period: "forever",
-    description: "Perfect for students & individual developers exploring AI learning.",
+    name: "Basic",
+    price: "₹50",
+    period: "/ month",
+    description: "Essential coding suite with full curriculum, interactive editor, and AI guidance.",
     popular: false,
     color: "#3B82F6",
+    href: "/plans/duration?plan=basic",
     features: [
-      "Access to basic AI Learning courses",
-      "50 AI Coding Mentor queries / month",
-      "1 Ephemeral Cloud Sandbox",
-      "Community support discord",
+      "Full Interactive Course Curriculum",
+      "Cloud Code Editor & Sandbox",
+      "Interactive Learning Notes",
+      "Live AI Teacher Dictation & Audio Mode",
+      "Daily Progress Monitoring & Analytics",
+      "Personalized Learning Guidance",
     ],
-    buttonText: "Start Free",
+    buttonText: "Select Basic Plan",
   },
   {
-    name: "Pro Developer",
-    price: "$29",
+    name: "Pro",
+    price: "₹70",
     period: "/ month",
-    description: "Designed for full-stack developers and high-growth engineers.",
+    description: "Complete career acceleration suite with interview simulations and resume studio.",
     popular: true,
     color: "#7C3AED",
+    href: "/plans/duration?plan=pro",
     features: [
-      "Unlimited AI Learning curriculum",
-      "Unlimited AI Coding Mentor & AST refactor",
-      "10 Concurrent Cloud Sandboxes",
-      "2 Autonomous AI Agent workers",
-      "Priority edge node execution",
-      "24/7 dedicated support",
+      "Every Basic Feature Included",
+      "AI Interview Preparation & Mock Sessions",
+      "Professional Resume Builder & ATS Scanner",
+      "Priority Sandboxed Container Execution",
+      "Full Solution Analysis & AST Hints",
+      "Career Readiness Verification",
     ],
     buttonText: "Claim Pro Access",
-  },
-  {
-    name: "Enterprise",
-    price: "Custom",
-    period: "flexible",
-    description: "Built for companies, universities, and enterprise engineering teams.",
-    popular: false,
-    color: "#06B6D4",
-    features: [
-      "Custom on-premise AI model fine-tuning",
-      "Unlimited Autonomous AI Workforce agents",
-      "KnowledgeStream Recruit ATS integration",
-      "SSO & SOC2 Type II compliance",
-      "Dedicated account manager",
-      "SLA 99.99% uptime guarantee",
-    ],
-    buttonText: "Contact Enterprise",
   },
 ];
 
@@ -100,7 +87,7 @@ export function PricingSection() {
       </div>
 
       {/* Pricing Cards Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch max-w-5xl mx-auto">
         {PLANS.map((plan, idx) => (
           <motion.div
             key={plan.name}
@@ -108,7 +95,7 @@ export function PricingSection() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: idx * 0.15 }}
-            whileHover={{ y: -10 }}
+            whileHover={{ y: -8 }}
             className={`p-8 rounded-3xl border relative flex flex-col justify-between transition-all duration-300 ${
               plan.popular
                 ? "bg-gradient-to-b from-blue-950/40 via-[#0F0F1D]/80 to-[#09090B]/90 border-blue-500/80 shadow-2xl shadow-blue-500/25 glow-border-blue"
@@ -117,7 +104,7 @@ export function PricingSection() {
           >
             {plan.popular && (
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-400 text-white text-xs font-extrabold uppercase tracking-wider shadow-lg flex items-center gap-1">
-                <Sparkles size={13} /> MOST POPULAR
+                <Sparkles size={13} /> RECOMMENDED
               </div>
             )}
 
@@ -129,9 +116,7 @@ export function PricingSection() {
 
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl sm:text-5xl font-black text-white font-mono">
-                  {annual && plan.price.startsWith("$")
-                    ? `$${Math.round(parseInt(plan.price.slice(1)) * 0.8)}`
-                    : plan.price}
+                  {plan.price}
                 </span>
                 <span className="text-slate-400 text-sm font-medium">{plan.period}</span>
               </div>
@@ -148,7 +133,7 @@ export function PricingSection() {
 
             <div className="pt-8">
               <a
-                href="#"
+                href={plan.href}
                 className={`w-full py-4 rounded-full text-sm font-bold flex items-center justify-center transition-all ${
                   plan.popular
                     ? "bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-400 text-white glow-btn shadow-xl shadow-blue-500/30"
