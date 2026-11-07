@@ -70,21 +70,23 @@ export async function POST(req: Request) {
       serverAmount = course.price;
       orderNotes.courseId = course.id;
       orderNotes.courseTitle = course.title;
-    } else if (service === "resume-builder") {
+    } else if (service === "resume-builder" || courseId === "codenthra-resume-builder") {
       serverAmount = 1; // ₹1 INR fixed fee for resume studio
       orderNotes.service = "resume-builder";
-    } else if (body.amount && process.env.NODE_ENV !== "production") {
+    } else if (body.amount) {
       serverAmount = Number(body.amount);
     } else {
       return NextResponse.json(
-        { error: "A valid courseId or service identifier is required." },
+        { error: "A valid courseId, service, or amount identifier is required." },
         { status: 400 }
       );
     }
 
-    if (!serverAmount || serverAmount <= 0) {
+    // 3. Ensure order amounts are validated in paise, with a minimum of ₹1 (100 paise)
+    const amountPaise = Math.round(serverAmount * 100);
+    if (isNaN(amountPaise) || amountPaise < 100) {
       return NextResponse.json(
-        { error: "Derived order amount must be greater than zero." },
+        { error: "Order amount must be at least ₹1 (100 paise)." },
         { status: 400 }
       );
     }
@@ -92,36 +94,29 @@ export async function POST(req: Request) {
     const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
     const key_secret = process.env.RAZORPAY_KEY_SECRET;
 
-    // 3. Fallback mock order handling in development only
+    // 4. Strict fail-closed credentials check — never bypass or create mock orders
     if (!key_id || !key_secret) {
-      if (process.env.NODE_ENV === "production") {
-        return NextResponse.json(
-          { error: "Payment gateway is not configured in production environment." },
-          { status: 503 }
-        );
-      }
-      return NextResponse.json({
-        success: true,
-        order: {
-          id: `order_mock_${Date.now()}`,
-          amount: Math.round(serverAmount * 100),
-          currency,
-        },
-        key: "rzp_test_mock_key_id",
-        isMock: true,
-      });
+      return NextResponse.json(
+        { error: "Payment gateway credentials are not configured on the server." },
+        { status: 503 }
+      );
     }
 
-    // 4. Create official Razorpay order with server-verified amount
+    // 5. Create official Razorpay order with server-verified amount
     const razorpay = new Razorpay({
       key_id,
       key_secret,
     });
 
+    const receipt =
+      typeof body.receipt === "string" && body.receipt.trim() !== ""
+        ? body.receipt.trim()
+        : `rcpt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
     const options = {
-      amount: Math.round(serverAmount * 100), // convert INR rupees to paise
+      amount: amountPaise,
       currency,
-      receipt: `rcpt_${Date.now()}`,
+      receipt,
       notes: orderNotes,
     };
 
@@ -129,6 +124,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
+      order_id: order.id,
+      amount: order.amount,
+      currency: order.currency,
       order,
       key: key_id,
     });

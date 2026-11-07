@@ -273,10 +273,9 @@ const questionBank: InterviewQuestion[] = [
 function InterviewSessionContent() {
 
   const router = useRouter();
-
   const searchParams = useSearchParams();
   const INTERVIEW_EVALUATION_URL =
-  "http://127.0.0.1:8000/api/ai/interview/evaluate/";
+    process.env.NEXT_PUBLIC_INTERVIEW_EVAL_URL || "/api/ai/interview/evaluate";
 
 
   /* =======================================================

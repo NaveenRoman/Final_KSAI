@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { safeParseResponse } from "@/lib/safe-json";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
+import { OFFICIAL_PLANS } from "@/lib/subscription-config";
 import {
   Clock,
   Award,
@@ -46,9 +47,7 @@ export default function CourseOverviewPage() {
       : "Python AI & Data Structures Architecture"
   );
   const [courseId, setCourseId] = useState("");
-  const [coursePrice, setCoursePrice] = useState(
-    courseSlug === "c" ? 1499 : (courseSlug === "cpp" || courseSlug === "java") ? 1999 : 2499
-  );
+  const [coursePrice, setCoursePrice] = useState(OFFICIAL_PLANS.BASIC.monthlyRate);
   const [isEnrolled, setIsEnrolled] = useState(true);
   const [chapters, setChapters] = useState<ChapterItem[]>([]);
   const [progresses, setProgresses] = useState<ProgressItem[]>([]);

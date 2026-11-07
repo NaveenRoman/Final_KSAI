@@ -281,7 +281,7 @@ export function LoginForm({
                 type="email"
                 value={forgotEmail}
                 onChange={(e) => setForgotEmail(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#161626] border border-white/15 text-sm text-white placeholder-[#6b7280] focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40"
+                className="w-full pl-11 pr-4 py-3 rounded-2xl bg-[#161626] border border-white/15 text-base sm:text-sm text-white placeholder-[#6b7280] focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 min-h-[48px]"
                 placeholder="you@company.com"
               />
             </div>
@@ -290,12 +290,12 @@ export function LoginForm({
           <button
             type="submit"
             disabled={forgotSendingOtp || !forgotEmail.trim()}
-            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg"
+            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg min-h-[48px] cursor-pointer"
           >
             {forgotSendingOtp ? "Sending reset code..." : "Send OTP"}
             {forgotSendingOtp ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
           </button>
-          <button type="button" onClick={() => setForgotStep("login")} className="text-xs text-cyan-400 font-semibold hover:underline">
+          <button type="button" onClick={() => setForgotStep("login")} className="text-xs text-cyan-400 font-semibold hover:underline min-h-[36px] flex items-center cursor-pointer">
             Back to login
           </button>
         </form>
@@ -308,7 +308,7 @@ export function LoginForm({
           <div className="text-center text-xs text-slate-300">
             Enter the 6-digit code sent to <span className="text-cyan-300 font-mono font-bold">{forgotEmail}</span>.
           </div>
-          <div className="flex items-center justify-center gap-2" onPaste={handleForgotOtpPaste}>
+          <div className="flex items-center justify-center gap-2 sm:gap-2.5" onPaste={handleForgotOtpPaste}>
             {forgotOtpDigits.map((digit, index) => (
               <input
                 key={index}
@@ -321,23 +321,23 @@ export function LoginForm({
                 value={digit}
                 onChange={(event) => handleForgotOtpChange(index, event.target.value)}
                 onKeyDown={(event) => handleForgotOtpKeyDown(index, event)}
-                className="h-12 w-10 rounded-xl border border-purple-500/40 bg-[#161626] text-center text-base font-bold text-white focus:outline-none focus:border-cyan-400"
+                className="h-12 w-10 sm:w-11 rounded-xl border border-purple-500/40 bg-[#161626] text-center text-base font-bold text-white focus:outline-none focus:border-cyan-400 min-h-[44px]"
               />
             ))}
           </div>
           <button
             type="submit"
             disabled={forgotVerifyingOtp || forgotOtpDigits.join("").length !== 6}
-            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg"
+            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg min-h-[48px] cursor-pointer"
           >
             {forgotVerifyingOtp ? "Verifying..." : "Verify OTP"}
             {forgotVerifyingOtp ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
           </button>
           <div className="flex items-center justify-between text-xs text-slate-400">
-            <button type="button" onClick={() => handleForgotOtpSend()} className="text-cyan-400 hover:underline flex items-center gap-1 font-semibold" disabled={forgotSendingOtp || forgotCountdown > 0}>
+            <button type="button" onClick={() => handleForgotOtpSend()} className="text-cyan-400 hover:underline flex items-center gap-1 font-semibold min-h-[36px]" disabled={forgotSendingOtp || forgotCountdown > 0}>
               <RotateCcw size={14} /> {forgotSendingOtp ? "Sending..." : forgotCountdown > 0 ? `Resend in ${forgotCountdown}s` : "Resend OTP"}
             </button>
-            <button type="button" onClick={() => setForgotStep("email")} className="hover:text-white font-semibold">
+            <button type="button" onClick={() => setForgotStep("email")} className="hover:text-white font-semibold min-h-[36px] flex items-center">
               Change email
             </button>
           </div>
@@ -356,10 +356,10 @@ export function LoginForm({
                 type={showForgotPassword ? "text" : "password"}
                 value={forgotPassword}
                 onChange={(e) => setForgotPassword(e.target.value)}
-                className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#161626] border border-white/15 text-sm text-white placeholder-[#6b7280] focus:outline-none focus:border-cyan-400"
+                className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#161626] border border-white/15 text-base sm:text-sm text-white placeholder-[#6b7280] focus:outline-none focus:border-cyan-400 min-h-[48px]"
                 placeholder="••••••••"
               />
-              <button type="button" onClick={() => setShowForgotPassword(!showForgotPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b7280]">
+              <button type="button" onClick={() => setShowForgotPassword(!showForgotPassword)} className="w-10 h-10 absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-[#6b7280] hover:text-cyan-400 cursor-pointer">
                 {showForgotPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
@@ -372,10 +372,10 @@ export function LoginForm({
                 type={showForgotConfirmPassword ? "text" : "password"}
                 value={forgotConfirmPassword}
                 onChange={(e) => setForgotConfirmPassword(e.target.value)}
-                className="w-full pl-11 pr-10 py-3 rounded-2xl bg-[#161626] border border-white/15 text-sm text-white placeholder-[#6b7280] focus:outline-none focus:border-cyan-400"
+                className="w-full pl-11 pr-11 py-3 rounded-2xl bg-[#161626] border border-white/15 text-base sm:text-sm text-white placeholder-[#6b7280] focus:outline-none focus:border-cyan-400 min-h-[48px]"
                 placeholder="••••••••"
               />
-              <button type="button" onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6b7280]">
+              <button type="button" onClick={() => setShowForgotConfirmPassword(!showForgotConfirmPassword)} className="w-10 h-10 absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-[#6b7280] hover:text-cyan-400 cursor-pointer">
                 {showForgotConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
@@ -390,12 +390,12 @@ export function LoginForm({
           <button
             type="submit"
             disabled={forgotSubmitting || !forgotPasswordState.passed || forgotPassword !== forgotConfirmPassword}
-            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg"
+            className="w-full py-3.5 rounded-2xl font-bold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg min-h-[48px] cursor-pointer"
           >
             {forgotSubmitting ? "Updating password..." : "Update Password"}
             {forgotSubmitting ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
           </button>
-          <button type="button" onClick={() => setForgotStep("login")} className="text-xs text-cyan-400 font-semibold hover:underline">
+          <button type="button" onClick={() => setForgotStep("login")} className="text-xs text-cyan-400 font-semibold hover:underline min-h-[36px] flex items-center cursor-pointer">
             Back to login
           </button>
         </form>
@@ -439,7 +439,7 @@ export function LoginForm({
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDownEnter}
                   placeholder="name@example.com"
-                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#161626] border border-white/15 text-sm sm:text-base text-white placeholder-slate-400 font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all shadow-inner"
+                  className="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-[#161626] border border-white/15 text-base sm:text-sm text-white placeholder-slate-400 font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all shadow-inner min-h-[48px]"
                 />
               </div>
             </div>
@@ -449,7 +449,7 @@ export function LoginForm({
                 <label className="text-xs sm:text-sm font-bold uppercase tracking-wider text-slate-200">
                   Password
                 </label>
-                <button type="button" onClick={() => setForgotStep("email")} className="text-xs text-cyan-400 font-semibold hover:underline">
+                <button type="button" onClick={() => setForgotStep("email")} className="text-xs text-cyan-400 font-semibold hover:underline min-h-[36px] flex items-center cursor-pointer">
                   Forgot Password?
                 </button>
               </div>
@@ -462,15 +462,15 @@ export function LoginForm({
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={handleKeyDownEnter}
                   placeholder="Enter your password"
-                  className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-[#161626] border border-white/15 text-sm sm:text-base text-white placeholder-slate-400 font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all shadow-inner"
+                  className="w-full pl-11 pr-11 py-3.5 rounded-2xl bg-[#161626] border border-white/15 text-base sm:text-sm text-white placeholder-slate-400 font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 transition-all shadow-inner min-h-[48px]"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-cyan-400 cursor-pointer">
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="w-10 h-10 absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 hover:text-cyan-400 cursor-pointer">
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="flex items-center gap-2.5 pt-1 min-h-[36px]">
               <input
                 type="checkbox"
                 id="remember"
@@ -492,7 +492,7 @@ export function LoginForm({
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-3.5 sm:py-4 rounded-2xl font-black text-white text-sm sm:text-base bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2.5 group shadow-[0_0_20px_rgba(34,211,238,0.3),0_0_40px_rgba(139,92,246,0.2)] disabled:opacity-60 transition-all cursor-pointer"
+              className="w-full py-3.5 sm:py-4 rounded-2xl font-black text-white text-sm sm:text-base bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 flex items-center justify-center gap-2.5 group shadow-[0_0_20px_rgba(34,211,238,0.3),0_0_40px_rgba(139,92,246,0.2)] disabled:opacity-60 transition-all min-h-[48px] cursor-pointer"
             >
               {submitting ? "Signing in..." : "Login to AI Workspace"}
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -511,7 +511,7 @@ export function LoginForm({
               <button
                 type="button"
                 onClick={handleGoogleSignIn}
-                className="w-full py-3 rounded-2xl bg-white/5 border border-white/15 hover:border-cyan-500/50 text-xs sm:text-sm font-bold text-slate-200 hover:text-white flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md"
+                className="w-full py-3 rounded-2xl bg-white/5 border border-white/15 hover:border-cyan-500/50 text-xs sm:text-sm font-bold text-slate-200 hover:text-white flex items-center justify-center gap-2 transition-all min-h-[46px] cursor-pointer shadow-md"
               >
                 <span className="text-base">🌐</span>
                 <span>Continue with Google</span>
@@ -520,7 +520,7 @@ export function LoginForm({
 
             <div className="text-center pt-2 text-xs sm:text-sm text-slate-300 font-medium">
               Don&apos;t have an account?{" "}
-              <button type="button" onClick={onSwitchToSignUp} className="text-cyan-400 font-extrabold hover:underline cursor-pointer ml-1">
+              <button type="button" onClick={onSwitchToSignUp} className="text-cyan-400 font-extrabold hover:underline cursor-pointer ml-1 inline-flex items-center min-h-[36px]">
                 Create Account &rarr;
               </button>
             </div>

@@ -5,6 +5,13 @@ import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
+import { evaluateChallengeSubmission } from "@/lib/challenges/evaluator";
+import {
+  getChapterChallengeProgression,
+  checkChapterCompletion,
+  CHALLENGE_PASS_THRESHOLD,
+} from "@/lib/adaptive/unlock-service";
+import { getChallengeById, normalizeCourseSlug } from "@/lib/challenges/challenge-bank";
 
 export const dynamic = "force-dynamic";
 
@@ -15,19 +22,8 @@ export async function POST(
   try {
     const { courseSlug, chapterId } = await params;
     const body = await req.json().catch(() => ({}));
-    const difficultyRaw = (body.difficulty || "EASY").toString().toUpperCase();
 
-    // Check for explicit submission failure
-    if (body.passed === false || body.status === "failed" || body.solved === false) {
-      return NextResponse.json({
-        success: false,
-        passed: false,
-        xpEarned: 0,
-        message: "Challenge submission failed or test cases did not pass.",
-      });
-    }
-
-    // 1. Resolve requesting user via Better Auth or session token cookie
+    // 1. Authenticate requesting user
     const sessionData = await auth.api.getSession({ headers: req.headers });
     let user = sessionData?.user ?? null;
 
@@ -43,7 +39,9 @@ export async function POST(
           where: { token: rawToken },
           include: { user: true },
         });
-        user = session?.user ?? null;
+        if (session && new Date() < session.expiresAt) {
+          user = session.user;
+        }
       }
     }
 
@@ -51,136 +49,217 @@ export async function POST(
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Determine course and chapter if available
-    const course = await db.course.findFirst({
-      where: { language: courseSlug.toLowerCase() },
+    // 2. Validate submission payload
+    const { challengeId, code, language } = body;
+    if (!challengeId || typeof challengeId !== "string") {
+      return NextResponse.json(
+        { error: "Invalid or missing challengeId" },
+        { status: 400 }
+      );
+    }
+
+    if (!code || typeof code !== "string" || !code.trim()) {
+      return NextResponse.json(
+        { error: "Code cannot be empty" },
+        { status: 400 }
+      );
+    }
+
+    const challengeDef = getChallengeById(challengeId);
+    if (!challengeDef) {
+      return NextResponse.json(
+        { error: `Challenge definition not found: ${challengeId}` },
+        { status: 404 }
+      );
+    }
+
+    const normSlug = normalizeCourseSlug(courseSlug);
+    const orderNum = parseInt(chapterId.replace(/[^0-9]/g, ""), 10) || 0;
+
+    // Validate course ownership
+    if (challengeDef.course !== normSlug) {
+      return NextResponse.json(
+        { error: `Challenge '${challengeId}' belongs to '${challengeDef.course}', not '${courseSlug}'` },
+        { status: 400 }
+      );
+    }
+
+    // Validate chapter ownership
+    if (challengeDef.chapterOrder !== orderNum) {
+      return NextResponse.json(
+        { error: `Challenge '${challengeId}' belongs to chapter ${challengeDef.chapterOrder}, not chapter ${orderNum}` },
+        { status: 400 }
+      );
+    }
+
+    // 3. Server-authoritative sequential unlock gate check
+    const progression = await getChapterChallengeProgression({
+      userId: user.id,
+      courseSlug: normSlug,
+      chapterOrder: orderNum,
     });
 
-    const parsedOrder = parseInt(chapterId.replace(/[^0-9]/g, ""), 10);
-    const orderNum = isNaN(parsedOrder) ? 0 : parsedOrder;
-    const chapter = course
-      ? await db.chapter.findFirst({
-          where: {
-            courseId: course.id,
-            orderNumber: orderNum,
-          },
-        })
-      : null;
+    const targetItem = progression.challenges.find((c) => c.id === challengeId);
+    if (!targetItem) {
+      return NextResponse.json(
+        { error: `Challenge ${challengeId} does not belong to chapter ${orderNum}` },
+        { status: 400 }
+      );
+    }
 
-    // Validate difficulty tier (EASY: 30 XP, MEDIUM: 75 XP, HARD: 150 XP)
-    const validTiers = ["EASY", "MEDIUM", "HARD"] as const;
-    const difficultyTier = validTiers.includes(difficultyRaw as any)
-      ? (difficultyRaw as (typeof validTiers)[number])
-      : "EASY";
-
-    const amount = XP_CONFIG.CHALLENGE_SOLVED[difficultyTier];
-
-    // Check if user has already solved this chapter challenge to enforce idempotency
-    let isAlreadySolved = false;
-    let existingProgress = null;
-
-    if (chapter) {
-      existingProgress = await db.chapterProgress.findUnique({
-        where: {
-          userId_chapterId: {
-            userId: user.id,
-            chapterId: chapter.id,
-          },
+    if (!targetItem.isUnlocked) {
+      return NextResponse.json(
+        {
+          error: "Sequential Gate Locked: You must pass the previous program(s) in this chapter before attempting this challenge.",
+          isUnlocked: false,
         },
-      });
+        { status: 403 }
+      );
+    }
 
-      if (existingProgress?.codeSolved) {
-        isAlreadySolved = true;
-      }
-    } else {
-      // Fallback check in ActivityLog for non-chapter challenge idempotency
-      const previousSolveLog = await db.activityLog.findFirst({
+    // 4. Server-Side Execution & Evaluation (Language is authoritatively bound to challenge definition)
+    const evalResult = await evaluateChallengeSubmission({
+      challengeId,
+      code,
+      language: challengeDef.course,
+      studentId: user.id,
+    });
+
+
+    const course = await db.course.findFirst({
+      where: { language: courseSlug.toLowerCase() },
+      include: { chapters: true },
+    });
+
+    if (!course) {
+      return NextResponse.json(
+        { error: `Course not found for language: ${courseSlug}` },
+        { status: 404 }
+      );
+    }
+
+    const chapter = course.chapters.find((c) => c.orderNumber === orderNum);
+    if (!chapter) {
+      return NextResponse.json(
+        { error: `Chapter not found for order number: ${orderNum}` },
+        { status: 404 }
+      );
+    }
+
+    let isChapterCodeComplete = false;
+    let xpAwarded = 0;
+    let currentStreak = 0;
+    let longestStreak = 0;
+
+    // 5. If passed (score >= 70%), persist idempotent passing event and update gates
+    if (evalResult.passed) {
+      // Check if this specific challenge was already passed
+      const previousPass = await db.learningEvent.findFirst({
         where: {
           userId: user.id,
-          actionType: "CHALLENGE_SOLVED",
-          metadata: { contains: chapterId },
+          courseId: course.language,
+          chapterId: chapter.id,
+          eventType: "CHALLENGE_PASSED",
+          metadata: { contains: challengeId },
         },
       });
-      if (previousSolveLog) {
-        isAlreadySolved = true;
-      }
-    }
 
-    // Idempotent behavior: if already solved, do NOT award duplicate XP
-    if (isAlreadySolved) {
-      const currentUser = await db.user.findUnique({
-        where: { id: user.id },
-        select: { id: true, currentStreak: true, longestStreak: true },
+      // Record this attempt as a verified learning event
+      await db.learningEvent.create({
+        data: {
+          userId: user.id,
+          courseId: course.language,
+          chapterId: chapter.id,
+          topic: challengeDef.title,
+          eventType: "CHALLENGE_PASSED",
+          content: `Passed programming challenge ${challengeDef.title} with score ${evalResult.score}%`,
+          metadata: JSON.stringify({
+            challengeId,
+            score: evalResult.score,
+            passed: true,
+            passedTestCases: evalResult.passedTestCases,
+            totalTestCases: evalResult.totalTestCases,
+            timestamp: new Date().toISOString(),
+          }),
+        },
       });
 
-      return NextResponse.json({
-        success: true,
-        alreadySolved: true,
-        difficulty: difficultyTier,
-        xpEarned: 0,
-        currentStreak: currentUser?.currentStreak ?? 0,
-        longestStreak: currentUser?.longestStreak ?? 0,
-        message: "Challenge already solved previously; no additional XP awarded.",
+      // Check if ALL challenges for this chapter are now passed
+      const updatedProgression = await getChapterChallengeProgression({
+        userId: user.id,
+        courseSlug,
+        chapterOrder: orderNum,
       });
-    }
 
-    // Mark codeSolved on chapter progress if chapter exists
-    if (chapter) {
-      if (existingProgress) {
-        await db.chapterProgress.update({
-          where: { id: existingProgress.id },
-          data: { codeSolved: true },
-        });
-      } else {
-        await db.chapterProgress.create({
-          data: {
+      isChapterCodeComplete = updatedProgression.isAllChallengesPassed;
+
+      if (isChapterCodeComplete) {
+        // Mark codeSolved in ChapterProgress
+        await db.chapterProgress.upsert({
+          where: {
+            userId_chapterId: {
+              userId: user.id,
+              chapterId: chapter.id,
+            },
+          },
+          update: {
+            codeSolved: true,
+          },
+          create: {
             userId: user.id,
             chapterId: chapter.id,
             codeSolved: true,
           },
         });
+
+        // Trigger full chapter completion evaluation to unlock next chapter if all 4 gates pass
+        await checkChapterCompletion({
+          userId: user.id,
+          courseId: course.id,
+          chapterId: chapter.id,
+        });
+      }
+
+      // Award XP for first-time solve of this challenge
+      if (!previousPass) {
+        const tier = challengeDef.difficulty || "EASY";
+        const amount = XP_CONFIG.CHALLENGE_SOLVED[tier] || 30;
+
+        const xpResult = await awardXpAndStreak({
+          userId: user.id,
+          amount,
+          source: "challenge_solved",
+          courseId: course.id,
+        });
+
+        xpAwarded = xpResult.xpAwarded;
+        currentStreak = xpResult.user.currentStreak;
+        longestStreak = xpResult.user.longestStreak;
       }
     }
 
-    // Award XP and update streak with source="challenge_solved" for first accepted solve
-    const xpResult = await awardXpAndStreak({
-      userId: user.id,
-      amount,
-      source: "challenge_solved",
-      courseId: course?.id ?? null,
-    });
-
-    // Log activity record
-    await db.activityLog.create({
-      data: {
-        userId: user.id,
-        actionType: "CHALLENGE_SOLVED",
-        metadata: JSON.stringify({
-          difficulty: difficultyTier,
-          xpEarned: amount,
-          courseSlug,
-          chapterId,
-        }),
-      },
-    });
-
     return NextResponse.json({
       success: true,
-      alreadySolved: false,
-      difficulty: difficultyTier,
-      xpEarned: xpResult.xpAwarded,
-      currentStreak: xpResult.user.currentStreak,
-      longestStreak: xpResult.user.longestStreak,
-      user: {
-        id: xpResult.user.id,
-        currentStreak: xpResult.user.currentStreak,
-        longestStreak: xpResult.user.longestStreak,
-      },
+      challengeId,
+      passed: evalResult.passed,
+      score: evalResult.score,
+      minPassingScore: CHALLENGE_PASS_THRESHOLD,
+      totalTestCases: evalResult.totalTestCases,
+      passedTestCases: evalResult.passedTestCases,
+      results: evalResult.results,
+      compilerError: evalResult.compilerError,
+      isChapterCodeComplete,
+      xpEarned: xpAwarded,
+      currentStreak,
+      longestStreak,
+      message: evalResult.passed
+        ? `Challenge passed with score ${evalResult.score}%!`
+        : `Score ${evalResult.score}% is below the required ${CHALLENGE_PASS_THRESHOLD}%. Review test results and retry.`,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("POST Challenge Submit Error:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: error.message || "Failed to process challenge submission" },
       { status: 500 }
     );
   }

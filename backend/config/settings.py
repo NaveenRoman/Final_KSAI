@@ -22,15 +22,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# Environment detection
+IS_PRODUCTION = (
+    os.getenv("DJANGO_ENV", "").lower() == "production"
+    or os.getenv("ENVIRONMENT", "").lower() == "production"
+    or os.getenv("NODE_ENV", "").lower() == "production"
+)
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-lt3$tk1&x0_c*&=tb2+*xg3do*+q1)zp6($)_&#&r-qz_x-eg@'
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    if IS_PRODUCTION:
+        raise RuntimeError(
+            "CRITICAL SECURITY ERROR: DJANGO_SECRET_KEY environment variable is mandatory in production! "
+            "Refusing to boot with insecure development secret."
+        )
+    SECRET_KEY = "django-insecure-lt3$tk1&x0_c*&=tb2+*xg3do*+q1)zp6($)_&#&r-qz_x-eg@"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+if IS_PRODUCTION:
+    DEBUG = False
+else:
+    DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("true", "1")
 
-ALLOWED_HOSTS = []
+allowed_hosts_env = os.getenv("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost")
+ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(",") if h.strip()]
 
 
 # Application definition
@@ -140,8 +156,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 
-# CORS configuration
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-]
+# CORS & CSRF configuration
+default_cors = "http://localhost:3000,http://127.0.0.1:3000" if DEBUG else ""
+cors_env = os.getenv("CORS_ALLOWED_ORIGINS", default_cors)
+CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_env.split(",") if o.strip()]
+
+default_csrf = "http://localhost:3000,http://127.0.0.1:3000" if DEBUG else ""
+csrf_env = os.getenv("CSRF_TRUSTED_ORIGINS", default_csrf)
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_env.split(",") if o.strip()]
+
+# Production SSL & Cookie Security
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

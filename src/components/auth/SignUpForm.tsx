@@ -86,7 +86,7 @@ function DarkSelect({ value, onChange, options, placeholder, hasError, onBlur }:
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left text-xs sm:text-sm font-medium focus:outline-none focus:border-cyan-400 ${
+        className={`flex w-full items-center justify-between rounded-xl border px-3.5 py-3 sm:py-2.5 min-h-[44px] text-left text-base sm:text-sm font-medium focus:outline-none focus:border-cyan-400 ${
           hasError ? "border-red-500/70 focus:border-red-400" : "border-white/15"
         } ${value ? "text-white" : "text-slate-400"}`}
         style={{ backgroundColor: "#161626" }}
@@ -106,7 +106,7 @@ function DarkSelect({ value, onChange, options, placeholder, hasError, onBlur }:
                 onChange(option);
                 setIsOpen(false);
               }}
-              className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs sm:text-sm transition-colors ${
+              className={`flex w-full items-center rounded-lg px-3 py-2.5 min-h-[40px] text-left text-base sm:text-sm transition-colors ${
                 value === option ? "bg-cyan-500/20 text-cyan-300 font-bold" : "text-slate-200 hover:bg-white/10 hover:text-white"
               }`}
             >
@@ -420,7 +420,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
   };
 
   const inputClassName = (hasError: boolean) =>
-    `w-full px-3.5 py-2.5 rounded-xl bg-[#161626] border text-white placeholder-slate-400 text-xs sm:text-sm font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 ${
+    `w-full px-3.5 py-3 sm:py-2.5 min-h-[44px] rounded-xl bg-[#161626] border text-white placeholder-slate-400 text-base sm:text-sm font-medium focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/40 ${
       hasError ? "border-red-500/70 focus:border-red-400" : "border-white/15"
     }`;
 
@@ -474,7 +474,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
             <button
               type="submit"
               disabled={sendingOtp || !email.trim()}
-              className="w-full py-3 rounded-xl font-extrabold text-white text-xs sm:text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl"
+              className="w-full py-3.5 sm:py-3 min-h-[48px] rounded-xl font-extrabold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl cursor-pointer"
             >
               {sendingOtp ? "Sending OTP Code..." : "Verify Email & Send OTP"}
               {sendingOtp ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
@@ -482,7 +482,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
 
             <div className="flex items-center justify-center gap-2 text-xs text-slate-300 font-medium">
               <span>Already have an account?</span>
-              <button type="button" onClick={onSwitchToLogin} className="text-cyan-400 font-bold hover:underline">
+              <button type="button" onClick={onSwitchToLogin} className="text-cyan-400 font-bold hover:underline min-h-[36px] inline-flex items-center">
                 Login &rarr;
               </button>
             </div>
@@ -505,7 +505,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
           <div className="space-y-1.5 max-w-md mx-auto">
             <div className="flex items-center justify-between">
               <label className={fieldLabelClassName}>Verification Code</label>
-              <button type="button" onClick={() => setStep("email")} className="text-xs text-cyan-400 hover:underline flex items-center gap-1 font-semibold">
+              <button type="button" onClick={() => setStep("email")} className="text-xs text-cyan-400 hover:underline flex items-center gap-1 font-semibold min-h-[36px]">
                 <Edit2 size={12} /> Change email
               </button>
             </div>
@@ -525,7 +525,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
                   value={digit}
                   onChange={(event) => handleOtpChange(index, event.target.value)}
                   onKeyDown={(event) => handleOtpKeyDown(index, event)}
-                  className="h-11 w-10 rounded-xl border border-purple-500/40 bg-[#161626] text-center text-base font-bold text-white outline-none focus:border-cyan-400"
+                  className="h-12 w-10 sm:w-11 min-h-[44px] rounded-xl border border-purple-500/40 bg-[#161626] text-center text-base font-bold text-white outline-none focus:border-cyan-400 focus:ring-2 focus:ring-purple-400/50"
                 />
               ))}
             </div>
@@ -535,7 +535,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
             <button
               type="submit"
               disabled={verifyingOtp || otpCode.length !== 6}
-              className="w-full py-3 rounded-xl font-extrabold text-white text-xs sm:text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl"
+              className="w-full py-3.5 sm:py-3 min-h-[48px] rounded-xl font-extrabold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center justify-center gap-2 disabled:opacity-50 shadow-xl cursor-pointer"
             >
               {verifyingOtp ? "Verifying..." : "Verify OTP Code & Proceed"}
               {verifyingOtp ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
@@ -546,12 +546,12 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
                 type="button"
                 onClick={() => handleSendOtp()}
                 disabled={sendingOtp || otpCountdown > 0}
-                className="text-cyan-400 hover:underline flex items-center gap-1 font-bold disabled:text-slate-500"
+                className="text-cyan-400 hover:underline flex items-center gap-1 font-bold disabled:text-slate-500 min-h-[38px]"
               >
                 <RotateCcw size={14} /> {sendingOtp ? "Resending..." : otpCountdown > 0 ? `Resend in ${otpCountdown}s` : "Resend OTP"}
               </button>
 
-              <button type="button" onClick={onSwitchToLogin} className="text-slate-300 hover:text-white font-medium">
+              <button type="button" onClick={onSwitchToLogin} className="text-slate-300 hover:text-white font-medium min-h-[38px] inline-flex items-center">
                 Back to Login
               </button>
             </div>
@@ -676,9 +676,14 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setTouched((prev) => ({ ...prev, password: true }))}
                   placeholder="••••••••"
-                  className={`pl-9 pr-8 ${inputClassName(Boolean(validationErrors.password))}`}
+                  className={`pl-9 pr-10 ${inputClassName(Boolean(validationErrors.password))}`}
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="w-10 h-10 min-h-[40px] absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 hover:text-white cursor-pointer"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -695,9 +700,14 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   onBlur={() => setTouched((prev) => ({ ...prev, confirmPassword: true }))}
                   placeholder="••••••••"
-                  className={`pl-9 pr-8 ${inputClassName(Boolean(validationErrors.confirmPassword))}`}
+                  className={`pl-9 pr-10 ${inputClassName(Boolean(validationErrors.confirmPassword))}`}
                 />
-                <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="w-10 h-10 min-h-[40px] absolute right-0.5 top-1/2 -translate-y-1/2 flex items-center justify-center text-slate-400 hover:text-white cursor-pointer"
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                >
                   {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
@@ -707,7 +717,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
 
           {/* Bottom Actions & Terms */}
           <div className="pt-2 border-t border-white/15 space-y-2.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-start sm:items-center gap-2.5 py-1">
               <input
                 type="checkbox"
                 id="terms"
@@ -716,9 +726,9 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
                   setAcceptTerms(e.target.checked);
                   setTouched((prev) => ({ ...prev, acceptTerms: true }));
                 }}
-                className="rounded border-white/20 bg-white/5 text-cyan-500 w-4 h-4 cursor-pointer"
+                className="mt-0.5 sm:mt-0 rounded border-white/20 bg-white/5 text-cyan-500 w-4 h-4 min-w-[16px] cursor-pointer"
               />
-              <label htmlFor="terms" className="text-xs text-slate-300 cursor-pointer font-medium">
+              <label htmlFor="terms" className="text-xs text-slate-300 cursor-pointer font-medium leading-relaxed">
                 I agree to KnowledgeStream AI <a href="#" onClick={(e) => e.preventDefault()} className="text-cyan-400 underline font-semibold">Terms of Service</a> &amp; <a href="#" onClick={(e) => e.preventDefault()} className="text-cyan-400 underline font-semibold">Privacy Policy</a>
               </label>
             </div>
@@ -727,7 +737,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
             <button
               type="submit"
               disabled={submitting || !acceptTerms || !passwordState.passed || password !== confirmPassword}
-              className="w-full py-3 rounded-xl font-extrabold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center justify-center gap-2 group disabled:opacity-50 shadow-xl"
+              className="w-full py-3.5 sm:py-3 min-h-[48px] rounded-xl font-extrabold text-white text-sm bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center justify-center gap-2 group disabled:opacity-50 shadow-xl cursor-pointer"
             >
               {submitting ? "Creating Account..." : "Create Account & Start"}
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
@@ -735,7 +745,7 @@ export function SignUpForm({ onSubmitSuccess, onSwitchToLogin, googlePrefill }: 
 
             <div className="flex items-center justify-center gap-2 text-xs text-slate-300 font-medium">
               <span>Already have an account?</span>
-              <button type="button" onClick={onSwitchToLogin} className="text-cyan-400 font-bold hover:underline">
+              <button type="button" onClick={onSwitchToLogin} className="text-cyan-400 font-bold hover:underline min-h-[36px] inline-flex items-center">
                 Login &rarr;
               </button>
             </div>

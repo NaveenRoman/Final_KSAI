@@ -144,7 +144,7 @@ export default function CppChapterPage() {
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [courseTitle, setCourseTitle] = useState("C++ Object-Oriented Mastery");
   const [courseId, setCourseId] = useState("");
-  const [coursePrice, setCoursePrice] = useState(1499);
+  const [coursePrice, setCoursePrice] = useState(50);
   const [isEnrolled, setIsEnrolled] = useState(true);
   const [buying, setBuying] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -895,7 +895,7 @@ ${getLessons()
       setCurrentChapter(chapterObj);
       setCourseId(data.courseId || data.course?.id || "");
       setCourseTitle(data.courseTitle || data.course?.title || "C++ Object-Oriented Mastery");
-      setCoursePrice(data.coursePrice ?? data.course?.price ?? 1499);
+      setCoursePrice(data.coursePrice ?? data.course?.price ?? 50);
       setIsEnrolled(data.isEnrolled ?? true);
       setUserEmail(data.userEmail || userEmail || "student@gmail.com");
       setChapters(data.chapters || []);

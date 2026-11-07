@@ -2,11 +2,13 @@ import json
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from config.internal_auth import internal_auth_required
 
 from orchestrator.orchestrator import AIOrchestrator
 
 
 @csrf_exempt
+@internal_auth_required
 def teach(request):
 
     if request.method != "POST":

@@ -177,34 +177,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // Production mock payment protection
-    const isMockPayment =
-      paymentId.startsWith("pay_mock_") || paymentId.startsWith("order_mock_");
-
-    if (process.env.NODE_ENV === "production" && isMockPayment) {
-      return NextResponse.json(
-        { error: "Mock payments are strictly disallowed in production environment." },
-        { status: 400 }
-      );
-    }
-
-    const key_id = process.env.RAZORPAY_KEY_ID;
+    // Strict fail-closed credentials check — never bypass signature verification
+    const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
     const razorpaySecret = process.env.RAZORPAY_KEY_SECRET;
 
-    if (!isMockPayment) {
-      if (!key_id || !razorpaySecret) {
-        if (process.env.NODE_ENV === "production") {
-          console.error("[Payment Security] Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET in production.");
-          return NextResponse.json(
-            { error: "Payment verification system is unconfigured in production environment." },
-            { status: 503 }
-          );
-        }
-        return NextResponse.json(
-          { error: "Payment verification credentials are missing on server." },
-          { status: 503 }
-        );
-      }
+    if (!key_id || !razorpaySecret) {
+      console.error("[Payment Security] Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET on server.");
+      return NextResponse.json(
+        { error: "Payment verification system is unconfigured on the server." },
+        { status: 503 }
+      );
+    }
 
       if (!razorpay_order_id || typeof razorpay_order_id !== "string" || razorpay_order_id.trim() === "") {
         return NextResponse.json(
@@ -350,10 +333,8 @@ export async function POST(req: Request) {
           { status: 403 }
         );
       }
-    }
 
     // 6. Atomic Enrollment Creation with Concurrency Lock & Anti-Replay
-    const cleanPaymentId = paymentId.trim();
     let enrollmentResult: { enrollment: unknown; alreadyEnrolled: boolean };
 
     try {

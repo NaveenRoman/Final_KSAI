@@ -19,8 +19,10 @@
 
 import { prisma } from "@/lib/prisma";
 import { normalizeTopicName } from "./resume-service";
+import { getChallengesForChapter } from "@/lib/challenges/challenge-bank";
 
 export const QUIZ_PASS_THRESHOLD = 75;
+export const CHALLENGE_PASS_THRESHOLD = 70;
 
 export interface ChapterCompletionRequirements {
   topicsCompleted: boolean;
@@ -30,6 +32,9 @@ export interface ChapterCompletionRequirements {
   quizPassed: boolean;
   quizScore: number;
   minPassingScore: number;
+  codeChallengesPassed: boolean;
+  totalChallengesCount: number;
+  passedChallengesCount: number;
 }
 
 export interface ChapterCompletionResult {
@@ -247,9 +252,54 @@ export async function checkChapterCompletion(params: {
   const quizPassed = hasQuizData ? quizScore >= QUIZ_PASS_THRESHOLD : true;
 
   // -------------------------------------------------------------------------
-  // Overall Chapter Completion Decision
+  // Gate D: Verify Programming Practice Challenges (Score >= 70%)
   // -------------------------------------------------------------------------
-  const isCompleted = topicsCompleted && chapterRecapCompleted && quizPassed;
+  const chapterChallenges = getChallengesForChapter(course.language, chapter.orderNumber);
+  const totalChallengesCount = chapterChallenges.length;
+
+  let codeChallengesPassed = true;
+  let passedChallengesCount = 0;
+
+  if (totalChallengesCount > 0) {
+    if (chapterProgress?.codeSolved) {
+      codeChallengesPassed = true;
+      passedChallengesCount = totalChallengesCount;
+    } else {
+      const challengeEvents = await prisma.learningEvent.findMany({
+        where: {
+          userId,
+          courseId: course.language,
+          chapterId: chapter.id,
+          eventType: "CHALLENGE_PASSED",
+        },
+      });
+
+      const passedChallengeIds = new Set<string>();
+      for (const ev of challengeEvents) {
+        try {
+          const meta = ev.metadata ? JSON.parse(ev.metadata) : {};
+          if (meta.challengeId && (meta.score >= CHALLENGE_PASS_THRESHOLD || meta.passed)) {
+            passedChallengeIds.add(meta.challengeId);
+          }
+        } catch {}
+      }
+
+      passedChallengesCount = chapterChallenges.filter((ch) =>
+        passedChallengeIds.has(ch.id)
+      ).length;
+
+      codeChallengesPassed = passedChallengesCount >= totalChallengesCount;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Overall Chapter Completion Decision (All 4 Gates Required)
+  // -------------------------------------------------------------------------
+  const isCompleted =
+    topicsCompleted &&
+    chapterRecapCompleted &&
+    quizPassed &&
+    codeChallengesPassed;
 
   const missingRequirements: string[] = [];
   if (!topicsCompleted) {
@@ -265,10 +315,15 @@ export async function checkChapterCompletion(params: {
       `Chapter Quiz not passed (score: ${quizScore}%, required: ${QUIZ_PASS_THRESHOLD}%)`
     );
   }
+  if (!codeChallengesPassed) {
+    missingRequirements.push(
+      `Programming challenges incomplete (${passedChallengesCount}/${totalChallengesCount} passed with >= ${CHALLENGE_PASS_THRESHOLD}%)`
+    );
+  }
 
   // Authoritatively synchronize ChapterProgress in database
   if (isCompleted) {
-    if (!chapterProgress || !chapterProgress.isCompleted) {
+    if (!chapterProgress || !chapterProgress.isCompleted || !chapterProgress.codeSolved) {
       await prisma.chapterProgress.upsert({
         where: {
           userId_chapterId: {
@@ -278,12 +333,14 @@ export async function checkChapterCompletion(params: {
         },
         update: {
           isCompleted: true,
+          codeSolved: true,
           quizScore: Math.max(quizScore, QUIZ_PASS_THRESHOLD),
         },
         create: {
           userId,
           chapterId: chapter.id,
           isCompleted: true,
+          codeSolved: true,
           quizScore: Math.max(quizScore, QUIZ_PASS_THRESHOLD),
         },
       });
@@ -311,6 +368,9 @@ export async function checkChapterCompletion(params: {
       quizPassed,
       quizScore,
       minPassingScore: QUIZ_PASS_THRESHOLD,
+      codeChallengesPassed,
+      totalChallengesCount,
+      passedChallengesCount,
     },
     missingRequirements,
   };
@@ -579,4 +639,154 @@ export async function recordChapterRecapCompletion(params: {
     courseId: course.id,
     chapterId: chapter.id,
   });
+}
+
+export interface ChallengeProgressionItem {
+  id: string;
+  course: string;
+  chapterOrder: number;
+  programIndex: number;
+  title: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD";
+  objective: string;
+  description: string;
+  starterCode: string;
+  constraints: string[];
+  examples: Array<{ input: string; output: string; explanation?: string }>;
+  testCases: Array<{ input: string; expectedOutput: string; isHidden: boolean; weight: number }>;
+  isUnlocked: boolean;
+  isPassed: boolean;
+  score: number;
+  hints: string[];
+}
+
+export interface ChapterChallengeProgressionResult {
+  chapterOrder: number;
+  totalChallenges: number;
+  passedChallenges: number;
+  isChapterQuizPassed: boolean;
+  isAllChallengesPassed: boolean;
+  challenges: ChallengeProgressionItem[];
+}
+
+/**
+ * Authoritatively retrieves sequential challenge progression for a chapter.
+ * Enforces:
+ * 1. Program 0 (Program A) is unlocked if Chapter Quiz is passed (or if no quiz).
+ * 2. Program i (Program B, C) unlocks ONLY if Program i-1 has been passed (score >= 70%).
+ * 3. Hides expected outputs for hidden test cases.
+ */
+export async function getChapterChallengeProgression(params: {
+  userId: string;
+  courseSlug: string;
+  chapterOrder: number;
+}): Promise<ChapterChallengeProgressionResult> {
+  const { userId, courseSlug, chapterOrder } = params;
+  const normSlug = normalizeCourseSlug(courseSlug);
+
+  const course = await prisma.course.findFirst({
+    where: { language: normSlug },
+    include: { chapters: true },
+  });
+
+  const chapter = course?.chapters.find((c) => c.orderNumber === chapterOrder);
+  const chapterChallenges = getChallengesForChapter(normSlug, chapterOrder);
+
+  // Check quiz status
+  let isChapterQuizPassed = false;
+  if (chapter) {
+    const cp = await prisma.chapterProgress.findUnique({
+      where: {
+        userId_chapterId: {
+          userId,
+          chapterId: chapter.id,
+        },
+      },
+    });
+
+    const quizScore = cp?.quizScore ?? 0;
+    let hasQuizData = false;
+    if (chapter.quizData) {
+      try {
+        const parsed = JSON.parse(chapter.quizData);
+        hasQuizData = Array.isArray(parsed) && parsed.length > 0;
+      } catch {}
+    }
+    isChapterQuizPassed = hasQuizData ? quizScore >= QUIZ_PASS_THRESHOLD : true;
+  }
+
+  // Load passed challenge attempts for this chapter
+  const challengeEvents = chapter
+    ? await prisma.learningEvent.findMany({
+        where: {
+          userId,
+          courseId: normSlug,
+          chapterId: chapter.id,
+          eventType: "CHALLENGE_PASSED",
+        },
+      })
+    : [];
+
+  const passedScores = new Map<string, number>();
+  for (const ev of challengeEvents) {
+    try {
+      const meta = ev.metadata ? JSON.parse(ev.metadata) : {};
+      if (meta.challengeId && typeof meta.score === "number") {
+        const current = passedScores.get(meta.challengeId) || 0;
+        if (meta.score > current) {
+          passedScores.set(meta.challengeId, meta.score);
+        }
+      }
+    } catch {}
+  }
+
+  let previousPassed = isChapterQuizPassed;
+  let passedCount = 0;
+
+  const progressionItems: ChallengeProgressionItem[] = chapterChallenges.map(
+    (ch, idx) => {
+      const bestScore = passedScores.get(ch.id) ?? 0;
+      const isPassed = bestScore >= CHALLENGE_PASS_THRESHOLD;
+      const isUnlocked = idx === 0 ? isChapterQuizPassed : previousPassed;
+
+      if (isPassed) {
+        passedCount++;
+      }
+      previousPassed = isPassed;
+
+      return {
+        id: ch.id,
+        course: ch.course,
+        chapterOrder: ch.chapterOrder,
+        programIndex: ch.programIndex,
+        title: ch.title,
+        difficulty: ch.difficulty,
+        objective: ch.objective,
+        description: ch.description,
+        starterCode: ch.starterCode,
+        constraints: ch.constraints,
+        examples: ch.examples,
+        testCases: ch.testCases.map((tc) => ({
+          input: tc.isHidden ? "[Hidden]" : tc.input,
+          expectedOutput: tc.isHidden ? "[Hidden]" : tc.expectedOutput,
+          isHidden: !!tc.isHidden,
+          weight: tc.weight ?? 1,
+        })),
+        isUnlocked,
+        isPassed,
+        score: bestScore,
+        hints: ch.hints,
+      };
+    }
+  );
+
+  return {
+    chapterOrder,
+    totalChallenges: chapterChallenges.length,
+    passedChallenges: passedCount,
+    isChapterQuizPassed,
+    isAllChallengesPassed:
+      chapterChallenges.length > 0 && passedCount >= chapterChallenges.length,
+    challenges: progressionItems,
+  };
 }

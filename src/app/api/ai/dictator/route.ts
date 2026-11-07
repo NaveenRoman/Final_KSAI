@@ -71,11 +71,20 @@ export async function POST(request: Request) {
       }
     }
 
-    const response = await fetch("http://127.0.0.1:8000/api/ai/dictate/", {
+    const dictateUrl =
+      process.env.DJANGO_DICTATE_URL ||
+      (process.env.DJANGO_TEACH_URL
+        ? process.env.DJANGO_TEACH_URL.replace(/\/ai\/teach\/?$/, "/ai/dictate/")
+        : "http://127.0.0.1:8000/api/ai/dictate/");
+
+    const backendHeaders: Record<string, string> = { "Content-Type": "application/json" };
+    if (process.env.INTERNAL_API_SECRET) {
+      backendHeaders["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
+    }
+
+    const response = await fetch(dictateUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: backendHeaders,
       body: JSON.stringify(body),
     });
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { checkFeatureAccess } from "@/lib/subscription-service";
+import { callGeminiWithResilience } from "@/lib/ai/gemini-client";
 
 export async function POST(request: Request) {
   try {
@@ -54,11 +55,8 @@ export async function POST(request: Request) {
       });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (apiKey) {
-      try {
-        const prompt = `You are an expert technical interviewer evaluating a candidate for a ${role} position focusing on ${technology} (${difficulty} level).
+    try {
+      const prompt = `You are an expert technical interviewer evaluating a candidate for a ${role} position focusing on ${technology} (${difficulty} level).
 Interview Question: "${question}"
 Candidate Answer: "${answer}"
 Expected Key Topics: ${JSON.stringify(expectedTopics)}
@@ -74,40 +72,34 @@ Evaluate the candidate's answer and respond strictly with JSON:
   "sample_answer": "Model exemplary answer"
 }`;
 
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-            }),
-          }
-        );
+      const geminiResult = await callGeminiWithResilience({
+        service: "interview",
+        studentId: user.id,
+        prompt,
+        temperature: 0.3,
+        responseMimeType: "application/json",
+      });
 
-        if (geminiRes.ok) {
-          const gData = await geminiRes.json();
-          const rawText = gData.candidates?.[0]?.content?.parts?.[0]?.text || "";
-          const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            return NextResponse.json({
-              success: true,
-              data: {
-                decision: parsed.decision || "ACCEPT",
-                technical_score: parsed.technical_score ?? 85,
-                communication_score: parsed.communication_score ?? 85,
-                relevance_score: parsed.relevance_score ?? 85,
-                feedback: parsed.feedback || "Good response.",
-                follow_up_question: parsed.follow_up_question || "",
-                sample_answer: parsed.sample_answer || "",
-              },
-            });
-          }
+      if (geminiResult.success && geminiResult.text) {
+        const jsonMatch = geminiResult.text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return NextResponse.json({
+            success: true,
+            data: {
+              decision: parsed.decision || "ACCEPT",
+              technical_score: parsed.technical_score ?? 85,
+              communication_score: parsed.communication_score ?? 85,
+              relevance_score: parsed.relevance_score ?? 85,
+              feedback: parsed.feedback || "Good response.",
+              follow_up_question: parsed.follow_up_question || "",
+              sample_answer: parsed.sample_answer || "",
+            },
+          });
         }
-      } catch (gemErr) {
-        console.error("Gemini API error in interview evaluate:", gemErr);
       }
+    } catch (gemErr) {
+      console.error("Gemini API error in interview evaluate:", gemErr);
     }
 
     // High quality AI evaluation fallback

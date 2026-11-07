@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { findTrainedAnswer } from "@/lib/copilot-knowledge-base";
+import { callGeminiWithResilience } from "@/lib/ai/gemini-client";
 
 // Contextual fallback mentor if all external models are offline
 function generateContextualFallbackResponse(
@@ -144,21 +145,17 @@ export async function POST(request: NextRequest) {
     }
 
     // ---------------------------------------------------------
-    // Tier 1: Direct Gemini API Call
+    // Tier 1: Direct Resilient Gemini API Call
     // ---------------------------------------------------------
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      try {
-        console.log("[AI CHAT] Calling Gemini AI provider");
-        const levelGuidance =
-          learningLevel === "advanced"
-            ? "Provide an advanced, highly technical explanation with architectural context, edge cases, performance implications, and idiomatic practices."
-            : learningLevel === "intermediate"
-            ? "Provide a clear, moderately technical explanation with good programming practices and concept definitions."
-            : "Provide a friendly, simple, easy-to-understand explanation avoiding unnecessary jargon, explaining beginner concepts clearly.";
+    const levelGuidance =
+      learningLevel === "advanced"
+        ? "Provide an advanced, highly technical explanation with architectural context, edge cases, performance implications, and idiomatic practices."
+        : learningLevel === "intermediate"
+        ? "Provide a clear, moderately technical explanation with good programming practices and concept definitions."
+        : "Provide a friendly, simple, easy-to-understand explanation avoiding unnecessary jargon, explaining beginner concepts clearly.";
 
-        const studentContext = userName ? `STUDENT NAME: ${userName}\n` : "";
-        const prompt = `You are Codenthra AI, an intelligent programming mentor.
+    const studentContext = userName ? `STUDENT NAME: ${userName}\n` : "";
+    const prompt = `You are Codenthra AI, an intelligent programming mentor.
 
 ${studentContext}LEARNING LEVEL: ${learningLevel.toUpperCase()} (${levelGuidance})
 LANGUAGE: ${language}
@@ -177,57 +174,24 @@ INSTRUCTIONS:
 2. If the user asks about a variable, value, line, keyword, error, or logic, explain the exact line and context from their code.
 3. Be concise, direct, helpful, and friendly. Do not output generic greetings or unrelated boilerplate.`;
 
-        const models = [
-          "gemini-3.6-flash",
-          "gemini-2.5-flash",
-          "gemini-3.5-flash",
-          "gemini-3.7-flash",
-          "gemini-3.1-flash-lite",
-          "gemini-flash-latest",
-        ];
+    const geminiResult = await callGeminiWithResilience({
+      service: "chat",
+      studentId: user?.id,
+      prompt,
+      temperature: 0.3,
+      maxOutputTokens: 1000,
+    });
 
-        for (const model of models) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-            const geminiRes = await fetch(
-              `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                signal: controller.signal,
-                body: JSON.stringify({
-                  contents: [{ parts: [{ text: prompt }] }],
-                  generationConfig: { maxOutputTokens: 1000, temperature: 0.3 },
-                }),
-              }
-            );
-
-            clearTimeout(timeoutId);
-
-            if (geminiRes.ok) {
-              const geminiData = await geminiRes.json();
-              const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-              if (text && text.trim()) {
-                console.log("[AI CHAT] Provider response received successfully from Gemini:", model);
-                return NextResponse.json({
-                  success: true,
-                  data: {
-                    intent: "chat",
-                    response: text.trim(),
-                  },
-                  response: text.trim(),
-                });
-              }
-            }
-          } catch {
-            // try next model
-          }
-        }
-      } catch (geminiError) {
-        console.warn("[AI CHAT] Gemini direct call failed:", geminiError);
-      }
+    if (geminiResult.success && geminiResult.text) {
+      console.log("[AI CHAT] Provider response received successfully from Gemini:", geminiResult.model);
+      return NextResponse.json({
+        success: true,
+        data: {
+          intent: "chat",
+          response: geminiResult.text.trim(),
+        },
+        response: geminiResult.text.trim(),
+      });
     }
 
     // ---------------------------------------------------------
@@ -238,9 +202,20 @@ INSTRUCTIONS:
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-      const response = await fetch("http://127.0.0.1:8000/api/ai/chat/", {
+      const djangoChatUrl =
+        process.env.DJANGO_CHAT_URL ||
+        (process.env.DJANGO_TEACH_URL
+          ? process.env.DJANGO_TEACH_URL.replace(/\/ai\/teach\/?$/, "/ai/chat/")
+          : "http://127.0.0.1:8000/api/ai/chat/");
+
+      const backendHeaders: Record<string, string> = { "Content-Type": "application/json" };
+      if (process.env.INTERNAL_API_SECRET) {
+        backendHeaders["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
+      }
+
+      const response = await fetch(djangoChatUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: backendHeaders,
         signal: controller.signal,
         body: JSON.stringify({
           language,

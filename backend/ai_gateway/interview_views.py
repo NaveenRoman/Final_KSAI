@@ -3,6 +3,7 @@ import re
 
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from config.internal_auth import internal_auth_required
 
 from orchestrator.orchestrator import AIOrchestrator
 
@@ -72,6 +73,7 @@ def parse_ai_evaluation(raw_response):
 
 
 @csrf_exempt
+@internal_auth_required
 def evaluate_interview(request):
 
     # =================================================

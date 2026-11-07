@@ -1,15 +1,8 @@
 import { NextResponse } from "next/server";
+import { callGeminiWithResilience } from "@/lib/ai/gemini-client";
+import { resolveStudentIdentity } from "@/lib/ai/student-resolver";
 
 export const dynamic = "force-dynamic";
-
-const GEMINI_MODELS = [
-  "gemini-3.1-flash-lite",
-  "gemini-2.5-flash",
-  "gemini-flash-latest",
-  "gemini-3.5-flash",
-  "gemini-3.6-flash",
-  "gemini-3.7-flash",
-];
 
 interface TeachRequestBody {
   course?: string;
@@ -430,64 +423,40 @@ function generateStructuredContentFallback(body: TeachRequestBody): string {
 }
 
 /**
- * Attempts direct Google Gemini generation
+ * Attempts direct Google Gemini generation via centralized resilient client
  */
-async function callGeminiDirectly(body: TeachRequestBody): Promise<string | null> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
-
+async function callGeminiDirectly(
+  body: TeachRequestBody,
+  studentId?: string,
+  isGuest?: boolean,
+  limitRpm?: number
+): Promise<{ text: string | null; status?: number; retryAfterSeconds?: number }> {
   const prompt = buildGeminiTeachPrompt(body);
 
-  for (const model of GEMINI_MODELS) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const result = await callGeminiWithResilience({
+    service: "teach",
+    studentId,
+    isGuest,
+    limitRpm,
+    prompt,
+    temperature: 0.3,
+    maxOutputTokens: 8192,
+  });
 
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: prompt }],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.3,
-              maxOutputTokens: 8192,
-            },
-          }),
-        }
-      );
-      clearTimeout(timeoutId);
-
-      if (geminiRes.status === 401 || geminiRes.status === 403) {
-        console.warn(`[TEACH API] Gemini API key unauthorized (${geminiRes.status}), falling back`);
-        break;
-      }
-
-      if (geminiRes.ok) {
-        const data = await geminiRes.json();
-        let aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (aiText && aiText.trim().length > 0) {
-          aiText = aiText.trim();
-          if ((body.mode === "evaluate" || body.mode === "evaluate-checkpoint") && aiText.startsWith("```")) {
-            aiText = aiText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-          }
-          console.log(`[TEACH API] Successfully answered via direct Gemini (${model})`);
-          return aiText;
-        }
-      }
-    } catch {
-      // Continue to next model
-    }
+  if (result.status === 429) {
+    return { text: null, status: 429, retryAfterSeconds: result.retryAfterSeconds };
   }
 
-  return null;
+  if (result.success && result.text) {
+    let aiText = result.text.trim();
+    if ((body.mode === "evaluate" || body.mode === "evaluate-checkpoint") && aiText.startsWith("```")) {
+      aiText = aiText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+    }
+    console.log(`[TEACH API] Successfully answered via direct Gemini (${result.model})`);
+    return { text: aiText, status: 200 };
+  }
+
+  return { text: null, status: result.status };
 }
 
 export async function POST(request: Request) {
@@ -506,19 +475,45 @@ export async function POST(request: Request) {
     console.log("Mode     :", body.mode);
     console.log("==========================================");
 
+    // Resolve caller identity strictly from verified server-side session or IP hash
+    const identity = await resolveStudentIdentity(request);
+
     // -------------------------------------------------------------
     // Tier 1: Direct Google Gemini Generation (Preferred when key is available)
     // -------------------------------------------------------------
-    const geminiResponse = await callGeminiDirectly(body);
-    if (geminiResponse) {
+    const geminiResult = await callGeminiDirectly(
+      body,
+      identity.studentId,
+      identity.isGuest,
+      identity.limitRpm
+    );
+
+    if (geminiResult.status === 429) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "RATE_LIMIT_EXCEEDED",
+          message: "Too many AI teaching requests. Please wait a moment before trying again.",
+          retryAfterSeconds: geminiResult.retryAfterSeconds,
+        },
+        {
+          status: 429,
+          headers: geminiResult.retryAfterSeconds
+            ? { "Retry-After": String(geminiResult.retryAfterSeconds) }
+            : undefined,
+        }
+      );
+    }
+
+    if (geminiResult.text) {
       return NextResponse.json({
         success: true,
         data: {
           intent: "teach",
           mode: body.mode || "live-teaching",
-          response: geminiResponse,
+          response: geminiResult.text,
         },
-        response: geminiResponse,
+        response: geminiResult.text,
         provider: "gemini_direct",
       });
     }
@@ -536,9 +531,14 @@ export async function POST(request: Request) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2000);
 
+        const backendHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        if (process.env.INTERNAL_API_SECRET) {
+          backendHeaders["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
+        }
+
         const response = await fetch(targetUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: backendHeaders,
           body: JSON.stringify(body),
           cache: "no-store",
           signal: controller.signal,

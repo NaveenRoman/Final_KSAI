@@ -35,12 +35,14 @@ function DurationContent() {
   // 2. Resolve Duration (Strictly 1 or 4)
   const rawDuration = Number(searchParams.get("duration"));
   const initialDuration: PlanDurationMonths = rawDuration === 4 ? 4 : 1;
-  const [selectedDuration, setSelectedDuration] = useState<PlanDurationMonths>(initialDuration);
+  const [userDuration, setUserDuration] = useState<PlanDurationMonths | null>(null);
+  const selectedDuration: PlanDurationMonths = userDuration ?? initialDuration;
 
   // 3. Resolve Subject (for Basic 1 Month single-subject access)
   const rawSubject = (searchParams.get("subject") || searchParams.get("course") || "python").toLowerCase();
-  const initialSubject = AVAILABLE_SUBJECTS.some((s) => s.id === rawSubject) ? rawSubject : "python";
-  const [selectedSubject, setSelectedSubject] = useState<SubjectId>(initialSubject as SubjectId);
+  const initialSubject = (AVAILABLE_SUBJECTS.some((s) => s.id === rawSubject) ? rawSubject : "python") as SubjectId;
+  const [userSubject, setUserSubject] = useState<SubjectId | null>(null);
+  const selectedSubject: SubjectId = userSubject ?? initialSubject;
 
   const planConfig = OFFICIAL_PLANS[planTier];
   const durationsList: PlanDurationMonths[] = [1, 4];
@@ -131,7 +133,7 @@ function DurationContent() {
           return (
             <div
               key={dur}
-              onClick={() => setSelectedDuration(dur)}
+              onClick={() => setUserDuration(dur)}
               className={`rounded-3xl p-6 sm:p-7 border-2 cursor-pointer transition-all duration-200 relative flex flex-col justify-between text-slate-900 ${
                 isSelected
                   ? "bg-white border-indigo-600 ring-4 ring-indigo-500/20 shadow-2xl scale-[1.01]"
@@ -298,7 +300,7 @@ function DurationContent() {
                 <button
                   key={sub.id}
                   type="button"
-                  onClick={() => setSelectedSubject(sub.id)}
+                  onClick={() => setUserSubject(sub.id)}
                   className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] ${
                     isSubSelected
                       ? "bg-indigo-50 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs"

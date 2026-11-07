@@ -6,6 +6,7 @@ import { useSession } from "@/lib/auth-client";
 import { safeParseResponse } from "@/lib/safe-json";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
+import { OFFICIAL_PLANS } from "@/lib/subscription-config";
 import {
   Lock,
   Unlock,
@@ -38,7 +39,7 @@ export default function CppCurriculumPage() {
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [courseTitle, setCourseTitle] = useState("C++ High Performance System Architecture");
   const [courseId, setCourseId] = useState("");
-  const [coursePrice, setCoursePrice] = useState(1999);
+  const [coursePrice, setCoursePrice] = useState(OFFICIAL_PLANS.BASIC.monthlyRate);
   const [isEnrolled, setIsEnrolled] = useState(true);
   const [buying, setBuying] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -88,32 +89,9 @@ export default function CppCurriculumPage() {
     loadCurriculumData();
   }, []);
 
-  // Purchase enrollment fallback
-  const handleBuyCourse = async () => {
-    if (!courseId) return;
-    const email = user?.email || userEmail || "student@gmail.com";
-    const name = user?.name || "Student";
-    setBuying(true);
-    try {
-      await openRazorpayCheckout({
-        courseId,
-        courseTitle: courseTitle || "C++ High Performance System Architecture",
-        userEmail: email,
-        userName: name,
-        onSuccess: async () => {
-          alert("🎉 C++ Course purchased successfully! All chapters are now unlocked.");
-          await loadCurriculumData();
-        },
-        onError: (err) => {
-          alert(err);
-        },
-      });
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || "Payment processing error. Please try again.");
-    } finally {
-      setBuying(false);
-    }
+  // Purchase enrollment navigation to shared subscription flow
+  const handleBuyCourse = () => {
+    router.push("/plans/duration?plan=basic&subject=cpp");
   };
 
   return (

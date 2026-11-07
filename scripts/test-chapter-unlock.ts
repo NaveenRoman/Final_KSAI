@@ -318,7 +318,7 @@ async function runUnlockTests() {
     // Retake quiz and score 85% (>= 75%).
     // Chapter 1 is completed. Chapter 2 is UNLOCKED. Chapter 3 remains LOCKED.
     // -------------------------------------------------------------------------
-    console.log("\n--- TEST 5: All 3 Gates Satisfied -> Chapter 2 Unlocked ---");
+    console.log("\n--- TEST 5: All 4 Gates Satisfied -> Chapter 2 Unlocked ---");
     await prisma.chapterProgress.update({
       where: {
         userId_chapterId: {
@@ -326,7 +326,7 @@ async function runUnlockTests() {
           chapterId: ch1.id,
         },
       },
-      data: { quizScore: 85 },
+      data: { quizScore: 85, codeSolved: true },
     });
 
     const completionAllGates = await checkChapterCompletion({
@@ -403,7 +403,7 @@ async function runUnlockTests() {
     // -------------------------------------------------------------------------
     // TEST 7: Chapter 2 Quiz Retaken and Passed (90%) -> Chapter 3 UNLOCKED
     // -------------------------------------------------------------------------
-    console.log("\n--- TEST 7: Chapter 2 Quiz Passed -> Chapter 3 Unlocked ---");
+    console.log("\n--- TEST 7: Chapter 2 Quiz & Challenges Passed -> Chapter 3 Unlocked ---");
     await prisma.chapterProgress.update({
       where: {
         userId_chapterId: {
@@ -411,7 +411,7 @@ async function runUnlockTests() {
           chapterId: ch2.id,
         },
       },
-      data: { quizScore: 90 },
+      data: { quizScore: 90, codeSolved: true },
     });
 
     const completionCh2Pass = await checkChapterCompletion({
@@ -560,12 +560,13 @@ async function runUnlockTests() {
           chapterId: finalCh.id,
         },
       },
-      update: { quizScore: 95, isCompleted: true },
+      update: { quizScore: 95, isCompleted: true, codeSolved: true },
       create: {
         userId: testStudentAId,
         chapterId: finalCh.id,
         quizScore: 95,
         isCompleted: true,
+        codeSolved: true,
       },
     });
 

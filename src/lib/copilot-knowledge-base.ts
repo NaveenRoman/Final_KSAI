@@ -45,7 +45,7 @@ export const COPILOT_KNOWLEDGE_BASE: KnowledgeEntry[] = [
     category: "Prices & Fees",
     keywords: ["prices of courses", "price", "prices", "cost", "course price", "course cost", "how much", "fee", "fees", "pricing"],
     patterns: [/price/i, /prices/i, /cost/i, /fee/i, /how\s+much/i, /pricing/i],
-    answer: "💎 **KnowledgeStream AI Course & Subscription Pricing:**\n\n### 📚 Individual Course Prices (90 Days Full Access):\n- ☕ **Java Enterprise Architecture:** ₹1,999\n- 🗄️ **DBMS & SQL Query Mastery:** ₹1,499\n- 🐍 **Python AI Architecture:** ₹2,499\n- ⚡ **C++ Object-Oriented & STL:** ₹1,999\n- 💻 **C Language System Mastery:** ₹1,499\n\n### 🚀 Platform Membership Plans:\n- 🆓 **Starter Plan (Free):** ₹0 / $0 Forever — Includes basic AI courses, 50 AI queries/month, and Community Sandbox access.\n- ⚡ **Pro Developer Plan:** $29/month (or $23/mo billed annually) — Unlocks **Unlimited AI Curriculum**, Unlimited AI Mentor queries, 10 Cloud Sandboxes, and Verified PDF Certificates.\n- 🏢 **Enterprise Plan:** Custom pricing for Universities & Engineering Teams."
+    answer: "💎 **Codexa AI Course & Subscription Pricing:**\n\n### 📚 Codexa Basic Plan:\n- ⚡ **1 Month:** ₹50 — Full access to 1 selected subject (Java, Python, C, or C++).\n- 📦 **4 Months Bundle:** ₹150 (Save ₹50) — Full access to all 4 subjects simultaneously!\n\n### 🚀 Codexa Pro Plan (Complete Career Acceleration):\n- ⚡ **1 Month:** ₹70 — All 4 courses + AI Mock Interviews + Resume Studio & ATS Scanner.\n- 👑 **4 Months Bundle:** ₹200 (Best Value · Save ₹80) — Complete career suite for 4 months."
   },
 
   // =========================================================================
@@ -64,28 +64,28 @@ export const COPILOT_KNOWLEDGE_BASE: KnowledgeEntry[] = [
     category: "Course Features",
     keywords: ["java course features", "what java course offers", "about java course", "java full stack"],
     patterns: [/java\s+course/i, /what\s+does\s+java\s+offer/i, /about\s+java/i],
-    answer: "☕ **Java Full Stack Masterclass — Course Overview & Features:**\n\n- **Price:** ₹1,999 (90 Days Access)\n- **Curriculum:** Core Java (OOPs, Collections, Multithreading), Advanced Java (JDBC, Servlets), Spring Boot & RESTful Microservices.\n- **Features Offered:**\n  - Interactive Chapter Lessons with built-in code runner\n  - Chapter-wise AI Practice Quizzes\n  - Capstone Enterprise Project\n  - Verified Skill Passport Certificate on completion\n  - Lifetime access & AI Copilot assistance"
+    answer: "☕ **Java Full Stack Masterclass — Course Overview & Features:**\n\n- **Subscription:** ₹50/month (Basic) or ₹150 for 4 months (All 4 Subjects Bundle)\n- **Curriculum:** Core Java (OOPs, Collections, Multithreading), Advanced Java (JDBC, Servlets), Spring Boot & RESTful Microservices.\n- **Features Offered:**\n  - Interactive Chapter Lessons with built-in code runner\n  - Chapter-wise AI Practice Quizzes\n  - Capstone Enterprise Project\n  - Verified Skill Passport Certificate on completion\n  - Lifetime access & AI Copilot assistance"
   },
   {
     id: "c3",
     category: "Course Features",
     keywords: ["sql course features", "dbms course", "what sql course offers", "about dbms"],
     patterns: [/sql\s+course/i, /dbms\s+course/i, /about\s+sql/i],
-    answer: "🗄️ **DBMS & SQL Query Mastery — Course Overview & Features:**\n\n- **Price:** ₹1,499 (90 Days Access)\n- **Curriculum:** Relational Database Design, SQL DDL/DML, Advanced Joins, Indexing (B-Tree/Hash), Normalization (1NF to BCNF), Transactions & ACID properties.\n- **Features Offered:**\n  - Real-time SQL Playground\n  - 50+ Real-world Query Challenges\n  - Query Performance Optimization tips\n  - End-of-Course Verified Certificate"
+    answer: "🗄️ **DBMS & SQL Query Mastery — Course Overview & Features:**\n\n- **Subscription:** Included in upcoming specialized learning paths\n- **Curriculum:** Relational Database Design, SQL DDL/DML, Advanced Joins, Indexing (B-Tree/Hash), Normalization (1NF to BCNF), Transactions & ACID properties.\n- **Features Offered:**\n  - Real-time SQL Playground\n  - 50+ Real-world Query Challenges\n  - Query Performance Optimization tips\n  - End-of-Course Verified Certificate"
   },
   {
     id: "c4",
     category: "Course Features",
     keywords: ["python course features", "about python course", "what python offers"],
     patterns: [/python\s+course/i, /about\s+python/i],
-    answer: "🐍 **Python Programming & AI Foundation — Course Overview & Features:**\n\n- **Price:** ₹2,499 (90 Days Access)\n- **Curriculum:** Python Syntax, Data Structures (Lists, Tuples, Dicts), Functions, Decorators, File Handling & Intro to AI Scripting.\n- **Features Offered:**\n  - Hands-on Python Editor\n  - Automated Code Checker\n  - AI-assisted Code Explanations\n  - Completion Certificate"
+    answer: "🐍 **Python Programming & AI Foundation — Course Overview & Features:**\n\n- **Subscription:** ₹50/month (Basic) or ₹150 for 4 months (All 4 Subjects Bundle)\n- **Curriculum:** Python Syntax, Data Structures (Lists, Tuples, Dicts), Functions, Decorators, File Handling & Intro to AI Scripting.\n- **Features Offered:**\n  - Hands-on Python Editor\n  - Automated Code Checker\n  - AI-assisted Code Explanations\n  - Completion Certificate"
   },
   {
     id: "c5",
     category: "Course Features",
     keywords: ["cpp course features", "c++ course", "about c++"],
     patterns: [/c\+\+\s+course/i, /cpp\s+course/i, /about\s+c\+\+/i],
-    answer: "⚡ **C++ Systems & DSA Architecture — Course Overview & Features:**\n\n- **Price:** ₹1,999 (90 Days Access)\n- **Curriculum:** Object-Oriented C++, Pointers & Dynamic Memory, Smart Pointers, STL Containers & Complex Data Structures.\n- **Features Offered:**\n  - High-performance C++ Compiler runner\n  - DSA Problem Sets\n  - Verified Skill Passport Certificate"
+    answer: "⚡ **C++ Systems & DSA Architecture — Course Overview & Features:**\n\n- **Subscription:** ₹50/month (Basic) or ₹150 for 4 months (All 4 Subjects Bundle)\n- **Curriculum:** Object-Oriented C++, Pointers & Dynamic Memory, Smart Pointers, STL Containers & Complex Data Structures.\n- **Features Offered:**\n  - High-performance C++ Compiler runner\n  - DSA Problem Sets\n  - Verified Skill Passport Certificate"
   },
 
   // =========================================================================

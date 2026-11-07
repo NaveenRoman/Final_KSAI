@@ -126,9 +126,14 @@ Return strictly a valid JSON object matching this schema:
 
     // First attempt: direct backend AI teach endpoint
     try {
-      const res = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+      const teachUrl = process.env.DJANGO_TEACH_URL || "http://127.0.0.1:8000/api/ai/teach/";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (process.env.INTERNAL_API_SECRET) {
+        headers["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
+      }
+      const res = await fetch(teachUrl, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           course: course.toUpperCase(),
           chapter: chapter || topic,
@@ -153,7 +158,8 @@ Return strictly a valid JSON object matching this schema:
 
     if (!rawResponse) {
       try {
-        const fallbackRes = await fetch("http://localhost:3000/api/teach", {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const fallbackRes = await fetch(`${appUrl}/api/teach`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

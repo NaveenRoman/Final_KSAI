@@ -1,0 +1,38 @@
+[Unit]
+Description=Codexa Standalone Execution Broker
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+User=codexa-broker
+Group=codexa
+WorkingDirectory=/opt/codexa/backend
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="BROKER_SOCKET_PATH=/run/codexa/broker.sock"
+Environment="DOCKER_SANDBOX_IMAGE=ksai-runner:latest"
+EnvironmentFile=/etc/codexa/broker.env
+
+# Execution
+ExecStart=/opt/codexa/backend/venv/bin/python -m broker.server
+
+# Sandboxing and Security Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/codexa /var/log/codexa /var/lib/codexa
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+
+# Restart policy
+Restart=always
+RestartSec=3s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

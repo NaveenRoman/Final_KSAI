@@ -34,7 +34,9 @@ export async function GET(req: Request) {
         database: {
           status: dbLatencyMs < 100 ? "Healthy" : "Degraded",
           latencyMs: dbLatencyMs,
-          type: "SQLite (Local High-Performance)",
+          type: process.env.DATABASE_URL?.startsWith("postgres")
+            ? "PostgreSQL (Managed Cloud)"
+            : "SQLite (Local High-Performance)",
         },
         aiService: {
           status: hasGeminiKey ? "Operational" : "Degraded",

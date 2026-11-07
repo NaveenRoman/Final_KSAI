@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { safeParseResponse } from "@/lib/safe-json";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
+import { OFFICIAL_PLANS } from "@/lib/subscription-config";
 import {
   Clock,
   Award,
@@ -37,7 +38,7 @@ export default function JavaOverviewPage() {
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [courseTitle, setCourseTitle] = useState("Java Enterprise & Object-Oriented Architecture");
   const [courseId, setCourseId] = useState("");
-  const [coursePrice, setCoursePrice] = useState(1999);
+  const [coursePrice, setCoursePrice] = useState(OFFICIAL_PLANS.BASIC.monthlyRate);
   const [isEnrolled, setIsEnrolled] = useState(true);
   const [chapters, setChapters] = useState<ChapterItem[]>([]);
   const [progresses, setProgresses] = useState<ProgressItem[]>([]);

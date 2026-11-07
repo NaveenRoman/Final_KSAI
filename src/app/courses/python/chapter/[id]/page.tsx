@@ -282,7 +282,7 @@ export default function PythonChapterPage() {
   const [user, setUser] = useState<{ name: string; email: string; role: string } | null>(null);
   const [courseTitle, setCourseTitle] = useState("Python AI & Data Structures Architecture");
   const [courseId, setCourseId] = useState("");
-  const [coursePrice, setCoursePrice] = useState(2499);
+  const [coursePrice, setCoursePrice] = useState(50);
   const [isEnrolled, setIsEnrolled] = useState(true);
   const [buying, setBuying] = useState(false);
   const [userEmail, setUserEmail] = useState("");

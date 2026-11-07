@@ -7,7 +7,7 @@ import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { RightAIPanel } from "@/components/dashboard/RightAIPanel";
 import { Sparkles, BookOpen, Star, Clock, ShieldCheck, CheckCircle, X, ArrowRight, Menu } from "lucide-react";
-import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { OFFICIAL_PLANS } from "@/lib/subscription-config";
 
 interface CourseCatalogItem {
   id: string;
@@ -45,11 +45,9 @@ interface SessionUserWithRole {
 
 // ============================================================================
 // DEMO PURCHASE MODE:
-// When true, clicking "Subscribe" triggers an interactive visual demo success flow
-// without creating Razorpay payment orders or altering real database enrollments.
-// Toggle this to false once Razorpay production credentials are configured.
+// Disabled for production subscription journey. Subscriptions navigate to /plans/duration.
 // ============================================================================
-const DEMO_PURCHASE_MODE = true;
+const DEMO_PURCHASE_MODE = false;
 
 const DEMO_CONFETTI_PIECES = [
   { left: 8, width: 8, height: 12, color: "#3B82F6", delay: 0.05, duration: 2.2, rotate: 25 },
@@ -79,7 +77,7 @@ const DEFAULT_PREVIEW_COURSE: CourseCatalogItem = {
   title: "Python Pro: Zero to Hero Architecture",
   description: "Master modern Python programming, AI systems, data pipelines, and distributed applications.",
   language: "python",
-  price: 999,
+  price: OFFICIAL_PLANS.BASIC.monthlyRate,
   level: "BEGINNER TO ADVANCED",
   category: "ARTIFICIAL INTELLIGENCE",
   thumbnail: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop",
@@ -108,13 +106,12 @@ export default function ExploreCoursesCatalogPage() {
   const [courses, setCourses] = useState<CourseCatalogItem[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [buyingCourseId, setBuyingCourseId] = useState<string | null>(null);
   const [notifiedCourses, setNotifiedCourses] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   // Success Modal State (Production Gateway Flow)
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successCourseLanguage, setSuccessCourseLanguage] = useState("");
+  const [successCourseLanguage] = useState("");
 
   // Demo Purchase Success Modal State (Demo Simulation Flow)
   const [showDemoSuccessModal, setShowDemoSuccessModal] = useState(false);
@@ -191,58 +188,25 @@ export default function ExploreCoursesCatalogPage() {
     setActiveTab(tab);
   };
 
+  const basicMonthlyRate = OFFICIAL_PLANS.BASIC.monthlyRate;
+
+  const handleSubscribeCourse = (course: CourseCatalogItem) => {
+    const langClean = (course.language || "").toLowerCase().trim();
+    const subjectKey =
+      langClean === "c++" || langClean === "cpp"
+        ? "cpp"
+        : langClean === "c"
+        ? "c"
+        : langClean === "java"
+        ? "java"
+        : "python";
+    router.push(`/plans/duration?plan=basic&subject=${subjectKey}`);
+  };
+
   const handlePreviewPurchaseAnimation = () => {
     const sampleCourse = courses.length > 0 ? courses[0] : DEFAULT_PREVIEW_COURSE;
     setDemoSuccessCourse(sampleCourse);
     setShowDemoSuccessModal(true);
-  };
-
-  const handleBuyCourse = async (course: CourseCatalogItem) => {
-    // ------------------------------------------------------------------------
-    // DEMO-ONLY PURCHASE SUCCESS FLOW:
-    // Triggers client-side success animation directly. Bypasses payment gateway
-    // order creation and avoids database state changes during demo sessions.
-    // ------------------------------------------------------------------------
-    if (DEMO_PURCHASE_MODE) {
-      setDemoSuccessCourse(course);
-      setShowDemoSuccessModal(true);
-      return;
-    }
-
-    if (!user) return;
-    setBuyingCourseId(course.id);
-
-    await openRazorpayCheckout({
-      courseId: course.id,
-      courseTitle: course.title,
-      userEmail: user.email,
-      userName: user.name,
-      themeColor: "#3B82F6",
-      onSuccess: async (result) => {
-        setBuyingCourseId(null);
-        if (result.alreadyEnrolled) {
-          alert("You are already enrolled in this course!");
-        } else {
-          setSuccessCourseLanguage(course.language.toLowerCase());
-          setShowSuccessModal(true);
-        }
-        fetchCatalogAndEnrollments(user.email);
-      },
-      onError: (errMsg) => {
-        setBuyingCourseId(null);
-        alert(errMsg || "Failed to complete checkout order.");
-      },
-      onDismiss: () => {
-        setBuyingCourseId(null);
-      },
-      onStateChange: (state) => {
-        if (state === "creating_order" || state === "verifying") {
-          setBuyingCourseId(course.id);
-        } else if (state === "idle" || state === "error" || state === "success") {
-          setBuyingCourseId(null);
-        }
-      },
-    });
   };
 
   return (
@@ -334,7 +298,6 @@ export default function ExploreCoursesCatalogPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 {courses.map((course) => {
                   const isEnrolled = enrollments.some((e) => e.courseId === course.id);
-                  const isBuying = buyingCourseId === course.id;
 
                   return (
                     <div
@@ -396,8 +359,8 @@ export default function ExploreCoursesCatalogPage() {
                         </div>
 
                         <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-black text-slate-900">
-                            ₹{course.price}
+                          <span className="text-xs font-black text-slate-900 font-mono">
+                            ₹{basicMonthlyRate}/month
                           </span>
 
                           {isEnrolled ? (
@@ -416,13 +379,12 @@ export default function ExploreCoursesCatalogPage() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleBuyCourse(course);
+                                handleSubscribeCourse(course);
                               }}
-                              disabled={isBuying}
-                              className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 disabled:opacity-50 shadow-md shadow-blue-500/15 flex items-center gap-1"
+                              className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 shadow-md shadow-blue-500/15 flex items-center gap-1 cursor-pointer transition-all active:scale-[0.98]"
                             >
                               <Sparkles size={12} className="animate-pulse" />
-                              {isBuying ? "Connecting..." : "Subscribe"}
+                              Subscribe
                             </button>
                           )}
                         </div>
@@ -460,7 +422,7 @@ export default function ExploreCoursesCatalogPage() {
                     instructor: "Codenthra AI",
                     thumbnail: "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?q=80&w=800&auto=format&fit=crop",
                     lessons: 24,
-                    price: "₹1999",
+                    price: "Coming Soon",
                     rating: "4.90"
                   },
                   {
@@ -472,7 +434,7 @@ export default function ExploreCoursesCatalogPage() {
                     instructor: "Codenthra AI",
                     thumbnail: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=800&auto=format&fit=crop",
                     lessons: 32,
-                    price: "₹2499",
+                    price: "Coming Soon",
                     rating: "4.98"
                   },
                   {
@@ -484,7 +446,7 @@ export default function ExploreCoursesCatalogPage() {
                     instructor: "Codenthra AI",
                     thumbnail: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=800&auto=format&fit=crop",
                     lessons: 30,
-                    price: "₹2999",
+                    price: "Coming Soon",
                     rating: "4.95"
                   },
                   {
@@ -496,7 +458,7 @@ export default function ExploreCoursesCatalogPage() {
                     instructor: "Codenthra AI",
                     thumbnail: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=800&auto=format&fit=crop",
                     lessons: 28,
-                    price: "₹1999",
+                    price: "Coming Soon",
                     rating: "4.92"
                   }
                 ].map((item) => {

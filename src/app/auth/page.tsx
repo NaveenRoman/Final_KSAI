@@ -46,18 +46,18 @@ export default function AuthPage() {
   };
 
   return (
-    <main className="relative min-h-screen bg-[#09090B] text-white overflow-hidden flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
+    <main className="relative min-h-screen bg-[#09090B] text-white overflow-x-hidden overflow-y-auto flex flex-col justify-between selection:bg-cyan-500 selection:text-black">
       {/* Background Particles & Grid */}
       <BackgroundParticles />
 
       {/* Top Floating Back Link */}
-      <div className="absolute top-6 left-6 z-30">
+      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 z-30">
         <a
           href="/"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-white/10 text-xs font-semibold text-slate-300 hover:text-white hover:border-cyan-400 transition-all shadow-lg"
+          className="inline-flex items-center gap-2 px-3.5 py-2 sm:px-4 sm:py-2 min-h-[38px] rounded-full glass-panel border border-white/10 text-xs font-semibold text-slate-300 hover:text-white hover:border-cyan-400 transition-all shadow-lg"
         >
           <ArrowLeft size={14} />
-          Back to Homepage
+          <span>Back to Homepage</span>
         </a>
       </div>
 
@@ -69,7 +69,7 @@ export default function AuthPage() {
         </div>
 
         {/* Right Side (40% Desktop / Bottom on Tablet / Fullscreen Mobile) */}
-        <div className="lg:col-span-5 w-full min-h-screen flex items-center justify-center p-4 sm:p-8 lg:p-12 py-6 relative z-20">
+        <div className="lg:col-span-5 w-full min-h-screen flex items-center justify-center p-3 xs:p-4 sm:p-8 lg:p-12 pt-16 sm:py-12 lg:py-6 relative z-20">
           <AnimatePresence mode="wait">
             {!authUser ? (
               <AuthGlassCard onAuthSuccess={handleAuthSuccess} />

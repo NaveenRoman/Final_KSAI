@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useSession } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import {
@@ -9,16 +9,14 @@ import {
   Clock,
   BookOpen,
   User,
-  CheckCircle,
   CreditCard,
-  Sparkles,
   FileText,
   ChevronRight,
   ExternalLink,
-  ShieldCheck,
   AlertCircle,
 } from "lucide-react";
 import { SyllabusDocViewerModal } from "./SyllabusDocViewerModal";
+import { OFFICIAL_PLANS } from "@/lib/subscription-config";
 
 export interface CourseData {
   id: string;
@@ -41,12 +39,6 @@ interface CourseDetailsModalProps {
   userEmail?: string;
   onClose: () => void;
   onPaymentSuccess: (course: CourseData) => void;
-}
-
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
 }
 
 const LANGUAGE_SYLLABUS: Record<string, { modules: { title: string; topics: string[] }[] }> = {
@@ -145,22 +137,7 @@ export function CourseDetailsModal({
 }: CourseDetailsModalProps) {
   const { data: session } = useSession();
   const [docViewerOpen, setDocViewerOpen] = useState(false);
-  const [loadingRazorpay, setLoadingRazorpay] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-
-  // Dynamically load Official Razorpay Checkout Script
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, []);
 
   const rawLang = (course.language || course.category || "").toLowerCase().trim();
   const langKey =
@@ -173,117 +150,6 @@ export function CourseDetailsModal({
       : "python";
 
   const syllabus = LANGUAGE_SYLLABUS[langKey] || LANGUAGE_SYLLABUS.python;
-
-  const completeEnrollment = async (
-    paymentId: string,
-    razorpay_order_id?: string,
-    razorpay_signature?: string
-  ) => {
-    try {
-      const enrollRes = await fetch("/api/courses/enroll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userEmail,
-          courseId: course.id,
-          paymentId,
-          razorpay_order_id,
-          razorpay_signature,
-        }),
-      });
-
-      const enrollData = await enrollRes.json();
-      if (enrollData.success) {
-        onPaymentSuccess(course);
-      } else {
-        setPaymentError(enrollData.error || "Payment verification failed.");
-        alert(enrollData.error || "Payment verification failed.");
-      }
-    } catch (err) {
-      console.error("Enrollment error:", err);
-      setPaymentError("Network error completing enrollment.");
-    }
-  };
-
-  const handleOpenRealRazorpayCheckout = async () => {
-    setLoadingRazorpay(true);
-    setPaymentError(null);
-
-    try {
-      // 1. Create order on backend API with user's real Razorpay keys
-      const resData = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: course.price,
-          currency: "INR",
-          courseId: course.id,
-          userEmail,
-        }),
-      });
-
-      const data = await resData.json();
-
-      if (!data.success || !data.order) {
-        setPaymentError(data.error || "Could not create order.");
-        alert(`Razorpay API Error: ${data.error || "Could not create order"}`);
-        setLoadingRazorpay(false);
-        return;
-      }
-
-      const { order, key, isMock } = data;
-
-      if (isMock) {
-        alert("🔧 Local Dev Mode: Simulating Razorpay Payment Gateway. Click OK to confirm purchase.");
-        await completeEnrollment(`pay_mock_${Date.now()}`);
-        setLoadingRazorpay(false);
-        return;
-      }
-
-      // 2. Configure Official Razorpay SDK options with REAL order.id
-      const options: any = {
-        key: key || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "KnowledgeStream AI",
-        description: course.title,
-        order_id: order.id, // REAL Order ID from Razorpay API!
-        handler: async function (response: any) {
-          const paymentId = response.razorpay_payment_id;
-          const orderId = response.razorpay_order_id;
-          const signature = response.razorpay_signature;
-          await completeEnrollment(paymentId, orderId, signature);
-        },
-        prefill: {
-          name: session?.user?.name || "Student",
-          email: userEmail || session?.user?.email || "student@knowledgestream.ai",
-          contact: "9999999999",
-        },
-        theme: {
-          color: "#3B82F6",
-        },
-      };
-
-      setLoadingRazorpay(false);
-
-      if (typeof window !== "undefined" && window.Razorpay) {
-        const rzp1 = new window.Razorpay(options);
-        rzp1.on("payment.failed", function (response: any) {
-          const errMsg = response.error?.description || "Payment was cancelled or failed.";
-          setPaymentError(errMsg);
-          alert(`Razorpay Payment Failed: ${errMsg}`);
-        });
-        rzp1.open();
-      } else {
-        alert("Razorpay SDK is loading. Please try again in 2 seconds.");
-      }
-    } catch (err: any) {
-      console.error("Razorpay Checkout Error:", err);
-      setPaymentError(err.message || "Checkout setup failed.");
-      alert(`Razorpay Error: ${err.message}`);
-      setLoadingRazorpay(false);
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-[9999] bg-[#09090B]/95 backdrop-blur-3xl flex items-center justify-center p-4 overflow-y-auto">
@@ -385,13 +251,12 @@ export function CourseDetailsModal({
           </div>
         )}
 
-        {/* Footer Price & Official Razorpay Action */}
+        {/* Footer Price & Official Subscription Action */}
         <div className="pt-4 mt-4 border-t border-white/10 flex items-center justify-between shrink-0 px-6 pb-6">
           <div className="text-left">
-            <span className="text-xs text-slate-400 uppercase font-mono block">90 Days Full Course Access</span>
+            <span className="text-xs text-slate-400 uppercase font-mono block">Course Subscription</span>
             <div className="text-3xl font-black text-white font-mono flex items-baseline gap-1">
-              <span>₹{course.price}</span>
-              <span className="text-xs text-slate-400 font-normal">INR</span>
+              <span>₹{OFFICIAL_PLANS.BASIC.monthlyRate}/month</span>
             </div>
           </div>
 
@@ -411,12 +276,15 @@ export function CourseDetailsModal({
             )}
 
             <button
-              onClick={handleOpenRealRazorpayCheckout}
-              disabled={loadingRazorpay}
-              className="px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center gap-2 shadow-xl shadow-blue-500/25 disabled:opacity-50"
+              onClick={() => {
+                onClose();
+                const subject = langKey;
+                window.location.href = `/plans/duration?plan=basic&subject=${subject}`;
+              }}
+              className="px-8 py-3.5 rounded-full text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center gap-2 shadow-xl shadow-blue-500/25 cursor-pointer"
             >
               <CreditCard size={18} />
-              {loadingRazorpay ? "Creating Order..." : "Subscribe & Pay"}
+              Subscribe
             </button>
           </div>
         </div>

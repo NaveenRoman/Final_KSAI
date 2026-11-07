@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from typing import Dict, Any, Tuple, Optional
 
@@ -201,7 +202,7 @@ def compiler_verify_code(code: str, language: str, timeout_sec: int = 5) -> Tupl
     
     # 1. Python Execution & Syntax Check
     if norm == "python":
-        python_exec = shutil.which("python") or shutil.which("python3") or r"C:\Users\Indhu\AppData\Local\Programs\Python\Python311\python.exe"
+        python_exec = sys.executable or shutil.which("python3") or shutil.which("python")
         if python_exec and os.path.exists(python_exec):
             with tempfile.NamedTemporaryFile(suffix=".py", mode="w", encoding="utf-8", delete=False) as f:
                 f.write(code)

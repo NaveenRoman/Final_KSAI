@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { safeParseResponse } from "@/lib/safe-json";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { OFFICIAL_PLANS } from "@/lib/subscription-config";
 import {
   Lock,
   Unlock,
@@ -45,9 +46,7 @@ export default function CourseCurriculumPage() {
       : "Python AI & Data Structures Architecture"
   );
   const [courseId, setCourseId] = useState("");
-  const [coursePrice, setCoursePrice] = useState(
-    courseSlug === "c" ? 1499 : (courseSlug === "cpp" || courseSlug === "java") ? 1999 : 2499
-  );
+  const [coursePrice, setCoursePrice] = useState(OFFICIAL_PLANS.BASIC.monthlyRate);
   const [isEnrolled, setIsEnrolled] = useState(true);
   const [buying, setBuying] = useState(false);
   const [userEmail, setUserEmail] = useState("");
@@ -98,32 +97,11 @@ export default function CourseCurriculumPage() {
     loadCurriculumData();
   }, [courseSlug]);
 
-  // Purchase enrollment fallback
-  const handleBuyCourse = async () => {
-    if (!courseId) return;
-    const email = user?.email || userEmail || "student@gmail.com";
-    const name = user?.name || "Student";
-    setBuying(true);
-    try {
-      await openRazorpayCheckout({
-        courseId,
-        courseTitle: courseTitle || "Complete Mastery Course",
-        userEmail: email,
-        userName: name,
-        onSuccess: async () => {
-          alert("🎉 Course purchased successfully! All chapters are now unlocked.");
-          await loadCurriculumData();
-        },
-        onError: (err) => {
-          alert(err);
-        },
-      });
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "Failed to initiate payment.");
-    } finally {
-      setBuying(false);
-    }
+  // Purchase enrollment navigation to shared subscription flow
+  const handleBuyCourse = () => {
+    const rawClean = (courseSlug || "").toLowerCase().trim();
+    const cleanSlug = rawClean === "c++" || rawClean === "cpp" ? "cpp" : rawClean === "c" ? "c" : rawClean === "java" ? "java" : "python";
+    router.push(`/plans/duration?plan=basic&subject=${cleanSlug}`);
   };
 
   // Lock State Logic: Strict sequential chapter unlocking
@@ -244,11 +222,10 @@ export default function CourseCurriculumPage() {
               {!isEnrolled && (
                 <button
                   onClick={handleBuyCourse}
-                  disabled={buying}
-                  className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-xl shadow-blue-500/10"
+                  className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-xl shadow-blue-500/10 cursor-pointer active:scale-[0.98]"
                 >
                   <Sparkles size={14} className="animate-pulse" />
-                  {buying ? "Processing..." : `Subscribe to Unlock All (₹${coursePrice})`}
+                  Subscribe to Unlock All (₹{coursePrice}/month)
                 </button>
               )}
             </div>

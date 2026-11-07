@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateCodeBeforeRun } from "@/lib/code-validator";
+import { callGeminiWithResilience } from "@/lib/ai/gemini-client";
+import { resolveStudentIdentity } from "@/lib/ai/student-resolver";
 
 interface RuntimeExceptionInfo {
     type: string;
@@ -183,17 +185,15 @@ export async function POST(request: NextRequest) {
         const apiKey = process.env.GEMINI_API_KEY;
 
         // =========================================================
-        // TIER 1: Direct Google Gemini 3.6 Flash AI Guide (REST)
+        // TIER 1: Direct Resilient Gemini AI Guide
         // =========================================================
-        if (apiKey) {
-            try {
-                const errorDescriptions = errorList.length > 0
-                    ? errorList.map((e: Record<string, unknown>, idx: number) =>
-                        `Error ${idx + 1}: Line ${e.line}, Column ${e.column || 1} -> Type: ${e.type || 'Error'}, Message: ${e.message}, Fix: ${e.correction || ''}`
-                    ).join("\n")
-                    : "No compiler errors reported.";
+        const errorDescriptions = errorList.length > 0
+            ? errorList.map((e: Record<string, unknown>, idx: number) =>
+                `Error ${idx + 1}: Line ${e.line}, Column ${e.column || 1} -> Type: ${e.type || 'Error'}, Message: ${e.message}, Fix: ${e.correction || ''}`
+            ).join("\n")
+            : "No compiler errors reported.";
 
-                const prompt = `You are Codenthra AI Guide, an expert programming mentor and debugger.
+        const prompt = `You are Codenthra AI Guide, an expert programming mentor and debugger.
 The student is writing in ${language.toUpperCase()}.
 Learning Level: ${learningLevel.toUpperCase()}
 
@@ -220,58 +220,50 @@ INSTRUCTIONS:
 4. Keep the tone encouraging, clear, and tailored to ${learningLevel} level.
 5. If 0 errors and no runtime crashes exist, congratulate the student and suggest a next optimization or feature to add.`;
 
-                const models = [
-                    "gemini-3.6-flash",
-                    "gemini-2.5-flash",
-                    "gemini-3.5-flash",
-                    "gemini-3.7-flash",
-                    "gemini-3.1-flash-lite",
-                    "gemini-flash-latest",
-                ];
+        // Resolve identity strictly from verified server-side session or IP hash
+        const identity = await resolveStudentIdentity(request);
 
-                for (const model of models) {
-                    try {
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const geminiResult = await callGeminiWithResilience({
+            service: "guide",
+            studentId: identity.studentId,
+            isGuest: identity.isGuest,
+            limitRpm: identity.limitRpm,
+            prompt,
+            temperature: 0.3,
+            maxOutputTokens: 2048,
+        });
 
-                        const geminiRes = await fetch(
-                            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-                            {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                signal: controller.signal,
-                                body: JSON.stringify({
-                                    contents: [{ parts: [{ text: prompt }] }],
-                                }),
-                            }
-                        );
-                        clearTimeout(timeoutId);
-
-                        if (geminiRes.ok) {
-                            const data = await geminiRes.json();
-                            const answer = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-                            if (answer && answer.trim()) {
-                                return NextResponse.json({
-                                    success: true,
-                                    response: answer,
-                                    data: {
-                                        intent: "guide",
-                                        response: answer,
-                                        guide: {
-                                            explanation: answer,
-                                            errorCount: errorList.length,
-                                        },
-                                    },
-                                });
-                            }
-                        }
-                    } catch {
-                        // try next model
-                    }
+        if (geminiResult.status === 429) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "RATE_LIMIT_EXCEEDED",
+                    message: "Too many AI guide requests. Please wait a moment before trying again.",
+                    retryAfterSeconds: geminiResult.retryAfterSeconds,
+                },
+                {
+                    status: 429,
+                    headers: geminiResult.retryAfterSeconds
+                        ? { "Retry-After": String(geminiResult.retryAfterSeconds) }
+                        : undefined,
                 }
-            } catch (geminiError) {
-                console.warn("Direct Gemini AI Guide failed, falling back to secondary providers:", geminiError);
-            }
+            );
+        }
+
+        if (geminiResult.success && geminiResult.text) {
+            const answer = geminiResult.text.trim();
+            return NextResponse.json({
+                success: true,
+                response: answer,
+                data: {
+                    intent: "guide",
+                    response: answer,
+                    guide: {
+                        explanation: answer,
+                        errorCount: errorList.length,
+                    },
+                },
+            });
         }
 
         // =========================================================

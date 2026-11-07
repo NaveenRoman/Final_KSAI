@@ -1,0 +1,41 @@
+[Unit]
+Description=Codexa Django Gunicorn Backend
+After=network.target codexa-broker.service
+Requires=codexa-broker.service
+
+[Service]
+Type=simple
+User=codexa
+Group=codexa
+WorkingDirectory=/opt/codexa/backend
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+Environment="DJANGO_ENV=production"
+Environment="BROKER_SOCKET_PATH=/run/codexa/broker.sock"
+EnvironmentFile=/etc/codexa/backend.env
+
+# Execution: Gunicorn with 3 sync workers, 25s timeout, 0660 socket permissions, bound to Unix socket
+ExecStart=/opt/codexa/backend/venv/bin/gunicorn \
+    --workers 3 \
+    --timeout 25 \
+    --umask 007 \
+    --bind unix:/run/codexa/gunicorn.sock \
+    --access-logfile /var/log/codexa/access.log \
+    --error-logfile /var/log/codexa/error.log \
+    config.wsgi:application
+
+# Sandboxing and Security Hardening
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/run/codexa /var/log/codexa /var/lib/codexa
+PrivateTmp=true
+
+# Restart policy
+Restart=always
+RestartSec=3s
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

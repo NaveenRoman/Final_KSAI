@@ -1,7 +1,20 @@
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
+import { callGeminiWithResilience } from "@/lib/ai/gemini-client";
 
 export async function POST(request: Request) {
   try {
+    let studentId: string | undefined;
+    try {
+      const session = await auth.api.getSession({
+        headers: await headers().catch(() => request.headers),
+      });
+      studentId = session?.user?.id;
+    } catch {
+      // unauthenticated or guest usage
+    }
+
     const body = await request.json().catch(() => ({}));
     const {
       action = "optimize_summary",
@@ -12,8 +25,6 @@ export async function POST(request: Request) {
       company = "Target Company",
       pdfBase64 = null,
     } = body;
-
-    const apiKey = process.env.GEMINI_API_KEY;
 
     if (action === "align_with_jd") {
       const userSkills: string[] = Array.isArray(resumeData?.skills) ? resumeData.skills : [];
@@ -26,7 +37,7 @@ export async function POST(request: Request) {
         ...userProjects.map((p: any) => `${p.title} ${p.techStack} ${p.description} ${(p.bullets || []).join(" ")}`),
       ].join(" ").toLowerCase();
 
-      if (apiKey && (jobDescription || pdfBase64)) {
+      if (jobDescription || pdfBase64) {
         try {
           const promptText = `You are Codenthra AI, an elite FAANG Career Strategist and ATS Optimizer.
 Given the Target Job Description provided for a "${targetRole}" role at "${company}", and candidate's current resume JSON:
@@ -57,20 +68,19 @@ Generate a JSON object with EXACT keys:
           }
           parts.push({ text: promptText });
 
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contents: [{ parts }] }),
-            }
-          );
-          if (geminiRes.ok) {
-            const gData = await geminiRes.json();
-            const resultText = gData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (resultText) {
-              const cleaned = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
-              const parsed = JSON.parse(cleaned);
+          const gemResult = await callGeminiWithResilience({
+            service: "resume",
+            studentId,
+            contents: [{ parts }],
+            temperature: 0.2,
+            responseMimeType: "application/json",
+          });
+
+          if (gemResult.success && gemResult.text) {
+            const cleaned = gemResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
+            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
               return NextResponse.json({ success: true, ...parsed });
             }
           }
@@ -110,27 +120,21 @@ Generate a JSON object with EXACT keys:
     }
 
     if (action === "optimize_summary") {
-      if (apiKey) {
-        try {
-          const prompt = `You are Codenthra AI, an expert ATS Resume Coach. Enhance the following professional summary for a ${targetRole} position. Make it concise, high-impact, professional, and keywords-rich for ATS parsers (maximum 3-4 sentences):\n\n"${text}"`;
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-            }
-          );
-          if (geminiRes.ok) {
-            const gData = await geminiRes.json();
-            const resultText = gData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (resultText) {
-              return NextResponse.json({ success: true, result: resultText.trim() });
-            }
-          }
-        } catch (e) {
-          console.error("Gemini API error in resume summary:", e);
+      try {
+        const prompt = `You are Codenthra AI, an expert ATS Resume Coach. Enhance the following professional summary for a ${targetRole} position. Make it concise, high-impact, professional, and keywords-rich for ATS parsers (maximum 3-4 sentences):\n\n"${text}"`;
+        const gemResult = await callGeminiWithResilience({
+          service: "resume",
+          studentId,
+          prompt,
+          temperature: 0.3,
+          maxOutputTokens: 500,
+        });
+
+        if (gemResult.success && gemResult.text) {
+          return NextResponse.json({ success: true, result: gemResult.text.trim() });
         }
+      } catch (e) {
+        console.error("Gemini API error in resume summary:", e);
       }
       // Fallback
       return NextResponse.json({
@@ -140,27 +144,21 @@ Generate a JSON object with EXACT keys:
     }
 
     if (action === "optimize_bullet") {
-      if (apiKey) {
-        try {
-          const prompt = `You are Codenthra AI, an expert ATS Resume Coach. Turn this work/project bullet point into a powerful, action-verb driven, quantified accomplishment statement suitable for top tech companies (FAANG/MNC):\n\n"${text}"`;
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-            }
-          );
-          if (geminiRes.ok) {
-            const gData = await geminiRes.json();
-            const resultText = gData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (resultText) {
-              return NextResponse.json({ success: true, result: resultText.trim() });
-            }
-          }
-        } catch (e) {
-          console.error("Gemini API error in resume bullet:", e);
+      try {
+        const prompt = `You are Codenthra AI, an expert ATS Resume Coach. Turn this work/project bullet point into a powerful, action-verb driven, quantified accomplishment statement suitable for top tech companies (FAANG/MNC):\n\n"${text}"`;
+        const gemResult = await callGeminiWithResilience({
+          service: "resume",
+          studentId,
+          prompt,
+          temperature: 0.3,
+          maxOutputTokens: 300,
+        });
+
+        if (gemResult.success && gemResult.text) {
+          return NextResponse.json({ success: true, result: gemResult.text.trim() });
         }
+      } catch (e) {
+        console.error("Gemini API error in resume bullet:", e);
       }
       // Fallback
       return NextResponse.json({
@@ -170,23 +168,22 @@ Generate a JSON object with EXACT keys:
     }
 
     if (action === "ats_score") {
-      if (apiKey && resumeData) {
+      if (resumeData) {
         try {
           const prompt = `You are Codenthra AI, an automated ATS Scanner. Analyze this resume JSON and return JSON with keys: "score" (number 60-98), "feedback" (array of 3-4 bullet strings), "missingKeywords" (array of strings):\n\n${JSON.stringify(resumeData)}`;
-          const geminiRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-            }
-          );
-          if (geminiRes.ok) {
-            const gData = await geminiRes.json();
-            const resultText = gData.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (resultText) {
-              const cleaned = resultText.replace(/```json/g, "").replace(/```/g, "").trim();
-              const parsed = JSON.parse(cleaned);
+          const gemResult = await callGeminiWithResilience({
+            service: "resume",
+            studentId,
+            prompt,
+            temperature: 0.2,
+            responseMimeType: "application/json",
+          });
+
+          if (gemResult.success && gemResult.text) {
+            const cleaned = gemResult.text.replace(/```json/g, "").replace(/```/g, "").trim();
+            const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
               return NextResponse.json({ success: true, ...parsed });
             }
           }

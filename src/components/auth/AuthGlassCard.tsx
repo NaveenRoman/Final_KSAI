@@ -14,6 +14,7 @@ const PORTALS = [
   {
     id: "STUDENT",
     label: "Student",
+    shortLabel: "Student",
     icon: "🎓",
     badge: "Student Workspace",
     target: "/dashboard",
@@ -21,6 +22,7 @@ const PORTALS = [
   {
     id: "FACULTY",
     label: "Faculty",
+    shortLabel: "Faculty",
     icon: "👨‍🏫",
     badge: "Faculty Portal",
     target: "/dashboard/faculty",
@@ -28,6 +30,7 @@ const PORTALS = [
   {
     id: "COLLEGE_ADMIN",
     label: "College Admin",
+    shortLabel: "College",
     icon: "🏫",
     badge: "College Admin",
     target: "/dashboard/college",
@@ -35,6 +38,7 @@ const PORTALS = [
   {
     id: "DEPARTMENT_ADMIN",
     label: "Dept Admin",
+    shortLabel: "Dept",
     icon: "🏢",
     badge: "Dept Admin",
     target: "/dashboard/department",
@@ -42,6 +46,7 @@ const PORTALS = [
   {
     id: "SUPER_ADMIN",
     label: "Super Admin",
+    shortLabel: "Super",
     icon: "👑",
     badge: "Super Admin",
     target: "/admin/dashboard",
@@ -96,7 +101,7 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
         initial={{ opacity: 0, y: 30, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="glass-panel p-6 sm:p-8 rounded-3xl border border-white/20 shadow-2xl relative bg-[#0C0C14]/90 backdrop-blur-2xl glow-border-blue w-full flex flex-col"
+        className="glass-panel p-4 xs:p-6 sm:p-8 rounded-3xl border border-white/20 shadow-2xl relative bg-[#0C0C14]/90 backdrop-blur-2xl glow-border-blue w-full flex flex-col"
       >
         {/* Top Radial Glow */}
         <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-blue-500/20 blur-3xl pointer-events-none" />
@@ -104,7 +109,7 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
 
         {activeTab === "login" && (
           <div className="text-center mb-4 space-y-1">
-            <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+            <h2 className="text-2xl xs:text-3xl sm:text-4xl font-black text-white tracking-tight">
               Welcome Back 👋
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 font-medium">
@@ -118,7 +123,7 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
           <button
             type="button"
             onClick={() => setActiveTab("login")}
-            className={`flex-1 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all relative z-10 ${
+            className={`flex-1 py-2.5 sm:py-2 min-h-[42px] rounded-xl text-xs sm:text-sm font-extrabold transition-all relative z-10 cursor-pointer flex items-center justify-center ${
               activeTab === "login" ? "text-white" : "text-slate-400 hover:text-slate-200"
             }`}
           >
@@ -127,7 +132,7 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
           <button
             type="button"
             onClick={() => setActiveTab("signup")}
-            className={`flex-1 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-all relative z-10 ${
+            className={`flex-1 py-2.5 sm:py-2 min-h-[42px] rounded-xl text-xs sm:text-sm font-extrabold transition-all relative z-10 cursor-pointer flex items-center justify-center ${
               activeTab === "signup" ? "text-white" : "text-slate-400 hover:text-slate-200"
             }`}
           >
@@ -153,7 +158,7 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
               Select Portal / Role
             </div>
 
-            <div className="grid grid-cols-5 gap-1.5 p-1 rounded-2xl bg-white/5 border border-white/10">
+            <div className="grid grid-cols-5 gap-1 xs:gap-1.5 p-1 rounded-2xl bg-white/5 border border-white/10">
               {PORTALS.map((portal) => {
                 const isSelected = selectedPortalId === portal.id;
                 return (
@@ -161,15 +166,16 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
                     key={portal.id}
                     type="button"
                     onClick={() => handlePortalSelect(portal)}
-                    className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center transition-all ${
+                    className={`py-2 px-0.5 xs:px-1 rounded-xl min-h-[50px] sm:min-h-[54px] flex flex-col items-center justify-center transition-all cursor-pointer ${
                       isSelected
-                        ? "bg-gradient-to-b from-blue-600 to-indigo-600 text-white shadow-lg scale-[1.03] border border-blue-400/40"
+                        ? "bg-gradient-to-b from-blue-600 to-indigo-600 text-white shadow-lg scale-[1.02] border border-blue-400/40"
                         : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                     }`}
                   >
-                    <span className="text-base">{portal.icon}</span>
-                    <span className="text-[10px] font-bold tracking-tight mt-0.5 truncate max-w-full">
-                      {portal.label}
+                    <span className="text-base sm:text-lg leading-none">{portal.icon}</span>
+                    <span className="text-[9px] xs:text-[9.5px] sm:text-[10px] font-bold tracking-tight mt-1 leading-none truncate max-w-full text-center">
+                      <span className="inline sm:hidden">{portal.shortLabel}</span>
+                      <span className="hidden sm:inline">{portal.label}</span>
                     </span>
                   </button>
                 );

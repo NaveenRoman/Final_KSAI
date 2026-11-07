@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from config.internal_auth import internal_auth_required
 
 from orchestrator.orchestrator import AIOrchestrator
 
@@ -7,6 +8,7 @@ import json
 
 
 @csrf_exempt
+@internal_auth_required
 def explain_code(request):
 
     if request.method != "POST":
@@ -43,6 +45,7 @@ def explain_code(request):
 })
 
 @csrf_exempt
+@internal_auth_required
 def chat_code(request):
 
     if request.method != "POST":
@@ -148,6 +151,7 @@ def chat_code(request):
 
 
 @csrf_exempt
+@internal_auth_required
 def autocode_code(request):
 
     if request.method != "POST":
