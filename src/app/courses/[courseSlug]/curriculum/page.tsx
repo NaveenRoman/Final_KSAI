@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { safeParseResponse } from "@/lib/safe-json";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import {
   Lock,
   Unlock,
@@ -104,89 +105,22 @@ export default function CourseCurriculumPage() {
     const name = user?.name || "Student";
     setBuying(true);
     try {
-      const res = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: coursePrice,
-          currency: "INR",
-          courseId: courseId,
-          userEmail: email,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        alert(data.error || "Order creation failed.");
-        setBuying(false);
-        return;
-      }
-
-      const { isMock } = data;
-
-      if (isMock) {
-        alert("🔧 Local Dev Mode: Simulating Razorpay Payment Gateway. Click OK to confirm purchase.");
-        
-        const enrollRes = await fetch("/api/courses/enroll", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userEmail: email,
-            courseId: courseId,
-            paidAmount: coursePrice,
-            paymentId: `pay_mock_${Date.now()}`,
-          }),
-        });
-
-        const enrollData = await enrollRes.json();
-        if (enrollData.success) {
+      await openRazorpayCheckout({
+        courseId,
+        courseTitle: courseTitle || "Complete Mastery Course",
+        userEmail: email,
+        userName: name,
+        onSuccess: async () => {
           alert("🎉 Course purchased successfully! All chapters are now unlocked.");
           await loadCurriculumData();
-        } else {
-          alert(enrollData.error || "Enrollment failed.");
-        }
-      } else {
-        const options = {
-          key: data.key,
-          amount: data.order.amount,
-          currency: data.order.currency,
-          name: "KnowledgeStream AI",
-          description: courseTitle,
-          order_id: data.order.id,
-          handler: async function (response: any) {
-            const enrollRes = await fetch("/api/courses/enroll", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                userEmail: email,
-                courseId: courseId,
-                paidAmount: coursePrice,
-                paymentId: response.razorpay_payment_id,
-              }),
-            });
-            const enrollData = await enrollRes.json();
-            if (enrollData.success) {
-              alert("🎉 Course purchased successfully! All chapters are now unlocked.");
-              await loadCurriculumData();
-            } else {
-              alert(enrollData.error || "Enrollment failed.");
-            }
-          },
-          prefill: {
-            name: name,
-            email: email,
-          },
-        };
-        if (window.Razorpay) {
-          const rzp = new window.Razorpay(options);
-          rzp.open();
-        } else {
-          alert("Razorpay SDK is loading. Try again.");
-        }
-      }
-    } catch (err) {
+        },
+        onError: (err) => {
+          alert(err);
+        },
+      });
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to complete payment.");
+      alert(err?.message || "Failed to initiate payment.");
     } finally {
       setBuying(false);
     }
@@ -337,7 +271,7 @@ export default function CourseCurriculumPage() {
                 } else if (!unlocked) {
                   cardStyle = "bg-white/5 border-white/5 opacity-60 cursor-not-allowed";
                   lockIcon = <Lock size={16} className="text-slate-500" />;
-                  
+
                   const freeLimit = courseSlug === "python" ? 0 : 1;
                   if (!isEnrolled && chapter.orderNumber > freeLimit) {
                     statusLabel = "Locked: Subscribe to unlock all remaining chapters";

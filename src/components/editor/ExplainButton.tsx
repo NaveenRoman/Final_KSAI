@@ -147,39 +147,42 @@ export default function ExplainButton() {
                 group
                 flex
                 items-center
-                gap-3
-                px-5
-                py-3
-                rounded-2xl
+                gap-2 sm:gap-3
+                min-h-[44px]
+                px-4 sm:px-5
+                py-2.5 sm:py-3
+                rounded-xl sm:rounded-2xl
                 bg-gradient-to-r
                 from-violet-500
                 to-purple-600
                 text-white
                 shadow-lg
                 hover:scale-105
+                active:scale-95
                 hover:shadow-xl
                 transition
                 disabled:opacity-50
                 disabled:cursor-not-allowed
                 disabled:hover:scale-100
                 cursor-pointer
+                shrink-0
+                touch-manipulation
             "
         >
             {loading ? (
                 <Loader2
-                    size={20}
-                    className="animate-spin"
+                    size={18}
+                    className="animate-spin sm:w-5 sm:h-5"
                 />
             ) : (
                 <BookOpen
-                    size={20}
+                    size={18}
+                    className="sm:w-5 sm:h-5"
                 />
             )}
 
-            <span className="font-semibold text-sm">
-                {loading
-                    ? "Analyzing..."
-                    : "Explain"}
+            <span className="font-semibold text-xs sm:text-sm whitespace-nowrap">
+                {loading ? "Analyzing..." : "Explain"}
             </span>
         </button>
     );

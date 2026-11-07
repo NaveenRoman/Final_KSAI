@@ -65,7 +65,7 @@ export default function TabItem({
       onClick={() =>
         setActiveTab(tab.id)
       }
-      className={`group h-full min-w-[170px] px-4 flex items-center justify-between border-r transition-all
+      className={`group h-full min-w-[120px] sm:min-w-[170px] px-3 sm:px-4 flex items-center justify-between border-r shrink-0 touch-manipulation transition-all
       ${
         active
           ? darkMode
@@ -76,9 +76,9 @@ export default function TabItem({
           : "hover:bg-gray-50"
       }`}
     >
-      <div className="flex items-center gap-2 overflow-hidden">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-hidden">
 
-        <span>
+        <span className="shrink-0 text-xs sm:text-base">
 
           {getLanguageIcon(
             tab.language
@@ -86,7 +86,7 @@ export default function TabItem({
 
         </span>
 
-        <span className="truncate text-sm">
+        <span className="truncate text-xs sm:text-sm">
 
           {tab.name}
 
@@ -94,25 +94,36 @@ export default function TabItem({
 
         {tab.isDirty && (
           <Circle
-            size={8}
+            size={7}
             fill="currentColor"
+            className="shrink-0"
           />
         )}
 
         {tab.isPinned && (
-          <Pin size={12} />
+          <Pin size={11} className="shrink-0" />
         )}
 
       </div>
 
-      <X
-        size={15}
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label="Close tab"
         onClick={(e) => {
           e.stopPropagation();
           closeTab(tab.id);
         }}
-        className="opacity-0 group-hover:opacity-100 transition"
-      />
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.stopPropagation();
+            closeTab(tab.id);
+          }
+        }}
+        className="opacity-80 sm:opacity-0 sm:group-hover:opacity-100 min-w-[36px] min-h-[36px] sm:min-w-0 sm:min-h-0 p-2 sm:p-1 flex items-center justify-center rounded-lg hover:bg-black/10 dark:hover:bg-white/10 transition shrink-0 ml-1 cursor-pointer touch-manipulation"
+      >
+        <X size={14} />
+      </span>
     </button>
   );
 }

@@ -7,6 +7,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import EditorNavbar from "@/components/editor/EditorNavbar";
 import ExplorerSidebar from "@/components/editor/ExplorerSidebar";
+import { MobileNavigationDrawer } from "@/components/navigation/MobileNavigationDrawer";
 
 const MonacoEditorPanel = nextDynamic(() => import("@/components/editor/MonacoEditor"), {
   ssr: false,
@@ -38,7 +39,7 @@ import { EditorProvider } from "@/components/editor/EditorContext";
 import { AIResultProvider } from "@/components/editor/AIResultContext";
 import { AIChatProvider } from "@/components/editor/AIChatContext";
 
-import { Sparkles, MessageSquare, Bot, BookOpen, Terminal, Target } from "lucide-react";
+import { Sparkles, MessageSquare, Bot, BookOpen, Terminal, Target, Folder, Code2 } from "lucide-react";
 import { ChallengeProvider, useChallenge } from "@/components/editor/challenge/ChallengeContext";
 import ChallengeHeaderBar from "@/components/editor/challenge/ChallengeHeaderBar";
 import ChallengePanel from "@/components/editor/challenge/ChallengePanel";
@@ -76,6 +77,7 @@ function EditorLayout() {
   const { showTerminal, setShowTerminal } = useTerminal();
   const { isChallengeMode } = useChallenge();
   const [rightPanelTab, setRightPanelTab] = useState<"chat" | "explanation" | "challenge">("explanation");
+  const [mobileView, setMobileView] = useState<"editor" | "copilot" | "files">("editor");
 
   // Automatically activate challenge tab when in challenge mode
   useEffect(() => {
@@ -93,26 +95,109 @@ function EditorLayout() {
         customEvent.detail === "challenge"
       ) {
         setRightPanelTab(customEvent.detail);
+        if (typeof window !== "undefined" && window.innerWidth < 768) {
+          setMobileView("copilot");
+        }
       }
     };
     window.addEventListener("editor-switch-right-tab", handleSwitch);
     return () => window.removeEventListener("editor-switch-right-tab", handleSwitch);
   }, []);
 
+  // When a file is opened from file tree on mobile, auto-switch to editor view
+  useEffect(() => {
+    const handleOpenFile = () => {
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setMobileView("editor");
+      }
+    };
+    window.addEventListener("editor-open-file", handleOpenFile);
+    return () => window.removeEventListener("editor-open-file", handleOpenFile);
+  }, []);
+
+  // When terminal is opened from anywhere on mobile, ensure editor view is active
+  useEffect(() => {
+    const handleOpenTerminal = () => {
+      if (typeof window !== "undefined" && window.innerWidth < 768) {
+        setMobileView("editor");
+      }
+      setShowTerminal(true);
+    };
+    window.addEventListener("editor-open-terminal", handleOpenTerminal);
+    return () => window.removeEventListener("editor-open-terminal", handleOpenTerminal);
+  }, [setShowTerminal]);
+
+  // Trigger Monaco layout recalculation when switching back to editor
+  useEffect(() => {
+    if (mobileView === "editor" && typeof window !== "undefined") {
+      const timer = setTimeout(() => {
+        window.dispatchEvent(new Event("resize"));
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [mobileView]);
+
   return (
-    <div className={`h-screen flex overflow-hidden font-sans antialiased ${darkMode ? "bg-[#09090B] text-white" : "bg-slate-100 text-slate-900"}`}>
-      
+    <div className={`h-[100dvh] max-h-[100dvh] flex flex-col overflow-hidden font-sans antialiased ${darkMode ? "bg-[#09090B] text-white" : "bg-slate-100 text-slate-900"}`}>
+      {/* Mobile Global Navigation Drawer (< 768px) */}
+      <MobileNavigationDrawer activeTab="Editor" />
 
       {/* Main IDE Workspace */}
       <div className="flex-1 flex flex-col h-full overflow-hidden min-w-0">
         <EditorNavbar />
 
-        <div className="flex flex-1 overflow-hidden min-h-0">
-          {/* File Tree Explorer */}
-          <ExplorerSidebar />
+        {/* Mobile Workspace View Switcher Bar (only visible on screens < 768px) */}
+        <div className={`md:hidden flex items-center justify-between px-3 py-1.5 border-b text-xs font-bold shrink-0 ${
+          darkMode ? "bg-[#11131E] border-white/10" : "bg-slate-100 border-slate-200"
+        }`}>
+          <div className="flex items-center gap-1 w-full bg-black/20 dark:bg-white/5 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setMobileView("files")}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation ${
+                mobileView === "files"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : darkMode ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Folder size={14} />
+              <span>Files</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileView("editor")}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation ${
+                mobileView === "editor"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : darkMode ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              <Code2 size={14} />
+              <span>Editor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileView("copilot")}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer touch-manipulation ${
+                mobileView === "copilot"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : darkMode ? "text-slate-400 hover:text-white" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {isChallengeMode ? <Target size={14} /> : <Bot size={14} />}
+              <span>{isChallengeMode ? "Challenge" : "Copilot"}</span>
+            </button>
+          </div>
+        </div>
 
-          {/* Code Editor Workspace */}
-          <div className="flex flex-col flex-1 overflow-hidden min-w-0">
+        <div className="flex flex-1 overflow-hidden min-h-0">
+          {/* File Tree Explorer (Full width on mobile when 'files' view active; pinned on desktop) */}
+          <div className={`${mobileView === "files" ? "flex flex-1 w-full" : "hidden"} md:flex md:w-auto shrink-0 overflow-hidden`}>
+            <ExplorerSidebar />
+          </div>
+
+          {/* Code Editor Workspace (Full width on mobile when 'editor' view active; flex-1 on desktop) */}
+          <div className={`${mobileView === "editor" ? "flex flex-1" : "hidden"} md:flex flex-col flex-1 overflow-hidden min-w-0`}>
             {/* Challenge Mode Navigation Header */}
             {isChallengeMode && <ChallengeHeaderBar />}
 
@@ -128,18 +213,18 @@ function EditorLayout() {
             {showTerminal ? (
               <TerminalPanel onClose={() => setShowTerminal(false)} />
             ) : (
-              <div className={`h-7 px-4 flex items-center justify-between border-t text-xs font-mono select-none transition-colors ${
+              <div className={`min-h-[38px] sm:h-7 px-3 sm:px-4 flex items-center justify-between border-t text-xs font-mono select-none transition-colors shrink-0 ${
                 darkMode ? "bg-[#0F1117] border-white/10 text-slate-400" : "bg-white border-gray-200 text-gray-600"
               }`}>
                 <button
                   type="button"
                   onClick={() => setShowTerminal(true)}
-                  className={`flex items-center gap-2 px-2.5 py-0.5 rounded transition cursor-pointer ${
+                  className={`min-h-[36px] sm:min-h-0 flex items-center gap-2 px-3 py-1.5 sm:py-0.5 rounded transition cursor-pointer touch-manipulation ${
                     darkMode ? "hover:bg-white/10 hover:text-cyan-400" : "hover:bg-gray-100 hover:text-cyan-600"
                   }`}
                   title="Open Terminal Panel"
                 >
-                  <Terminal size={12} className="text-cyan-400" />
+                  <Terminal size={14} className="text-cyan-400 shrink-0" />
                   <span className="font-semibold text-xs">Terminal</span>
                   <span className="text-[10px] text-slate-500 font-mono">▲ Open</span>
                 </button>
@@ -150,8 +235,8 @@ function EditorLayout() {
             <BottomDock />
           </div>
 
-          {/* Right AI Copilot & Explanation Panel */}
-          <div className={`${isChallengeMode ? "w-[440px]" : "w-[400px]"} min-h-0 flex flex-col overflow-hidden border-l shrink-0 transition-all ${
+          {/* Right AI Copilot & Explanation Panel (Full width on mobile when 'copilot' view active; 400px/440px on desktop) */}
+          <div className={`${mobileView === "copilot" ? "flex flex-1 w-full" : "hidden"} md:flex ${isChallengeMode ? "md:w-[440px]" : "md:w-[400px]"} min-h-0 flex-col overflow-hidden border-l shrink-0 transition-all ${
             darkMode ? "bg-[#0D0F17] border-white/10" : "bg-white border-slate-200"
           }`}>
             {/* Right Panel Tab Controls */}

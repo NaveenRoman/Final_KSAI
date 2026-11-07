@@ -5,17 +5,18 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { RightAIPanel } from "@/components/dashboard/RightAIPanel";
-import { 
-  BookOpen, 
-  ArrowRight, 
-  Compass, 
-  Sparkles, 
-  Star, 
-  Calendar, 
-  Clock, 
-  ShieldCheck, 
-  AlertCircle, 
-  CheckCircle2 
+import {
+  BookOpen,
+  ArrowRight,
+  Compass,
+  Sparkles,
+  Star,
+  Calendar,
+  Clock,
+  ShieldCheck,
+  AlertCircle,
+  CheckCircle2,
+  Menu
 } from "lucide-react";
 
 export default function MyCoursesPage() {
@@ -127,17 +128,17 @@ export default function MyCoursesPage() {
     const purchaseDate = new Date(createdAtStr);
     const validityDays = validityDaysInput || 90;
     const endDate = new Date(purchaseDate.getTime() + validityDays * 24 * 60 * 60 * 1000);
-    
+
     const now = new Date();
     const diffMs = endDate.getTime() - now.getTime();
     const daysLeft = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-    
+
     const formattedPurchase = purchaseDate.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
     });
-    
+
     const formattedEnd = endDate.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
@@ -160,8 +161,8 @@ export default function MyCoursesPage() {
   return (
     <div className="h-screen bg-[#F8FAFC] text-slate-800 flex overflow-hidden font-sans antialiased">
       {/* Left Sidebar */}
-      <LeftSidebar 
-        activeTab="Courses" 
+      <LeftSidebar
+        activeTab="Courses"
         onTabChange={handleTabChange}
         userProfile={user || undefined}
         isLight={false}
@@ -172,15 +173,32 @@ export default function MyCoursesPage() {
       <main data-lenis-prevent className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full custom-scrollbar">
           {/* Welcome Header */}
           <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-1 flex-shrink-0">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
-              <Sparkles size={12} /> Learning Path &bull; My Space
+            <div className="flex items-start gap-3 min-w-0">
+              {/* Mobile Global Navigation Toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("ksai-toggle-mobile-sidebar"));
+                  }
+                }}
+                aria-label="Open navigation menu"
+                className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
+              >
+                <Menu size={20} />
+              </button>
+              <div className="space-y-1 min-w-0">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+                  <Sparkles size={12} /> Learning Path &bull; My Space
+                </div>
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  My Enrolled Courses 🎓
+                </h1>
+                <p className="text-slate-500 text-xs font-medium">
+                  Your registered pathways. Track your subscription validity, purchase date, and remaining days left.
+                </p>
+              </div>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              My Enrolled Courses 🎓
-            </h1>
-            <p className="text-slate-500 text-xs font-medium">
-              Your registered pathways. Track your subscription validity, purchase date, and remaining days left.
-            </p>
           </div>
 
           {loading ? (
@@ -337,4 +355,3 @@ export default function MyCoursesPage() {
     </div>
   );
 }
-

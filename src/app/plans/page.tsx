@@ -86,8 +86,8 @@ export default function PlansPage() {
                   <span className="text-4xl sm:text-5xl font-black text-white font-mono">₹50</span>
                   <span className="text-slate-400 text-sm font-semibold">/ month</span>
                 </div>
-                <p className="text-[11px] text-slate-500 font-medium mt-1">
-                  Flexible options: 1 month (₹50) · 2 months (₹100) · 6 months (₹300)
+                <p className="text-[11px] text-slate-400 font-medium mt-1">
+                  Flexible options: 1 month (₹50 — 1 subject) · 4 months (₹150 — all 4 subjects)
                 </p>
               </div>
 
@@ -161,7 +161,7 @@ export default function PlansPage() {
                   <span className="text-slate-400 text-sm font-semibold">/ month</span>
                 </div>
                 <p className="text-[11px] text-cyan-400/90 font-medium mt-1">
-                  Flexible options: 1 month (₹70) · 2 months (₹140) · 6 months (₹420)
+                  Flexible options: 1 month (₹70) · 4 months (₹200 — Best Value)
                 </p>
               </div>
 

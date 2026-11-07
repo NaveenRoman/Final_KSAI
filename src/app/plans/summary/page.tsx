@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -26,6 +26,7 @@ import { loadRazorpayScript, RazorpaySuccessResponse } from "@/lib/razorpay-chec
 
 declare global {
   interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     Razorpay: any;
   }
 }
@@ -36,26 +37,27 @@ function OrderSummaryContent() {
 
   const rawPlan = searchParams.get("plan");
   const rawDuration = searchParams.get("duration");
-
-  const [summary, setSummary] = useState<OrderSummary | null>(null);
-  const [calculationError, setCalculationError] = useState<string | null>(null);
+  const rawSubject = searchParams.get("subject") || searchParams.get("course");
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  useEffect(() => {
+  const { summary, calculationError } = useMemo(() => {
     try {
       if (!isValidPlanTier(rawPlan) || !isValidDuration(rawDuration)) {
-        throw new Error("Invalid plan or duration specified in URL.");
+        return {
+          summary: null,
+          calculationError: "Invalid plan or duration specified in URL. Durations must be 1 or 4 months.",
+        };
       }
-      const calculated = calculateOrderSummary(rawPlan, rawDuration);
-      setSummary(calculated);
-      setCalculationError(null);
-    } catch (err: any) {
-      setCalculationError(err.message || "Failed to calculate order summary.");
+      const calculated = calculateOrderSummary(rawPlan, rawDuration, rawSubject);
+      return { summary: calculated, calculationError: null };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to calculate order summary.";
+      return { summary: null, calculationError: message };
     }
-  }, [rawPlan, rawDuration]);
+  }, [rawPlan, rawDuration, rawSubject]);
 
   async function handlePayNow() {
     if (!summary || isProcessing) return;
@@ -138,9 +140,10 @@ function OrderSummaryContent() {
                 `/plans/failure?reason=${encodeURIComponent(errMsg)}&order_id=${response.razorpay_order_id}&plan=${summary.planTier.toLowerCase()}`
               );
             }
-          } catch (verifyErr: any) {
+          } catch (verifyErr: unknown) {
+            const errStr = verifyErr instanceof Error ? verifyErr.message : "Network error verifying payment.";
             router.push(
-              `/plans/failure?reason=${encodeURIComponent(verifyErr.message || "Network error verifying payment.")}&plan=${summary.planTier.toLowerCase()}`
+              `/plans/failure?reason=${encodeURIComponent(errStr)}&plan=${summary.planTier.toLowerCase()}`
             );
           }
         },
@@ -148,7 +151,7 @@ function OrderSummaryContent() {
 
       const rzp = new window.Razorpay(options);
 
-      rzp.on("payment.failed", function (response: any) {
+      rzp.on("payment.failed", function (response: { error?: { description?: string } }) {
         setIsProcessing(false);
         setProcessingStatus("");
         const desc = response?.error?.description || "Payment was declined or cancelled.";
@@ -156,10 +159,11 @@ function OrderSummaryContent() {
       });
 
       rzp.open();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setIsProcessing(false);
       setProcessingStatus("");
-      setErrorMessage(err.message || "Failed to process payment.");
+      const errMsg = err instanceof Error ? err.message : "Failed to process payment.";
+      setErrorMessage(errMsg);
     }
   }
 
@@ -186,8 +190,15 @@ function OrderSummaryContent() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 relative z-10">
       {/* Back button */}
+      {/* Back button */}
       <button
-        onClick={() => router.push(`/plans/duration?plan=${summary.planTier.toLowerCase()}`)}
+        onClick={() =>
+          router.push(
+            `/plans/duration?plan=${summary.planTier.toLowerCase()}${
+              rawSubject ? `&subject=${rawSubject}` : ""
+            }`
+          )
+        }
         className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition-colors mb-8 cursor-pointer"
       >
         <ArrowLeft size={14} /> Back to Duration Selection
@@ -225,6 +236,23 @@ function OrderSummaryContent() {
               ₹{summary.monthlyRate}/mo
             </div>
           </div>
+        </div>
+
+        {/* Course / Bundle Access Banner */}
+        <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-cyan-300 font-black text-[10px] uppercase">
+              Access Scope
+            </span>
+            <span className="font-bold text-white">
+              {summary.accessDescription}
+            </span>
+          </div>
+          {summary.selectedSubject && (
+            <span className="text-[11px] text-slate-300 font-semibold self-start sm:self-auto">
+              Selected: <strong className="text-cyan-300">{summary.selectedSubject}</strong>
+            </span>
+          )}
         </div>
 
         {/* Transparent Itemized Fee Breakdown */}

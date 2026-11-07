@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { RightAIPanel } from "@/components/dashboard/RightAIPanel";
-import { Sparkles, BookOpen, Star, Clock, ShieldCheck, CheckCircle, X, ArrowRight } from "lucide-react";
+import { Sparkles, BookOpen, Star, Clock, ShieldCheck, CheckCircle, X, ArrowRight, Menu } from "lucide-react";
 import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 interface CourseCatalogItem {
@@ -258,19 +258,34 @@ export default function ExploreCoursesCatalogPage() {
 
       {/* Center Main Workspace Content Area */}
       <main data-lenis-prevent className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 w-full custom-scrollbar bg-slate-50">
-        
+
         {/* Welcome Header */}
         <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white shadow-xs flex-shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
-              <Sparkles size={12} /> Professional Paths &bull; Browse Catalog
+          <div className="flex items-start gap-3 min-w-0">
+            {/* Mobile Global Navigation Toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("ksai-toggle-mobile-sidebar"));
+                }
+              }}
+              aria-label="Open navigation menu"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="space-y-1 min-w-0">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+                <Sparkles size={12} /> Professional Paths &bull; Browse Catalog
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                Explore Available Courses 🚀
+              </h1>
+              <p className="text-slate-500 text-xs font-medium">
+                Unlock access to interactive curricula, Sandbox coding workspaces, speech modules, and AI Mentor tutoring.
+              </p>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              Explore Available Courses 🚀
-            </h1>
-            <p className="text-slate-500 text-xs font-medium">
-              Unlock access to interactive curricula, Sandbox coding workspaces, speech modules, and AI Mentor tutoring.
-            </p>
           </div>
 
           {DEMO_PURCHASE_MODE && (
@@ -384,7 +399,7 @@ export default function ExploreCoursesCatalogPage() {
                           <span className="text-xs font-black text-slate-900">
                             ₹{course.price}
                           </span>
-                          
+
                           {isEnrolled ? (
                             <button
                               onClick={() => {

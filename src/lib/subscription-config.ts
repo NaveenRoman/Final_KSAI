@@ -11,13 +11,25 @@
  */
 
 export type PlanTier = "BASIC" | "PRO";
-export type PlanDurationMonths = 1 | 2 | 6;
+export type PlanDurationMonths = 1 | 4;
+
+export const AVAILABLE_SUBJECTS = [
+  { id: "python", label: "Python", title: "Python Programming & System Design", tag: "AI & Systems" },
+  { id: "java", label: "Java", title: "Java Enterprise & Backend Architecture", tag: "Enterprise" },
+  { id: "c", label: "C", title: "C Language Mastery & Low-Level Programming", tag: "Core Systems" },
+  { id: "cpp", label: "C++", title: "Modern C++ & High-Performance Computing", tag: "Performance" },
+] as const;
+
+export type SubjectId = (typeof AVAILABLE_SUBJECTS)[number]["id"];
 
 export interface PlanDurationPricing {
   months: PlanDurationMonths;
-  basePrice: number; // in INR (e.g. 50, 100, 300)
+  basePrice: number; // in INR (e.g. 50, 150, 70, 200)
   monthlyRate: number; // in INR
   label: string;
+  accessDescription: string;
+  highlight?: string;
+  savingsLabel?: string;
 }
 
 export interface PlanDefinition {
@@ -36,7 +48,7 @@ export const OFFICIAL_PLANS: Record<PlanTier, PlanDefinition> = {
     tagline: "Essential coding ecosystem with interactive courses and AI guidance.",
     monthlyRate: 50,
     features: [
-      "Full Course Curriculum",
+      "Full Interactive Course Curriculum",
       "Cloud Code Editor & Sandbox",
       "Interactive Learning Notes",
       "Live AI Teaching & Audio Dictation",
@@ -44,9 +56,22 @@ export const OFFICIAL_PLANS: Record<PlanTier, PlanDefinition> = {
       "Personalized Learning Guidance",
     ],
     durations: {
-      1: { months: 1, basePrice: 50, monthlyRate: 50, label: "1 Month" },
-      2: { months: 2, basePrice: 100, monthlyRate: 50, label: "2 Months" },
-      6: { months: 6, basePrice: 300, monthlyRate: 50, label: "6 Months" },
+      1: {
+        months: 1,
+        basePrice: 50,
+        monthlyRate: 50,
+        label: "1 Month",
+        accessDescription: "1 Selected Subject (Choose from Java, Python, C, C++)",
+      },
+      4: {
+        months: 4,
+        basePrice: 150,
+        monthlyRate: 37.5,
+        label: "4 Months",
+        accessDescription: "All 4 Subjects Bundle (Java, Python, C, and C++)",
+        highlight: "Best Value · All 4 Subjects Included",
+        savingsLabel: "Save ₹50 vs monthly",
+      },
     },
   },
   PRO: {
@@ -56,17 +81,30 @@ export const OFFICIAL_PLANS: Record<PlanTier, PlanDefinition> = {
     monthlyRate: 70,
     features: [
       "Every Basic Feature Included",
+      "All 4 Subjects Curriculum (Java, Python, C, C++)",
       "Cloud Code Editor & Sandbox",
       "Interactive Learning Notes",
       "Live AI Teaching & Audio Dictation",
-      "Progress Monitoring & Guidance",
       "AI Interview Preparation & Mock Sessions",
       "Professional Resume Builder & ATS Scanner",
     ],
     durations: {
-      1: { months: 1, basePrice: 70, monthlyRate: 70, label: "1 Month" },
-      2: { months: 2, basePrice: 140, monthlyRate: 70, label: "2 Months" },
-      6: { months: 6, basePrice: 420, monthlyRate: 70, label: "6 Months" },
+      1: {
+        months: 1,
+        basePrice: 70,
+        monthlyRate: 70,
+        label: "1 Month",
+        accessDescription: "Full Codexa Pro access (All 4 Subjects + Career Features)",
+      },
+      4: {
+        months: 4,
+        basePrice: 200,
+        monthlyRate: 50,
+        label: "4 Months",
+        accessDescription: "Full Codexa Pro access for 4 months (Best Value · All Features)",
+        highlight: "Best Value · Career Acceleration",
+        savingsLabel: "Save ₹80 vs monthly",
+      },
     },
   },
 };
@@ -79,11 +117,22 @@ export function isValidPlanTier(val: unknown): val is PlanTier {
 }
 
 /**
- * Validates whether a value is a valid PlanDurationMonths (1, 2, 6)
+ * Validates whether a value is a valid PlanDurationMonths (1 or 4)
  */
 export function isValidDuration(val: unknown): val is PlanDurationMonths {
   const num = Number(val);
-  return num === 1 || num === 2 || num === 6;
+  return num === 1 || num === 4;
+}
+
+/**
+ * Resolves a readable subject title from subject id or default
+ */
+export function resolveSubjectLabel(subjectId: unknown): string {
+  if (typeof subjectId !== "string") return "Python";
+  const match = AVAILABLE_SUBJECTS.find(
+    (s) => s.id.toLowerCase() === subjectId.trim().toLowerCase()
+  );
+  return match ? match.label : "Python";
 }
 
 /**
@@ -116,13 +165,19 @@ export interface OrderSummary {
   amountPaise: number;
   currency: "INR";
   features: string[];
+  accessDescription: string;
+  selectedSubject?: string | null;
 }
 
 /**
  * Strictly derive order calculation on the server.
  * Never trust client prices, tax rates, or totals.
  */
-export function calculateOrderSummary(rawPlan: unknown, rawDuration: unknown): OrderSummary {
+export function calculateOrderSummary(
+  rawPlan: unknown,
+  rawDuration: unknown,
+  rawSubject?: unknown
+): OrderSummary {
   if (!isValidPlanTier(rawPlan)) {
     throw new Error(`Invalid plan tier: '${rawPlan}'. Must be BASIC or PRO.`);
   }
@@ -131,7 +186,7 @@ export function calculateOrderSummary(rawPlan: unknown, rawDuration: unknown): O
   const plan = OFFICIAL_PLANS[planTier];
 
   if (!isValidDuration(rawDuration)) {
-    throw new Error(`Invalid subscription duration: '${rawDuration}'. Must be 1, 2, or 6 months.`);
+    throw new Error(`Invalid subscription duration: '${rawDuration}'. Must be 1 or 4 months.`);
   }
 
   const durationMonths = Number(rawDuration) as PlanDurationMonths;
@@ -145,6 +200,26 @@ export function calculateOrderSummary(rawPlan: unknown, rawDuration: unknown): O
   const feeAmount = Number(((basePrice * paymentFeePercentage) / 100).toFixed(2));
   const totalAmount = Number((basePrice + gstAmount + feeAmount).toFixed(2));
   const amountPaise = Math.round(totalAmount * 100);
+
+  // Derive access description based on plan tier, duration, and subject
+  let accessDescription = durationPricing.accessDescription;
+  let selectedSubject: string | null = null;
+
+  if (planTier === "BASIC") {
+    if (durationMonths === 1) {
+      selectedSubject = resolveSubjectLabel(rawSubject);
+      accessDescription = `1 Selected Subject: ${selectedSubject} Programming`;
+    } else {
+      selectedSubject = "All 4 Subjects Bundle";
+      accessDescription = "All 4 Subjects Bundle (Java, Python, C, and C++)";
+    }
+  } else {
+    selectedSubject = "All 4 Subjects + Career Suite";
+    accessDescription =
+      durationMonths === 4
+        ? "Full Codexa Pro 4-Month Bundle (All 4 Subjects + AI Interview Prep + Resume Studio)"
+        : "Full Codexa Pro (All 4 Subjects + AI Interview Prep + Resume Studio)";
+  }
 
   return {
     planTier,
@@ -160,5 +235,7 @@ export function calculateOrderSummary(rawPlan: unknown, rawDuration: unknown): O
     amountPaise,
     currency: "INR",
     features: plan.features,
+    accessDescription,
+    selectedSubject,
   };
 }

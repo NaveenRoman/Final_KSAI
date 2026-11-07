@@ -34,7 +34,8 @@ import {
   ChevronDown,
   ChevronUp,
   Lock,
-  ShieldCheck
+  ShieldCheck,
+  Menu
 } from "lucide-react";
 
 // Initial Clean Candidate Profile (User enters their own details)
@@ -380,15 +381,28 @@ export default function ProfessionalResumeStudio() {
       <main data-lenis-prevent className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-[#F8FAFC]">
         {/* Top Professional Pipeline Navigation Bar */}
         <div className="px-6 py-3.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-xs no-print">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-sm">
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Mobile Global Navigation Toggle (< 768px) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("ksai-toggle-mobile-sidebar"));
+                }
+              }}
+              aria-label="Open navigation menu"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-sm shrink-0">
               <Sparkles size={20} />
             </div>
-            <div>
-              <h1 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+            <div className="min-w-0">
+              <h1 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5 truncate">
                 Codenthra AI Resume Builder Studio
               </h1>
-              <p className="text-[11px] text-slate-500 font-medium">
+              <p className="text-[11px] text-slate-500 font-medium truncate">
                 JD Upload ➔ Profile Entry ➔ AI Gap Analysis ➔ Interactive A4 Studio
               </p>
             </div>

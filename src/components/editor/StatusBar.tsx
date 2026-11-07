@@ -23,15 +23,15 @@ export default function StatusBar() {
 
   return (
     <div
-      className={`h-8 flex items-center justify-between px-4 text-xs transition-all duration-300 select-none ${
+      className={`h-7 sm:h-8 flex items-center justify-between px-2.5 sm:px-4 text-[11px] sm:text-xs transition-all duration-300 select-none overflow-hidden shrink-0 ${
         darkMode
           ? "bg-[#007ACC] text-white"
           : "bg-[#E8F3FF] text-[#005A9E] border-t border-gray-300"
       }`}
     >
       {/* Left */}
-      <div className="flex items-center gap-5">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2 sm:gap-5 overflow-hidden">
+        <div className="hidden sm:flex items-center gap-1 shrink-0">
           <GitBranch size={14} />
           <span>main</span>
         </div>
@@ -42,7 +42,7 @@ export default function StatusBar() {
             setShowTerminal(true);
             setActivePanel("output");
           }}
-          className="flex items-center gap-1 hover:underline cursor-pointer"
+          className="hidden md:flex items-center gap-1 hover:underline cursor-pointer shrink-0"
         >
           <CheckCircle2 size={14} />
           <span>Build Ready</span>
@@ -54,19 +54,25 @@ export default function StatusBar() {
             setShowTerminal(true);
             setActivePanel("problems");
           }}
-          className="flex items-center gap-1 hover:underline cursor-pointer"
+          className="flex items-center gap-1 hover:underline cursor-pointer shrink-0"
         >
           <AlertCircle size={14} className={errorCount > 0 ? "text-red-300 animate-pulse" : ""} />
-          <span>{errorCount} {errorCount === 1 ? "Error" : "Errors"}</span>
+          <span>{errorCount} <span className="hidden sm:inline">{errorCount === 1 ? "Error" : "Errors"}</span></span>
         </button>
 
         <button
           type="button"
           onClick={() => {
-            setShowTerminal(!showTerminal);
-            if (!showTerminal) setActivePanel("terminal");
+            const next = !showTerminal;
+            setShowTerminal(next);
+            if (next) {
+              setActivePanel("terminal");
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("editor-open-terminal"));
+              }
+            }
           }}
-          className="flex items-center gap-1 hover:underline cursor-pointer opacity-90 hover:opacity-100"
+          className="min-h-[28px] flex items-center gap-1 hover:underline cursor-pointer opacity-90 hover:opacity-100 py-0.5 px-1.5 rounded touch-manipulation shrink-0"
           title="Toggle Terminal Panel"
         >
           <Terminal size={14} />
@@ -75,19 +81,19 @@ export default function StatusBar() {
       </div>
 
       {/* Right */}
-      <div className="flex items-center gap-5">
-        <span>{language?.name || "Java"}</span>
+      <div className="flex items-center gap-2 sm:gap-5 shrink-0">
+        <span className="font-medium truncate max-w-[90px] sm:max-w-none">{language?.name || "Java"}</span>
 
-        <span>UTF-8</span>
+        <span className="hidden sm:inline">UTF-8</span>
 
-        <span>Spaces:4</span>
+        <span className="hidden md:inline">Spaces:4</span>
 
-        <div className="flex items-center gap-1">
+        <div className="hidden lg:flex items-center gap-1">
           <Cpu size={14} />
           <span>AI Ready</span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="hidden xl:flex items-center gap-1">
           <Globe size={14} />
           <span>KnowledgeStream AI</span>
         </div>

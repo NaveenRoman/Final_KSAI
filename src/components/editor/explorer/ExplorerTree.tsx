@@ -92,8 +92,7 @@ const [menu, setMenu] = useState<{
 
   }}
 
-  className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-white/5 cursor-pointer"
-
+  className="flex items-center gap-2 px-2.5 sm:px-2 py-2.5 sm:py-1 min-h-[44px] sm:min-h-0 rounded-lg hover:bg-white/5 cursor-pointer touch-manipulation text-sm select-none"
 >
 
                 {item.expanded ? (
@@ -199,8 +198,11 @@ const [menu, setMenu] = useState<{
     isPinned: false,
   });
 
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("editor-open-file"));
+  }
 }}
-            className={`w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left transition ${
+            className={`w-full flex items-center gap-2 px-2.5 sm:px-2 py-2.5 sm:py-1 rounded-lg text-left transition min-h-[44px] sm:min-h-0 touch-manipulation text-sm select-none ${
               active
                 ? "bg-blue-600 text-white"
                 : "hover:bg-white/5"

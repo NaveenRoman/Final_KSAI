@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { safeParseResponse } from "@/lib/safe-json";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 import {
   Lock,
@@ -91,53 +92,25 @@ export default function CppCurriculumPage() {
   const handleBuyCourse = async () => {
     if (!courseId) return;
     const email = user?.email || userEmail || "student@gmail.com";
+    const name = user?.name || "Student";
     setBuying(true);
     try {
-      const res = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: coursePrice,
-          currency: "INR",
-          courseId: courseId,
-          userEmail: email,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        alert(data.error || "Order creation failed.");
-        setBuying(false);
-        return;
-      }
-
-      const { isMock } = data;
-
-      if (isMock) {
-        alert("🔧 Local Dev Mode: Simulating Razorpay Payment Gateway. Click OK to confirm purchase.");
-
-        const enrollRes = await fetch("/api/courses/enroll", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userEmail: email,
-            courseId: courseId,
-            paidAmount: coursePrice,
-            paymentId: `pay_mock_${Date.now()}`,
-          }),
-        });
-
-        const enrollData = await enrollRes.json();
-        if (enrollData.success) {
+      await openRazorpayCheckout({
+        courseId,
+        courseTitle: courseTitle || "C++ High Performance System Architecture",
+        userEmail: email,
+        userName: name,
+        onSuccess: async () => {
           alert("🎉 C++ Course purchased successfully! All chapters are now unlocked.");
           await loadCurriculumData();
-        } else {
-          alert(enrollData.error || "Enrollment failed.");
-        }
-      }
-    } catch (e) {
+        },
+        onError: (err) => {
+          alert(err);
+        },
+      });
+    } catch (e: any) {
       console.error(e);
-      alert("Payment processing error. Please try again.");
+      alert(e?.message || "Payment processing error. Please try again.");
     } finally {
       setBuying(false);
     }

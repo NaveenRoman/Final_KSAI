@@ -138,7 +138,7 @@ export default function CourseQuizPage() {
       previousResult={previousResult}
       onSubmitQuiz={handleSubmitQuiz}
       onBackToLesson={() => router.push(`/courses/${courseSlug}/chapter/${chapterOrder}`)}
-      onStartCodingRound={() => router.push(`/editor?language=${courseSlug}&chapter=${chapterOrder}`)}
+      onStartCodingRound={() => router.push(`/editor?course=${courseSlug}&chapter=${chapterOrder}`)}
       onNextChapter={() => router.push(`/courses/${courseSlug}/chapter/${chapterOrder + 1}`)}
       themeColor={themeColor as any}
     />

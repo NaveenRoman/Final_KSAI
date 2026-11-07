@@ -173,6 +173,8 @@ export default function CChapterPage() {
   // Floating panels & Chat state
   const [leftSidebarExpanded, setLeftSidebarExpanded] = useState(true);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mobileAssistantOpen, setMobileAssistantOpen] = useState(false);
   const [isMentorSpeaking, setIsMentorSpeaking] = useState(false);
   const mentorSpeechRef = useRef<SpeechSynthesisUtterance | null>(null);
 
@@ -294,7 +296,7 @@ export default function CChapterPage() {
     learningMemory?: string
   ): Promise<string> => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+      const response = await fetch("/api/teach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -387,7 +389,7 @@ Concise classroom voice.
         reteachInstruction += `\nStudent's previous answer was: "${previousAnswer}". Gently correct this without shaming.`;
       }
 
-      const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+      const response = await fetch("/api/teach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -482,7 +484,7 @@ Concise classroom voice.
     }
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+      const response = await fetch("/api/teach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -585,7 +587,7 @@ ${answer}
     const effectiveMode = activeImage ? "vision" : mode;
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+      const response = await fetch("/api/teach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -948,45 +950,644 @@ ${getLessons()
     }
   };
 
+  const renderCAssistantContent = (isMobile: boolean = false) => (
+    <div className={`w-full h-full flex flex-col ${isMobile ? "p-3 gap-3" : "p-4 gap-4"} overflow-hidden bg-slate-50`}>
+      {/* MY LEARNING NOTES */}
+      <button
+        type="button"
+        onClick={() => {
+          if (isMobile) setMobileAssistantOpen(false);
+          router.push("/notes?course=c");
+        }}
+        className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 hover:border-blue-300 hover:shadow-md transition-all group shrink-0 cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-100 transition-colors shrink-0">
+            <BookOpen size={19} />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-extrabold text-slate-800">
+              My Learning Notes
+            </h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              Open your notes
+            </p>
+          </div>
+
+          <ChevronRight
+            size={16}
+            className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all"
+          />
+        </div>
+      </button>
+
+      {/* CODENTHRA AI / ASK AI MENTOR */}
+      <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Mentor Header */}
+        <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                <Bot size={19} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-800">
+                  Ask AI
+                </h3>
+                <p className="text-[10px] text-slate-500">
+                  Ask anything about this lesson
+                </p>
+              </div>
+            </div>
+            {!isMobile && (
+              <button
+                type="button"
+                onClick={() => setRightPanelExpanded(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white/60 transition cursor-pointer"
+                title="Collapse Panel"
+              >
+                <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
+
+          {isMentorSpeaking && (
+            <div className="mt-3 px-3 py-1.5 bg-blue-100/60 rounded-xl border border-blue-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-blue-700">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                AI Teacher is speaking...
+              </div>
+              <button
+                type="button"
+                onClick={stopMentorSpeaking}
+                className="text-[10px] font-bold text-slate-600 hover:text-red-600"
+              >
+                Stop
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Scroll Area */}
+        <div
+          ref={chatScrollRef}
+          className="flex-1 min-h-0 overflow-y-auto custom-scrollbar"
+        >
+          {/* Teaching Conversation */}
+          <div className="p-4 space-y-3">
+            {chatMessages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${
+                  message.sender === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                <div
+                  className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                    message.sender === "user"
+                      ? "bg-blue-600 text-white rounded-br-md"
+                      : "bg-slate-100 text-slate-700 border border-slate-200 rounded-bl-md"
+                  }`}
+                >
+                  {message.image && (
+                    <div className="mb-2 rounded-xl overflow-hidden border border-white/20 bg-slate-900 flex items-center justify-center max-h-36">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={message.image}
+                        alt="Attached visual"
+                        className="max-h-36 w-auto object-contain"
+                      />
+                    </div>
+                  )}
+                  {message.text}
+                </div>
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl rounded-bl-md px-4 py-3 text-sm text-slate-500 flex items-center gap-2">
+                  <Sparkles size={14} className="text-blue-600 animate-spin" />
+                  <span>AI is thinking...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!chatLoading && (
+            <div className="px-4 pb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  liveTeacherRef.current?.resume();
+                }}
+                className="w-full px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                ▶ Resume Live Teacher
+              </button>
+            </div>
+          )}
+
+          {/* Learning Actions */}
+          <div className="p-4 pt-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
+              How can I help you?
+            </p>
+
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() =>
+                  handleTeachingRequest(
+                    "Explain this C topic in a simple way.",
+                    "explain"
+                  )
+                }
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                💡 Explain this topic
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleTeachingRequest(
+                    "Give me a simple C example of this topic.",
+                    "example"
+                  )
+                }
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                📝 Give me an example
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleTeachingRequest(
+                    "Show me this C concept visually. Use a simple flow, diagram, or structured explanation if appropriate.",
+                    "visual"
+                  )
+                }
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                🎨 Show me visually
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleTeachingRequest(
+                    "Ask me one question about this C topic to check my understanding. Do not give me the answer immediately.",
+                    "question"
+                  )
+                }
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                ❓ Ask me a question
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  handleTeachingRequest(
+                    "I'm confused about this C topic. Explain it differently using simpler intuition and a small example.",
+                    "confused"
+                  )
+                }
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                🤔 I&apos;m confused
+              </button>
+            </div>
+
+            {/* Current Learning Context */}
+            <div className="mt-5 p-3 rounded-xl bg-blue-50 border border-blue-100">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Sparkles size={13} className="text-blue-600" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">
+                  Currently Learning
+                </span>
+              </div>
+
+              <p className="text-[11px] font-bold text-slate-700 leading-relaxed">
+                {currentLesson || currentChapter?.title || `Chapter ${chapterOrder}`}
+              </p>
+
+              {currentLesson && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      getLessonStatus(currentLesson) === "MASTERED"
+                        ? "bg-emerald-500"
+                        : getLessonStatus(currentLesson) === "LEARNING"
+                        ? "bg-amber-500"
+                        : getLessonStatus(currentLesson) === "PRACTICED"
+                        ? "bg-blue-500"
+                        : getLessonStatus(currentLesson) === "NEEDS_REVIEW"
+                        ? "bg-red-500"
+                        : "bg-slate-300"
+                    }`}
+                  />
+                  <span className="text-[10px] font-semibold text-slate-500">
+                    {getLessonStatusLabel(currentLesson)}
+                  </span>
+                </div>
+              )}
+
+              <div className="mt-3 flex items-center justify-between text-[10px]">
+                <span className="text-slate-500">Lesson progress</span>
+                <span className="font-bold text-blue-600">
+                  {completedLessons.length}/{getLessons().length}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Ask Mentor Input Form */}
+        <div className="p-3 border-t border-slate-200 bg-slate-50/50 shrink-0 space-y-2">
+          <VisionAttachment
+            onImageSelected={(b64, mime, fName) =>
+              setAttachedImage({ base64: b64, mime, fileName: fName })
+            }
+            onImageRemoved={() => setAttachedImage(null)}
+            currentImage={attachedImage?.base64}
+            disabled={chatLoading}
+            onQuickPrompt={(prompt) => {
+              setChatInput(prompt);
+              void handleTeachingRequest(prompt, "vision", attachedImage);
+            }}
+          />
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleTeachingRequest(chatInput, attachedImage ? "vision" : "chat", attachedImage);
+            }}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder={attachedImage ? "Ask about attached C diagram / code screenshot..." : "Ask about this lesson..."}
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            />
+
+            <button
+              type="submit"
+              disabled={(!chatInput.trim() && !attachedImage) || chatLoading}
+              className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-sm shrink-0 disabled:opacity-50 cursor-pointer"
+              title="Ask AI"
+            >
+              <Send size={13} />
+            </button>
+          </form>
+
+          <p className="text-[9px] text-slate-400 text-center">
+            Codenthra AI uses this lesson and visual context.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col selection:bg-cyan-500 selection:text-black overflow-hidden h-screen">
       {/* Custom Top Bar */}
-      <header className="w-full border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-50 h-16 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center font-black text-white text-sm shadow-md">
+      <header className="w-full border-b border-slate-200 bg-white px-3 sm:px-6 py-2.5 sm:py-4 flex items-center justify-between sticky top-0 z-40 h-14 sm:h-16 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Mobile Chapter Drawer Button */}
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+            title="Open Chapters"
+            aria-label="Open Course Chapters"
+          >
+            <GraduationCap size={18} className="text-emerald-600" />
+          </button>
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center font-black text-white text-xs sm:text-sm shadow-md shrink-0">
             C
           </div>
-          <div>
-            <span className="text-[10px] text-emerald-600 font-mono font-bold tracking-wider block">LEARNING STUDIO</span>
-            <span className="text-sm font-extrabold text-slate-800">KnowledgeStream AI &bull; C Course</span>
+          <div className="min-w-0">
+            <span className="text-[9px] sm:text-[10px] text-emerald-600 font-mono font-bold tracking-wider block">LEARNING STUDIO</span>
+            <span className="text-xs sm:text-sm font-extrabold text-slate-800 truncate block max-w-[140px] xs:max-w-[200px] sm:max-w-none">
+              <span className="hidden sm:inline">KnowledgeStream AI &bull; </span>C Course
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Mobile AI Assistant Drawer Button */}
+          <button
+            type="button"
+            onClick={() => setMobileAssistantOpen(true)}
+            className="md:hidden p-2 rounded-xl text-purple-600 hover:bg-purple-50 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+            title="Open AI Mentor & Notes"
+            aria-label="Open AI Mentor and Notes"
+          >
+            <Bot size={18} />
+          </button>
+
           <button
             onClick={() => router.push("/notes?course=c")}
-            className="px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-600 hover:bg-blue-500/20 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-600 hover:bg-blue-500/20 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer min-h-[36px]"
           >
             <BookOpen size={14} />
             <span className="hidden sm:inline">Notes</span>
           </button>
 
-          <CourseSwitcher currentLanguage="c" currentChapter={chapterOrder} />
+          <CourseSwitcher currentLanguage="c" currentChapter={chapterOrder} className="hidden xl:inline-flex" />
 
           <button
             onClick={() => router.push("/dashboard")}
-            className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center gap-1 sm:gap-1.5 min-h-[36px]"
           >
-            <ArrowLeft size={13} /> Dashboard
+            <ArrowLeft size={13} /> <span className="hidden xs:inline">Dashboard</span>
           </button>
         </div>
       </header>
+
+      {/* Mobile Persistent Course Navigation Bar */}
+      <nav
+        aria-label="Mobile Course Navigation"
+        className="md:hidden w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3 py-2 shrink-0 z-30 shadow-xs pl-safe pr-safe"
+      >
+        <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
+          {/* Chapters Control */}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileAssistantOpen(false);
+              setMobileDrawerOpen((prev) => !prev);
+            }}
+            className={`min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+              mobileDrawerOpen
+                ? "bg-emerald-50 border-emerald-300 text-emerald-700 shadow-xs ring-2 ring-emerald-500/20"
+                : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+            }`}
+            aria-label="Course Chapters"
+            aria-expanded={mobileDrawerOpen}
+          >
+            <GraduationCap
+              size={18}
+              className={mobileDrawerOpen ? "text-emerald-600" : "text-emerald-600"}
+            />
+            <span>Chapters</span>
+            <span className="text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-200/80 px-1.5 py-0.5 rounded-md">
+              {chapterOrder}
+            </span>
+          </button>
+
+          {/* AI Mentor Control */}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileDrawerOpen(false);
+              setMobileAssistantOpen((prev) => !prev);
+            }}
+            className={`min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+              mobileAssistantOpen
+                ? "bg-purple-50 border-purple-300 text-purple-700 shadow-xs ring-2 ring-purple-500/20"
+                : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+            }`}
+            aria-label="AI Mentor and Notes"
+            aria-expanded={mobileAssistantOpen}
+          >
+            <Bot
+              size={18}
+              className={mobileAssistantOpen ? "text-purple-600" : "text-purple-600"}
+            />
+            <span>AI Mentor</span>
+            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile Chapter Overlay Drawer */}
+      {mobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileDrawerOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-[85vw] max-w-xs h-full bg-white shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+            {/* Drawer Header */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <GraduationCap size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">Course Chapters</h3>
+                  <span className="text-[10px] font-mono text-slate-500 font-bold uppercase">C Curriculum</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                aria-label="Close chapters drawer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Drawer Chapters List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+              {chapters.map((ch) => {
+                const active = ch.orderNumber === chapterOrder;
+                const isExpanded = active || !!expandedChapters[ch.orderNumber];
+                const pageIcon = <FileText size={15} className={active ? "text-emerald-600" : "text-slate-400"} />;
+
+                return (
+                  <div key={ch.id} className="space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleChapterExpand(ch.orderNumber);
+                        setMobileDrawerOpen(false);
+                        router.push(`/courses/c/chapter/${ch.orderNumber}`);
+                      }}
+                      className={`w-full p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all min-h-[48px] cursor-pointer ${
+                        active
+                          ? "bg-emerald-50/70 border-emerald-200 shadow-xs"
+                          : "bg-slate-50/50 hover:bg-slate-100/70 border-slate-200/80"
+                      }`}
+                    >
+                      <div className="shrink-0">{pageIcon}</div>
+                      <div className="space-y-0.5 flex-1 min-w-0">
+                        <div className="text-[9px] font-bold uppercase tracking-wider font-mono text-emerald-600">
+                          CHAPTER {ch.orderNumber}
+                        </div>
+                        <div className={`text-xs font-bold truncate leading-snug ${active ? "text-slate-900" : "text-slate-700"}`}>
+                          {ch.title.replace(/^Chapter \d+:\s*/, "").replace(/^Topic \d+:\s*/, "")}
+                        </div>
+                      </div>
+                      {!active && <ChevronDown size={14} className="text-slate-400 shrink-0 ml-auto" />}
+                      {active && <ChevronUp size={14} className="text-emerald-600 shrink-0 ml-auto" />}
+                    </button>
+
+                    {/* Sections list */}
+                    {isExpanded && (
+                      <div className="pl-6 pr-2 py-1 space-y-2 border-l border-slate-200 ml-4">
+                        {extractLessonTitles(ch.orderNumber === chapterOrder && currentChapter?.content ? currentChapter.content : "", ch.orderNumber).map((sec, secIdx, arr) => {
+                          const isUnlocked = isTopicUnlocked(secIdx, arr);
+                          return (
+                            <button
+                              key={secIdx}
+                              type="button"
+                              onClick={() => {
+                                if (!isUnlocked) {
+                                  alert(`🔒 Topic is locked. Please master "${arr[secIdx - 1]}" first.`);
+                                  return;
+                                }
+                                setMobileDrawerOpen(false);
+                                if (ch.orderNumber !== chapterOrder) {
+                                  router.push(`/courses/c/chapter/${ch.orderNumber}`);
+                                  return;
+                                }
+                                setCurrentLesson(sec);
+                                setCurrentLessonIndex(secIdx);
+                              }}
+                              className={`w-full text-left text-xs leading-relaxed flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all min-h-[38px] cursor-pointer ${
+                                !isUnlocked
+                                  ? "opacity-50 cursor-not-allowed text-slate-400"
+                                  : currentLesson === sec
+                                  ? "text-emerald-600 font-bold bg-emerald-50/60"
+                                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/60"
+                              }`}
+                            >
+                              {!isUnlocked ? (
+                                <Lock size={12} className="text-slate-400 shrink-0" />
+                              ) : (
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    getLessonStatus(sec) === "MASTERED"
+                                      ? "bg-emerald-500"
+                                      : getLessonStatus(sec) === "PRACTICED"
+                                      ? "bg-blue-500"
+                                      : getLessonStatus(sec) === "LEARNING"
+                                      ? "bg-amber-500"
+                                      : getLessonStatus(sec) === "NEEDS_REVIEW"
+                                      ? "bg-red-500"
+                                      : "bg-slate-300"
+                                  }`}
+                                />
+                              )}
+                              <span className="truncate flex-1">{sec}</span>
+                            </button>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMobileDrawerOpen(false);
+                            router.push(`/courses/c/chapter/${ch.orderNumber}/quiz`);
+                          }}
+                          className="w-full text-left text-xs leading-relaxed flex items-center gap-2 py-1.5 px-2 rounded-lg text-purple-600 font-bold hover:bg-purple-50 transition-all min-h-[38px] cursor-pointer"
+                        >
+                          <span className="w-2 h-2 rounded-full bg-purple-500 shrink-0" />
+                          <span className="truncate flex-1">Quiz Assessment</span>
+                          <Sparkles size={12} className="text-purple-600 shrink-0" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Drawer Course Switcher for Mobile */}
+            <div className="p-3 border-t border-slate-200 bg-slate-50 shrink-0">
+              <span className="text-[10px] font-mono font-bold uppercase text-slate-400 tracking-wider block mb-2">Switch Course Track</span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {[
+                  { id: "c", name: "C Language", ch: 0 },
+                  { id: "cpp", name: "C++", ch: 1 },
+                  { id: "java", name: "Java", ch: 1 },
+                  { id: "python", name: "Python", ch: 0 },
+                ].map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      router.push(`/courses/${c.id}/chapter/${c.ch}`);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-bold text-center border transition-all cursor-pointer ${
+                      c.id === "c"
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Assistant Overlay Drawer */}
+      {mobileAssistantOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileAssistantOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-[92vw] max-w-sm h-full bg-slate-50 shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200">
+            {/* Drawer Header */}
+            <div className="p-3.5 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+                  <Bot size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">Learning Assistant</h3>
+                  <span className="text-[10px] font-mono text-purple-600 font-bold uppercase">AI Mentor &amp; Notes</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileAssistantOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                aria-label="Close learning assistant drawer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Scrollable Assistant Body */}
+            <div className="flex-1 min-h-0 overflow-hidden p-3 bg-slate-50 flex flex-col">
+              {renderCAssistantContent(true)}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Two-Panel Layout */}
       <div className="flex-1 flex w-full overflow-hidden">
         {/* Left Side: Chapter Navigation Sidebar */}
         <aside
           data-lenis-prevent
-          className={`border-r border-slate-200 bg-white overflow-y-auto shrink-0 flex flex-col custom-scrollbar transition-all duration-300 ${
+          className={`hidden md:flex border-r border-slate-200 bg-white overflow-y-auto shrink-0 flex-col custom-scrollbar transition-all duration-300 ${
             leftSidebarExpanded ? "w-80" : "w-14"
           }`}
         >
@@ -1147,9 +1748,34 @@ ${getLessons()
         </aside>
 
         {/* Right Side: Chapter Notes Area */}
-        <main data-lenis-prevent className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto w-full bg-slate-50 custom-scrollbar">
+        <main data-lenis-prevent className="flex-1 p-3 xs:p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 overflow-y-auto overflow-x-hidden w-full bg-slate-50 custom-scrollbar">
+          {/* Mobile Visible Chapter Selector Button */}
+          <div className="md:hidden w-full">
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="w-full flex items-center justify-between px-3.5 py-3 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-emerald-400 text-slate-700 min-h-[48px] cursor-pointer"
+              aria-label="Open course chapters drawer"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <GraduationCap size={16} />
+                </div>
+                <div className="text-left min-w-0">
+                  <span className="text-[10px] font-mono font-bold text-emerald-600 block uppercase tracking-wider">Chapter {chapterOrder}</span>
+                  <span className="text-xs font-bold text-slate-800 truncate block">
+                    {currentChapter?.title?.replace(/^Chapter \d+:\s*/, "").replace(/^Topic \d+:\s*/, "") || "Select Chapter"}
+                  </span>
+                </div>
+              </div>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1.5 rounded-xl shrink-0 flex items-center gap-1 border border-emerald-100">
+                Chapters ▾
+              </span>
+            </button>
+          </div>
+
           {/* Breadcrumb Navigation */}
-          <div className="flex items-center gap-1.5 text-sm text-slate-500 max-w-6xl mx-auto w-full">
+          <div className="flex items-center gap-1.5 text-xs sm:text-sm text-slate-500 max-w-6xl mx-auto w-full overflow-x-auto whitespace-nowrap">
             <button
               onClick={() => router.push("/dashboard")}
               className="hover:text-slate-800 transition-colors"
@@ -1491,7 +2117,7 @@ ${getLessons()
                     {quizQuestions.length > 0 ? (
                       <button
                         onClick={() => router.push(`/courses/c/chapter/${chapterOrder}/quiz`)}
-                        className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-md shadow-blue-500/10 cursor-pointer"
+                        className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/10 cursor-pointer min-h-[48px]"
                       >
                         <HelpCircle size={14} /> Take Chapter Assessment Quiz
                       </button>
@@ -1499,7 +2125,7 @@ ${getLessons()
                       <button
                         onClick={handleMarkChapterComplete}
                         disabled={completing}
-                        className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
+                        className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer min-h-[48px]"
                       >
                         <CheckCircle2 size={14} /> {completing ? "Completing..." : "Mark Chapter Complete"}
                       </button>
@@ -1511,315 +2137,15 @@ ${getLessons()
           )}
         </main>
 
-        {/* Right Learning Assistant Panel */}
+        {/* Right Learning Assistant Panel (Hidden on mobile) */}
         <aside
           data-lenis-prevent
-          className={`h-full border-l border-slate-200 flex flex-col shrink-0 transition-all duration-300 select-none overflow-hidden bg-slate-50 ${
+          className={`hidden md:flex h-full border-l border-slate-200 flex-col shrink-0 transition-all duration-300 select-none overflow-hidden bg-slate-50 ${
             rightPanelExpanded ? "w-[460px]" : "w-14"
           }`}
         >
           {rightPanelExpanded ? (
-            <div className="w-full h-full flex flex-col p-4 gap-4 overflow-hidden bg-slate-50">
-              {/* MY LEARNING NOTES */}
-              <button
-                type="button"
-                onClick={() => router.push("/notes?course=c")}
-                className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:border-blue-300 hover:shadow-md transition-all group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-100 transition-colors shrink-0">
-                    <BookOpen size={19} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-extrabold text-slate-800">
-                      My Learning Notes
-                    </h3>
-                    <p className="text-[10px] text-slate-500 mt-0.5">
-                      Open your notes
-                    </p>
-                  </div>
-
-                  <ChevronRight
-                    size={16}
-                    className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all"
-                  />
-                </div>
-              </button>
-
-              {/* CODENTHRA AI / ASK AI MENTOR */}
-              <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                {/* Mentor Header */}
-                <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50 shrink-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
-                        <Bot size={19} />
-                      </div>
-                      <div>
-                        <h3 className="text-sm font-black text-slate-800">
-                          Ask AI
-                        </h3>
-                        <p className="text-[10px] text-slate-500">
-                          Ask anything about this lesson
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setRightPanelExpanded(false)}
-                      className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white/60 transition cursor-pointer"
-                      title="Collapse Panel"
-                    >
-                      <ChevronRight size={16} />
-                    </button>
-                  </div>
-
-                  {isMentorSpeaking && (
-                    <div className="mt-3 px-3 py-1.5 bg-blue-100/60 rounded-xl border border-blue-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-[11px] font-semibold text-blue-700">
-                        <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                        AI Teacher is speaking...
-                      </div>
-                      <button
-                        type="button"
-                        onClick={stopMentorSpeaking}
-                        className="text-[10px] font-bold text-slate-600 hover:text-red-600"
-                      >
-                        Stop
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Scroll Area */}
-                <div
-                  ref={chatScrollRef}
-                  className="flex-1 min-h-0 overflow-y-auto custom-scrollbar"
-                >
-                  {/* Teaching Conversation */}
-                  <div className="p-4 space-y-3">
-                    {chatMessages.map((message, index) => (
-                      <div
-                        key={index}
-                        className={`flex ${
-                          message.sender === "user" ? "justify-end" : "justify-start"
-                        }`}
-                      >
-                        <div
-                          className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-                            message.sender === "user"
-                              ? "bg-blue-600 text-white rounded-br-md"
-                              : "bg-slate-100 text-slate-700 border border-slate-200 rounded-bl-md"
-                          }`}
-                        >
-                          {message.image && (
-                            <div className="mb-2 rounded-xl overflow-hidden border border-white/20 bg-slate-900 flex items-center justify-center max-h-36">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={message.image}
-                                alt="Attached visual"
-                                className="max-h-36 w-auto object-contain"
-                              />
-                            </div>
-                          )}
-                          {message.text}
-                        </div>
-                      </div>
-                    ))}
-
-                    {chatLoading && (
-                      <div className="flex justify-start">
-                        <div className="bg-slate-100 border border-slate-200 rounded-2xl rounded-bl-md px-4 py-3 text-sm text-slate-500 flex items-center gap-2">
-                          <Sparkles size={14} className="text-blue-600 animate-spin" />
-                          <span>AI is thinking...</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {!chatLoading && (
-                    <div className="px-4 pb-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          liveTeacherRef.current?.resume();
-                        }}
-                        className="w-full px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-                      >
-                        ▶ Resume Live Teacher
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Learning Actions */}
-                  <div className="p-4 pt-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-                      How can I help you?
-                    </p>
-
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleTeachingRequest(
-                            "Explain this C topic in a simple way.",
-                            "explain"
-                          )
-                        }
-                        disabled={chatLoading}
-                        className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
-                      >
-                        💡 Explain this topic
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleTeachingRequest(
-                            "Give me a simple C example of this topic.",
-                            "example"
-                          )
-                        }
-                        disabled={chatLoading}
-                        className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
-                      >
-                        📝 Give me an example
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleTeachingRequest(
-                            "Show me this C concept visually. Use a simple flow, diagram, or structured explanation if appropriate.",
-                            "visual"
-                          )
-                        }
-                        disabled={chatLoading}
-                        className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
-                      >
-                        🎨 Show me visually
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleTeachingRequest(
-                            "Ask me one question about this C topic to check my understanding. Do not give me the answer immediately.",
-                            "question"
-                          )
-                        }
-                        disabled={chatLoading}
-                        className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
-                      >
-                        ❓ Ask me a question
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleTeachingRequest(
-                            "I'm confused about this C topic. Explain it differently using simpler intuition and a small example.",
-                            "confused"
-                          )
-                        }
-                        disabled={chatLoading}
-                        className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
-                      >
-                        🤔 I'm confused
-                      </button>
-                    </div>
-
-                    {/* Current Learning Context */}
-                    <div className="mt-5 p-3 rounded-xl bg-blue-50 border border-blue-100">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Sparkles size={13} className="text-blue-600" />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">
-                          Currently Learning
-                        </span>
-                      </div>
-
-                      <p className="text-[11px] font-bold text-slate-700 leading-relaxed">
-                        {currentLesson || currentChapter?.title || `Chapter ${chapterOrder}`}
-                      </p>
-
-                      {currentLesson && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              getLessonStatus(currentLesson) === "MASTERED"
-                                ? "bg-emerald-500"
-                                : getLessonStatus(currentLesson) === "LEARNING"
-                                ? "bg-amber-500"
-                                : getLessonStatus(currentLesson) === "PRACTICED"
-                                ? "bg-blue-500"
-                                : getLessonStatus(currentLesson) === "NEEDS_REVIEW"
-                                ? "bg-red-500"
-                                : "bg-slate-300"
-                            }`}
-                          />
-                          <span className="text-[10px] font-semibold text-slate-500">
-                            {getLessonStatusLabel(currentLesson)}
-                          </span>
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex items-center justify-between text-[10px]">
-                        <span className="text-slate-500">Lesson progress</span>
-                        <span className="font-bold text-blue-600">
-                          {completedLessons.length}/{getLessons().length}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Ask Mentor Input Form */}
-                <div className="p-3 border-t border-slate-200 bg-slate-50/50 shrink-0 space-y-2">
-                  <VisionAttachment
-                    onImageSelected={(b64, mime, fName) =>
-                      setAttachedImage({ base64: b64, mime, fileName: fName })
-                    }
-                    onImageRemoved={() => setAttachedImage(null)}
-                    currentImage={attachedImage?.base64}
-                    disabled={chatLoading}
-                    onQuickPrompt={(prompt) => {
-                      setChatInput(prompt);
-                      void handleTeachingRequest(prompt, "vision", attachedImage);
-                    }}
-                  />
-
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      handleTeachingRequest(chatInput, attachedImage ? "vision" : "chat", attachedImage);
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <input
-                      type="text"
-                      value={chatInput}
-                      onChange={(e) => setChatInput(e.target.value)}
-                      placeholder={attachedImage ? "Ask about attached C diagram / code screenshot..." : "Ask about this lesson..."}
-                      className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-                    />
-
-                    <button
-                      type="submit"
-                      disabled={(!chatInput.trim() && !attachedImage) || chatLoading}
-                      className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-sm shrink-0 disabled:opacity-50 cursor-pointer"
-                      title="Ask AI"
-                    >
-                      <Send size={13} />
-                    </button>
-                  </form>
-
-                  <p className="text-[9px] text-slate-400 text-center">
-                    Codenthra AI uses this lesson and visual context.
-                  </p>
-                </div>
-              </div>
-            </div>
+            renderCAssistantContent(false)
           ) : (
             <div className="w-full h-full flex flex-col gap-2 py-4 items-center bg-slate-50">
               <button

@@ -1,10 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 import { SmoothScroll } from "@/components/providers/SmoothScroll";
 import { Providers } from "@/components/providers/Providers";
 import { ThemeManager } from "@/components/providers/ThemeManager";
 import { NotificationProvider } from "@/components/ui/NotificationContext"; // ✅ ADD THIS
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#09090B" },
+    { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
+  ],
+};
 
 export const metadata: Metadata = {
   title: "KnowledgeStream AI — Futuristic AI Operating System",

@@ -26,10 +26,13 @@ import {
   Brain,
   Lock,
   Compass,
+  Menu,
+  X,
 } from "lucide-react";
 import { useSession } from "@/lib/auth-client";
 import { usePathname, useRouter } from "next/navigation";
 import { handleUserLogout } from "@/lib/auth-logout";
+import { MobileNavigationDrawer } from "@/components/navigation/MobileNavigationDrawer";
 
 interface LeftSidebarProps {
   activeTab?: string;
@@ -47,6 +50,8 @@ interface LeftSidebarProps {
   };
   isLight?: boolean;
   fullHeight?: boolean;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export const SIDEBAR_ROUTES: Record<string, string> = {
@@ -144,11 +149,62 @@ export function LeftSidebar({
   userProfile,
   isLight = false,
   fullHeight = false,
+  mobileOpen,
+  onMobileClose,
 }: LeftSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [internalMobileOpen, setInternalMobileOpen] = useState(false);
+  const isMobileDrawerOpen = mobileOpen !== undefined ? mobileOpen : internalMobileOpen;
+
+  const closeMobileDrawer = () => {
+    setInternalMobileOpen(false);
+    if (onMobileClose) onMobileClose();
+  };
+
+  const openMobileDrawer = () => {
+    setInternalMobileOpen(true);
+  };
+
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
+
+  // Listen for global custom events to toggle mobile navigation drawer
+  useEffect(() => {
+    const handleToggle = () => {
+      setInternalMobileOpen((prev) => !prev);
+    };
+    const handleClose = () => {
+      setInternalMobileOpen(false);
+    };
+
+    window.addEventListener("ksai-toggle-mobile-sidebar", handleToggle);
+    window.addEventListener("ksai-close-mobile-sidebar", handleClose);
+
+    return () => {
+      window.removeEventListener("ksai-toggle-mobile-sidebar", handleToggle);
+      window.removeEventListener("ksai-close-mobile-sidebar", handleClose);
+    };
+  }, []);
+
+  // Auto-close mobile drawer on route change without triggering set-state-in-effect
+  const [prevPath, setPrevPath] = useState(pathname);
+  if (pathname !== prevPath) {
+    setPrevPath(pathname);
+    setInternalMobileOpen(false);
+  }
+
+  // Prevent background scroll when mobile drawer is open
+  useEffect(() => {
+    if (isMobileDrawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isMobileDrawerOpen]);
 
   const [subscription, setSubscription] = useState<{
     hasActiveSubscription: boolean;
@@ -228,17 +284,18 @@ export function LeftSidebar({
   const isBasic = subscription?.plan === "BASIC";
 
   return (
-    <aside
-      className={`flex flex-col justify-between transition-all duration-300 z-30 select-none border-r shrink-0 ${
-        isLight 
-          ? "bg-white border-slate-200/80 text-slate-700" 
+    <>
+      <aside
+        className={`hidden md:flex flex-col justify-between transition-all duration-300 z-30 select-none border-r-0 md:border-r shrink-0 ${
+        isLight
+          ? "bg-white border-slate-200/80 text-slate-700"
           : "dark-sidebar bg-[#09090B]/90 border-white/10 backdrop-blur-xl text-white"
       } ${
-        fullHeight 
-          ? "h-screen sticky top-0" 
+        fullHeight
+          ? "h-screen sticky top-0"
           : "h-[calc(100vh-4rem)] sticky top-16"
       } ${
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-0 md:w-16" : "w-0 md:w-64"
       }`}
     >
       {/* Brand Logo Header if fullHeight */}
@@ -257,8 +314,8 @@ export function LeftSidebar({
                 }`}>
                   KnowledgeStream
                   <span className={`text-[8px] px-1 py-0.5 rounded font-mono font-bold border ${
-                    isLight 
-                      ? "bg-blue-50 border-blue-200 text-blue-600" 
+                    isLight
+                      ? "bg-blue-50 border-blue-200 text-blue-600"
                       : "bg-blue-500/20 border-cyan-500/30 text-cyan-300"
                   }`}>
                     AI OS
@@ -283,7 +340,7 @@ export function LeftSidebar({
       <div data-lenis-prevent className="p-2 overflow-y-auto custom-scrollbar flex-1 space-y-0.5">
         {MENU_ITEMS.map((item) => {
           const Icon = item.icon;
-          
+
           let isActive = activeTab === item.id || activeTab === item.label;
           if (pathname) {
             if (item.id === "Explore Courses" && (pathname === "/courses/catalog" || pathname.startsWith("/courses/catalog"))) {
@@ -331,7 +388,7 @@ export function LeftSidebar({
                     console.warn("onChange error:", e);
                   }
                 }
-                
+
                 const targetPath = SIDEBAR_ROUTES[item.id] || SIDEBAR_ROUTES[item.label];
                 if (targetPath) {
                   router.push(targetPath);
@@ -351,8 +408,8 @@ export function LeftSidebar({
               <Icon
                 size={16}
                 className={`shrink-0 transition-transform group-hover:scale-110 ${
-                  isActive 
-                    ? isLight ? "text-[#4F46E5]" : "text-cyan-400" 
+                  isActive
+                    ? isLight ? "text-[#4F46E5]" : "text-cyan-400"
                     : isLight ? "text-slate-500 group-hover:text-slate-800" : "text-slate-400 group-hover:text-cyan-300"
                 }`}
               />
@@ -384,8 +441,8 @@ export function LeftSidebar({
             {/* Live Subscription Status Widget */}
             {!isPro ? (
               <div className={`p-2.5 rounded-xl border flex flex-col gap-1.5 ${
-                isLight 
-                  ? "bg-[#EEF2FF]/60 border-purple-100" 
+                isLight
+                  ? "bg-[#EEF2FF]/60 border-purple-100"
                   : "glass-panel border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-blue-950/15"
               }`}>
                 <div className="flex items-center justify-between w-full">
@@ -394,7 +451,7 @@ export function LeftSidebar({
                   }`}>
                     {isBasic ? `⚡ Basic (${subscription?.subscription?.daysRemaining ?? 0}d)` : "⚡ Codexa Plans"}
                   </span>
-                  <button 
+                  <button
                     onClick={() => router.push(isBasic ? "/plans/duration?plan=pro" : "/plans")}
                     className="px-2.5 py-1 rounded-lg text-[9px] font-black text-white bg-[#4F46E5] hover:bg-[#4338CA] transition-all cursor-pointer shadow-md shrink-0"
                   >
@@ -420,9 +477,9 @@ export function LeftSidebar({
               }`}>
                 <div className="flex items-center gap-2">
                   {activeProfile.image ? (
-                    <img 
-                      src={activeProfile.image} 
-                      alt={activeProfile.name || "User"} 
+                    <img
+                      src={activeProfile.image}
+                      alt={activeProfile.name || "User"}
                       className="w-6 h-6 rounded-full border border-slate-200/50 object-cover shrink-0"
                     />
                   ) : (
@@ -439,7 +496,7 @@ export function LeftSidebar({
                     </div>
                   </div>
                 </div>
-                
+
                 {/* XP Progress Bar */}
                 {(() => {
                   const currentProgressXp = (activeProfile as any)?.levelProgressXp !== undefined ? (activeProfile as any).levelProgressXp : (activeProfile?.xp ?? 0);
@@ -451,7 +508,7 @@ export function LeftSidebar({
                       <div className={`flex-1 h-1 rounded-full overflow-hidden ${
                         isLight ? "bg-slate-100" : "bg-white/10"
                       }`}>
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all duration-500 ${
                             isLight ? "bg-gradient-to-r from-blue-500 to-[#4F46E5]" : "bg-gradient-to-r from-blue-500 to-cyan-400"
                           }`}
@@ -482,8 +539,8 @@ export function LeftSidebar({
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={`w-full flex items-center justify-center p-1.5 rounded-xl transition-all border ${
-            isLight 
-              ? "text-slate-500 hover:text-[#0F172A] border-slate-200 bg-white" 
+            isLight
+              ? "text-slate-500 hover:text-[#0F172A] border-slate-200 bg-white"
               : "text-slate-400 hover:text-white border-white/10 bg-[#060609]"
           }`}
         >
@@ -491,5 +548,107 @@ export function LeftSidebar({
         </button>
       </div>
     </aside>
+
+    {/* Shared Mobile Slide-Over Navigation Drawer (< 768px) */}
+    <MobileNavigationDrawer
+      isOpen={isMobileDrawerOpen}
+      onClose={closeMobileDrawer}
+      activeTab={activeTab}
+      onTabChange={(tab) => {
+        if (typeof onTabChange === "function") onTabChange(tab);
+        if (typeof onChange === "function") onChange(tab);
+      }}
+      userProfile={activeProfile || undefined}
+      subscription={subscription}
+      isPro={isPro}
+    />
+
+    {/* Mobile Bottom Navigation Bar (< 768px) */}
+    <nav
+      aria-label="Mobile Navigation"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#09090B]/95 backdrop-blur-2xl border-t border-white/10 px-2 py-1 pb-safe shadow-[0_-4px_25px_rgba(0,0,0,0.5)] select-none"
+    >
+      <div className="flex items-center justify-around h-14 max-w-md mx-auto">
+        {/* 1. Dashboard */}
+        <button
+          type="button"
+          onClick={() => {
+            closeMobileDrawer();
+            router.push("/dashboard");
+          }}
+          className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] transition-colors cursor-pointer ${
+            pathname === "/dashboard" ? "text-cyan-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <LayoutDashboard size={18} className={pathname === "/dashboard" ? "text-cyan-400" : "text-slate-400"} />
+          <span className="text-[10px] mt-1 font-semibold">Dashboard</span>
+        </button>
+
+        {/* 2. Courses */}
+        <button
+          type="button"
+          onClick={() => {
+            closeMobileDrawer();
+            router.push("/courses");
+          }}
+          className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] transition-colors cursor-pointer ${
+            pathname?.startsWith("/courses") ? "text-cyan-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <BookOpen size={18} className={pathname?.startsWith("/courses") ? "text-cyan-400" : "text-slate-400"} />
+          <span className="text-[10px] mt-1 font-semibold">Courses</span>
+        </button>
+
+        {/* 3. AI Mentor */}
+        <button
+          type="button"
+          onClick={() => {
+            closeMobileDrawer();
+            router.push("/codexai");
+          }}
+          className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] transition-colors cursor-pointer ${
+            pathname?.startsWith("/codexai") || pathname?.startsWith("/codeai") ? "text-cyan-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          <Bot size={18} className={pathname?.startsWith("/codexai") || pathname?.startsWith("/codeai") ? "text-cyan-400" : "text-slate-400"} />
+          <span className="text-[10px] mt-1 font-semibold">AI Mentor</span>
+        </button>
+
+        {/* 4. Menu & Profile */}
+        <button
+          type="button"
+          onClick={() => {
+            if (isMobileDrawerOpen) {
+              closeMobileDrawer();
+            } else {
+              openMobileDrawer();
+            }
+          }}
+          className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] transition-colors cursor-pointer ${
+            isMobileDrawerOpen ? "text-cyan-400 font-bold" : "text-slate-400 hover:text-slate-200"
+          }`}
+        >
+          {activeProfile?.image ? (
+            <img
+              src={activeProfile.image}
+              alt="Profile"
+              className={`w-5 h-5 rounded-full object-cover border ${
+                isMobileDrawerOpen ? "border-cyan-400 ring-2 ring-cyan-400/30" : "border-slate-500"
+              }`}
+            />
+          ) : (
+            <div
+              className={`w-5 h-5 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 text-white text-[9px] font-black flex items-center justify-center ${
+                isMobileDrawerOpen ? "ring-2 ring-cyan-400/40" : ""
+              }`}
+            >
+              {(activeProfile?.name || "S").charAt(0).toUpperCase()}
+            </div>
+          )}
+          <span className="text-[10px] mt-1 font-semibold">Menu</span>
+        </button>
+      </div>
+    </nav>
+  </>
   );
 }

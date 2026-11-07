@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     if (!isValidDuration(durationMonths)) {
       return NextResponse.json(
-        { error: "Invalid duration selected. Must be 1, 2, or 6 months." },
+        { error: "Invalid duration selected. Must be 1 or 4 months." },
         { status: 400 }
       );
     }

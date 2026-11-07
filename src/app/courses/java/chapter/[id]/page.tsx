@@ -43,6 +43,8 @@ import {
 } from "lucide-react";
 import { ChapterLearningAnalysis } from "@/lib/adaptive/types";
 import { LockedChapterCard } from "@/components/learning/LockedChapterCard";
+import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
+import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 
 interface ChapterItem {
   id: string;
@@ -183,15 +185,17 @@ export default function JavaChapterPage() {
   // Floating panel tabs state
   const [leftSidebarExpanded, setLeftSidebarExpanded] = useState(true);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [mobileAssistantOpen, setMobileAssistantOpen] = useState(false);
   const [expandedSummary, setExpandedSummary] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "ai"; text: string }>>([
     { sender: "ai", text: "Hi! Ask me any questions or doubts about this chapter's notes, and I will explain them using details from the text." }
   ]);
 
-  
 
-  
+
+
 
   const [chatLoading, setChatLoading] = useState(false);
   const [currentLesson, setCurrentLesson] = useState<string | null>(null);
@@ -739,7 +743,7 @@ ${getLessons()
       answer: aiResponse,
     });
 
-    
+
 
   } catch (error) {
 
@@ -1425,89 +1429,22 @@ const startMentorListening = () => {
     const name = user?.name || "Student";
     setBuying(true);
     try {
-      const res = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: coursePrice,
-          currency: "INR",
-          courseId: courseId,
-          userEmail: email,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        alert(data.error || "Order creation failed.");
-        setBuying(false);
-        return;
-      }
-
-      const { isMock } = data;
-
-      if (isMock) {
-        alert("🔧 Local Dev Mode: Simulating Razorpay Payment Gateway. Click OK to confirm purchase.");
-        
-        const enrollRes = await fetch("/api/courses/enroll", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userEmail: email,
-            courseId: courseId,
-            paidAmount: coursePrice,
-            paymentId: `pay_mock_${Date.now()}`,
-          }),
-        });
-
-        const enrollData = await enrollRes.json();
-        if (enrollData.success) {
+      await openRazorpayCheckout({
+        courseId,
+        courseTitle: courseTitle || "Java Enterprise Architecture Mastery",
+        userEmail: email,
+        userName: name,
+        onSuccess: async () => {
           alert("🎉 Course purchased successfully! All chapters are now unlocked.");
           await loadPageData();
-        } else {
-          alert(enrollData.error || "Enrollment failed.");
-        }
-      } else {
-        const options = {
-          key: data.key,
-          amount: data.order.amount,
-          currency: data.order.currency,
-          name: "KnowledgeStream AI",
-          description: courseTitle,
-          order_id: data.order.id,
-          handler: async function (response: any) {
-            const enrollRes = await fetch("/api/courses/enroll", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                userEmail: email,
-                courseId: courseId,
-                paidAmount: coursePrice,
-                paymentId: response.razorpay_payment_id,
-              }),
-            });
-            const enrollData = await enrollRes.json();
-            if (enrollData.success) {
-              alert("🎉 Course purchased successfully! All chapters are now unlocked.");
-              await loadPageData();
-            } else {
-              alert(enrollData.error || "Enrollment failed.");
-            }
-          },
-          prefill: {
-            name: name,
-            email: email,
-          },
-        };
-        if (window.Razorpay) {
-          const rzp = new window.Razorpay(options);
-          rzp.open();
-        } else {
-          alert("Razorpay SDK is loading. Try again.");
-        }
-      }
-    } catch (err) {
+        },
+        onError: (err) => {
+          alert(err);
+        },
+      });
+    } catch (err: any) {
       console.error(err);
-      alert("Failed to complete mock payment.");
+      alert(err?.message || "Failed to initiate payment.");
     } finally {
       setBuying(false);
     }
@@ -1543,7 +1480,7 @@ const startMentorListening = () => {
     const prevChapter = chapters.find((c) => c.orderNumber === order - 1);
     if (!prevChapter) return false;
     const prevProgress = progresses.find((p) => p.chapterId === prevChapter.id);
-    
+
     if (order > 1 && !isEnrolled) return false;
 
     return !!prevProgress?.isCompleted && (prevProgress.quizScore ?? 0) >= 75;
@@ -1571,41 +1508,539 @@ const startMentorListening = () => {
     });
   };
 
+  const renderJavaAssistantContent = (isMobile = false) => (
+    <div className={`w-full h-full flex flex-col ${isMobile ? "p-3 sm:p-4" : "p-4"} gap-4 overflow-hidden bg-slate-50 relative`}>
+      {/* MY LEARNING NOTES */}
+      <button
+        type="button"
+        onClick={() => {
+          if (isMobile) setMobileAssistantOpen(false);
+          router.push("/notes?course=java");
+        }}
+        className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:border-blue-300 hover:shadow-md transition-all group cursor-pointer"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-100 transition-colors shrink-0">
+            <BookOpen size={19} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-extrabold text-slate-800">My Learning Notes</h3>
+            <p className="text-[10px] text-slate-500 mt-0.5">Open your notes</p>
+          </div>
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+        </div>
+      </button>
+
+      {/* CODENTHRA AI MENTOR */}
+      <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        {/* Mentor Header */}
+        <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm shrink-0">
+                <Bot size={19} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-800">Ask AI</h3>
+                <p className="text-[10px] text-slate-500">Ask anything about this lesson</p>
+              </div>
+            </div>
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={() => setMobileAssistantOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-2 rounded-xl hover:bg-white/60 transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                title="Close Assistant"
+                aria-label="Close Assistant"
+              >
+                <X size={18} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRightPanelExpanded(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-white/60 transition cursor-pointer"
+                title="Collapse Panel"
+              >
+                <ChevronRight size={16} />
+              </button>
+            )}
+          </div>
+
+          {isMentorSpeaking && (
+            <div className="mt-3 px-3 py-1.5 bg-blue-100/60 rounded-xl border border-blue-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[11px] font-semibold text-blue-700">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                AI Teacher is speaking...
+              </div>
+              <button
+                type="button"
+                onClick={stopMentorSpeaking}
+                className="text-[10px] font-bold text-slate-600 hover:text-red-600 cursor-pointer"
+              >
+                Stop
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Scroll Area */}
+        <div ref={chatScrollRef} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">
+          <div className="p-4 space-y-3">
+            {chatMessages.map((message, index) => (
+              <div key={index} className={`flex ${message.sender === "user" ? "justify-end" : "justify-start"}`}>
+                <div
+                  className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                    message.sender === "user"
+                      ? "bg-blue-600 text-white rounded-br-md"
+                      : "bg-slate-100 text-slate-700 border border-slate-200 rounded-bl-md"
+                  }`}
+                >
+                  {message.text}
+                </div>
+              </div>
+            ))}
+
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-slate-100 border border-slate-200 rounded-2xl rounded-bl-md px-4 py-3 text-sm text-slate-500 flex items-center gap-2">
+                  <Sparkles size={14} className="text-blue-600 animate-spin" />
+                  <span>AI is thinking...</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {!chatLoading && (
+            <div className="px-4 pb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  liveTeacherRef.current?.resume();
+                }}
+                className="w-full px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                ▶ Resume Live Teacher
+              </button>
+            </div>
+          )}
+
+          {/* Quick learning actions */}
+          <div className="p-4 pt-2">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">How can I help you?</p>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => handleTeachingRequest("Explain this Java topic in a simple way.", "explain")}
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                💡 Explain this topic
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTeachingRequest("Give me a simple Java example of this topic.", "example")}
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                📝 Give me an example
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTeachingRequest("Show me this Java concept visually. Use a simple flow, diagram, or structured explanation if appropriate.", "visual")}
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                🎨 Show me visually
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTeachingRequest("Ask me one question about this Java topic to check my understanding. Do not give me the answer immediately.", "question")}
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                ❓ Ask me a question
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTeachingRequest("I'm confused about this Java topic. Explain it differently using simpler intuition and a small example.", "confused")}
+                disabled={chatLoading}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-semibold text-slate-700 disabled:opacity-50 cursor-pointer"
+              >
+                🤔 I'm confused
+              </button>
+            </div>
+
+            {/* Context */}
+            <div className="mt-5 p-3 rounded-xl bg-blue-50 border border-blue-100">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Sparkles size={13} className="text-blue-600" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">Currently Learning</span>
+              </div>
+              <p className="text-[11px] font-bold text-slate-700 leading-relaxed">
+                {currentLesson || currentChapter?.title || `Chapter ${chapterOrder}`}
+              </p>
+              {currentLesson && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      getLessonStatus(currentLesson) === "MASTERED"
+                        ? "bg-emerald-500"
+                        : getLessonStatus(currentLesson) === "LEARNING"
+                        ? "bg-amber-500"
+                        : getLessonStatus(currentLesson) === "PRACTICED"
+                        ? "bg-blue-500"
+                        : getLessonStatus(currentLesson) === "NEEDS_REVIEW"
+                        ? "bg-red-500"
+                        : "bg-slate-300"
+                    }`}
+                  />
+                  <span className="text-[10px] font-semibold text-slate-500">{getLessonStatusLabel(currentLesson)}</span>
+                </div>
+              )}
+              <div className="mt-3 flex items-center justify-between text-[10px]">
+                <span className="text-slate-500">Lesson progress</span>
+                <span className="font-bold text-blue-600">{completedLessons.length}/{getLessons().length}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Input */}
+        <div className="p-3 border-t border-slate-200 bg-slate-50/50 shrink-0 space-y-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleTeachingRequest(chatInput, "chat");
+            }}
+            className="flex items-center gap-2"
+          >
+            <input
+              type="text"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              placeholder="Ask about this lesson..."
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
+            />
+            <button
+              type="submit"
+              disabled={!chatInput.trim() || chatLoading}
+              className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-sm shrink-0 disabled:opacity-50 cursor-pointer"
+              title="Ask AI"
+            >
+              <Send size={13} />
+            </button>
+          </form>
+          <p className="text-[9px] text-slate-400 text-center">Codenthra AI uses this lesson and context.</p>
+        </div>
+      </div>
+    </div>
+  );
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col selection:bg-cyan-500 selection:text-black overflow-hidden h-screen">
       {/* Custom Top Bar */}
-      <header className="w-full border-b border-slate-200 bg-white px-6 py-4 flex items-center justify-between sticky top-0 z-50 h-16 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center font-black text-white text-sm shadow-md">
-            KS
+      <header className="w-full border-b border-slate-200 bg-white px-3 sm:px-6 py-2.5 sm:py-4 flex items-center justify-between sticky top-0 z-40 h-14 sm:h-16 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          {/* Mobile Chapter Drawer Button */}
+          <button
+            type="button"
+            onClick={() => setMobileDrawerOpen(true)}
+            className="md:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+            title="Open Chapters"
+            aria-label="Open Course Chapters"
+          >
+            <GraduationCap size={18} className="text-red-600" />
+          </button>
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-red-600 to-amber-600 flex items-center justify-center font-black text-white text-xs sm:text-sm shadow-md shrink-0">
+            Java
           </div>
-          <div>
-            <span className="text-[10px] text-blue-600 font-mono font-bold tracking-wider block">LEARNING STUDIO</span>
-            <span className="text-sm font-extrabold text-slate-800">KnowledgeStream AI &bull; Java Course</span>
+          <div className="min-w-0">
+            <span className="text-[9px] sm:text-[10px] text-red-600 font-mono font-bold tracking-wider block">LEARNING STUDIO</span>
+            <span className="text-xs sm:text-sm font-extrabold text-slate-800 truncate block max-w-[140px] xs:max-w-[200px] sm:max-w-none">
+              <span className="hidden sm:inline">KnowledgeStream AI &bull; </span>Java Course
+            </span>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          {/* Mobile AI Assistant Drawer Button */}
+          <button
+            type="button"
+            onClick={() => setMobileAssistantOpen(true)}
+            className="md:hidden p-2 rounded-xl text-purple-600 hover:bg-purple-50 min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+            title="Open AI Mentor & Notes"
+            aria-label="Open AI Mentor and Notes"
+          >
+            <Bot size={18} />
+          </button>
+
+          <button
+            onClick={() => router.push("/notes?course=java")}
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-600 hover:bg-blue-500/20 text-xs font-bold transition flex items-center gap-1.5 cursor-pointer min-h-[36px]"
+          >
+            <BookOpen size={14} />
+            <span className="hidden sm:inline">Notes</span>
+          </button>
+
+          <CourseSwitcher currentLanguage="java" currentChapter={chapterOrder} className="hidden xl:inline-flex" />
+
           <button
             onClick={() => router.push("/dashboard")}
-            className="px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-sm transition-all flex items-center gap-1.5"
+            className="px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center gap-1 sm:gap-1.5 min-h-[36px]"
           >
-            <ArrowLeft size={13} /> Back to Dashboard
+            <ArrowLeft size={13} /> <span className="hidden xs:inline">Dashboard</span>
           </button>
-          
-          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-3">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
-              {user?.name?.charAt(0) || "N"}
-            </div>
-            <ChevronDown size={14} className="text-slate-500" />
-          </div>
         </div>
       </header>
 
+      {/* Mobile Persistent Course Navigation Bar */}
+      <nav
+        aria-label="Mobile Course Navigation"
+        className="md:hidden w-full bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-3 py-2 shrink-0 z-30 shadow-xs pl-safe pr-safe"
+      >
+        <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
+          {/* Chapters Control */}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileAssistantOpen(false);
+              setMobileDrawerOpen((prev) => !prev);
+            }}
+            className={`min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+              mobileDrawerOpen
+                ? "bg-red-50 border-red-300 text-red-700 shadow-xs ring-2 ring-red-500/20"
+                : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+            }`}
+            aria-label="Course Chapters"
+            aria-expanded={mobileDrawerOpen}
+          >
+            <GraduationCap
+              size={18}
+              className={mobileDrawerOpen ? "text-red-600" : "text-red-600"}
+            />
+            <span>Chapters</span>
+            <span className="text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-200/80 px-1.5 py-0.5 rounded-md">
+              {chapterOrder}
+            </span>
+          </button>
+
+          {/* AI Mentor Control */}
+          <button
+            type="button"
+            onClick={() => {
+              setMobileDrawerOpen(false);
+              setMobileAssistantOpen((prev) => !prev);
+            }}
+            className={`min-h-[44px] px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+              mobileAssistantOpen
+                ? "bg-purple-50 border-purple-300 text-purple-700 shadow-xs ring-2 ring-purple-500/20"
+                : "bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700"
+            }`}
+            aria-label="AI Mentor and Notes"
+            aria-expanded={mobileAssistantOpen}
+          >
+            <Bot
+              size={18}
+              className={mobileAssistantOpen ? "text-purple-600" : "text-purple-600"}
+            />
+            <span>AI Mentor</span>
+            <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+          </button>
+        </div>
+      </nav>
+
+      {/* Mobile Chapter Overlay Drawer */}
+      {mobileDrawerOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileDrawerOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-[85vw] max-w-xs h-full bg-white shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200">
+            {/* Drawer Header */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                  <GraduationCap size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800">Course Chapters</h3>
+                  <span className="text-[10px] font-mono text-slate-500 font-bold uppercase">Java Curriculum</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileDrawerOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-all min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+                aria-label="Close chapters drawer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Drawer Chapters List (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar">
+              {chapters.map((ch) => {
+                const active = ch.orderNumber === chapterOrder;
+                const isExpanded = active || !!expandedChapters[ch.orderNumber];
+                const pageIcon = <FileText size={15} className={active ? "text-red-600" : "text-slate-400"} />;
+
+                return (
+                  <div key={ch.id} className="space-y-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        toggleChapterExpand(ch.orderNumber);
+                        setMobileDrawerOpen(false);
+                        router.push(`/courses/java/chapter/${ch.orderNumber}`);
+                      }}
+                      className={`w-full p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all min-h-[48px] cursor-pointer ${
+                        active
+                          ? "bg-red-50/70 border-red-200 shadow-xs"
+                          : "bg-slate-50/50 hover:bg-slate-100/70 border-slate-200/80"
+                      }`}
+                    >
+                      <div className="shrink-0">{pageIcon}</div>
+                      <div className="space-y-0.5 flex-1 min-w-0">
+                        <div className="text-[9px] font-bold uppercase tracking-wider font-mono text-red-600">
+                          CHAPTER {ch.orderNumber}
+                        </div>
+                        <div className={`text-xs font-bold truncate leading-snug ${active ? "text-slate-900" : "text-slate-700"}`}>
+                          {ch.title.replace(/^Chapter \d+:\s*/, "").replace(/^Topic \d+:\s*/, "")}
+                        </div>
+                      </div>
+                      {!active && <ChevronDown size={14} className="text-slate-400 shrink-0 ml-auto" />}
+                      {active && <ChevronUp size={14} className="text-red-600 shrink-0 ml-auto" />}
+                    </button>
+
+                    {/* Expandable nested sections outline */}
+                    {isExpanded && (
+                      <div className="pl-6 pr-2 py-1 space-y-2 border-l-2 border-red-100 ml-4">
+                        {getLessons().map((sec, secIdx, arr) => {
+                          const isQuiz = sec === "Quiz Assessment";
+                          const status = isQuiz ? "NOT_STARTED" : getLessonStatus(sec);
+                          const isUnlocked = isQuiz ? isQuizUnlocked(arr) : isTopicUnlocked(secIdx, arr);
+
+                          return (
+                            <button
+                              key={secIdx}
+                              type="button"
+                              onClick={() => {
+                                if (!isUnlocked) {
+                                  if (isQuiz) {
+                                    alert("🔒 Complete and master all chapter topics with your AI Teacher before taking the Chapter Assessment Quiz.");
+                                  } else {
+                                    alert(`🔒 Topic is locked. Please master "${arr[secIdx - 1]}" first.`);
+                                  }
+                                  return;
+                                }
+
+                                setMobileDrawerOpen(false);
+                                if (isQuiz) {
+                                  router.push(`/courses/java/chapter/${ch.orderNumber}/quiz`);
+                                  return;
+                                }
+
+                                setCurrentLesson(sec);
+                                setCurrentLessonIndex(secIdx);
+                              }}
+                              className={`w-full text-left text-xs leading-relaxed flex items-center gap-2 py-1.5 px-2 rounded-lg transition-all min-h-[36px] cursor-pointer ${
+                                !isUnlocked
+                                  ? "opacity-50 cursor-not-allowed text-slate-400"
+                                  : isQuiz
+                                  ? "text-purple-600 font-bold hover:bg-purple-50"
+                                  : currentLesson === sec
+                                  ? "text-red-700 bg-red-50/80 font-bold"
+                                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                              }`}
+                            >
+                              {!isUnlocked ? (
+                                <Lock size={12} className="text-slate-400 shrink-0" />
+                              ) : (
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    status === "MASTERED"
+                                      ? "bg-emerald-500"
+                                      : status === "PRACTICED"
+                                      ? "bg-blue-500"
+                                      : status === "LEARNING"
+                                      ? "bg-amber-500"
+                                      : status === "NEEDS_REVIEW"
+                                      ? "bg-red-500"
+                                      : isQuiz
+                                      ? "bg-purple-500"
+                                      : "bg-slate-300"
+                                  }`}
+                                />
+                              )}
+                              <span className="truncate flex-1">{sec}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Mobile Course Switcher inside Chapter Drawer */}
+            <div className="p-3 border-t border-slate-200 bg-slate-50 shrink-0">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">Switch Course Track</span>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "c", label: "C", href: "/courses/c/chapter/0" },
+                  { id: "cpp", label: "C++", href: "/courses/cpp/chapter/0" },
+                  { id: "java", label: "Java", href: "/courses/java/chapter/0" },
+                  { id: "python", label: "Python", href: "/courses/python/chapter/0" },
+                ].map((track) => (
+                  <button
+                    key={track.id}
+                    type="button"
+                    onClick={() => {
+                      setMobileDrawerOpen(false);
+                      router.push(track.href);
+                    }}
+                    className={`py-2 px-3 rounded-xl border text-xs font-extrabold text-center transition-all min-h-[40px] cursor-pointer ${
+                      track.id === "java"
+                        ? "bg-red-600 text-white border-red-600 shadow-xs"
+                        : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700"
+                    }`}
+                  >
+                    {track.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Assistant Overlay Drawer */}
+      {mobileAssistantOpen && (
+        <div className="fixed inset-0 z-50 md:hidden flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileAssistantOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-[90vw] max-w-sm h-full bg-slate-50 shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-200">
+            {renderJavaAssistantContent(true)}
+          </div>
+        </div>
+      )}
+
       {/* Main Two-Panel Layout */}
       <div className="flex-1 flex w-full overflow-hidden">
-        
+
         {/* Left Side: Chapter Navigation Sidebar */}
-        <aside data-lenis-prevent className={`border-r border-slate-200 bg-white overflow-y-auto shrink-0 flex flex-col custom-scrollbar transition-all duration-300 ${
+        <aside data-lenis-prevent className={`hidden md:flex border-r border-slate-200 bg-white overflow-y-auto shrink-0 flex-col custom-scrollbar transition-all duration-300 ${
           leftSidebarExpanded ? "w-80" : "w-14"
         }`}>
           <div className={`p-4 border-b border-slate-200 bg-slate-50/50 flex items-center shrink-0 ${
@@ -1771,8 +2206,28 @@ const startMentorListening = () => {
         </aside>
 
         {/* Right Side: Chapter Notes Area */}
-        <main data-lenis-prevent className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto w-full bg-slate-50 custom-scrollbar">
-          
+        <main data-lenis-prevent className="flex-1 p-3 xs:p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6 overflow-y-auto overflow-x-hidden w-full bg-slate-50 custom-scrollbar">
+          {/* Mobile In-Page Chapter Selector Card */}
+          <div className="md:hidden flex items-center justify-between p-3 bg-white rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <GraduationCap size={16} />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-mono font-bold text-red-600 block uppercase">Current Chapter {chapterOrder}</span>
+                <span className="text-xs font-black text-slate-800 truncate block">{currentChapter?.title || "Lesson"}</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setMobileDrawerOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold transition flex items-center gap-1 shrink-0 min-h-[38px] cursor-pointer"
+            >
+              <span>Chapters</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
           {/* Breadcrumb Navigation */}
           <div className="flex items-center gap-1.5 text-sm text-slate-500 max-w-6xl mx-auto w-full">
             <button
@@ -1831,7 +2286,7 @@ const startMentorListening = () => {
           ) : (
             <div className="space-y-6 animate-fade-in max-w-5xl mx-auto w-full pb-10">
 
-              
+
 
               <LiveTeacher
                 ref={liveTeacherRef}
@@ -2154,7 +2609,7 @@ userEmail={userEmail}
               {/* Lesson Body Card */}
               {currentChapter && (
                 <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 space-y-6 shadow-sm relative">
-                  
+
                   {/* Chapter Metadata Header */}
                   <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
                     <div>
@@ -2195,7 +2650,7 @@ userEmail={userEmail}
                     {quizQuestions.length > 0 ? (
                       <button
                         onClick={() => router.push(`/courses/java/chapter/${chapterOrder}/quiz`)}
-                        className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-md shadow-blue-500/10"
+                        className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/10 cursor-pointer min-h-[48px]"
                       >
                         <HelpCircle size={14} /> Take Chapter Assessment Quiz
                       </button>
@@ -2203,7 +2658,7 @@ userEmail={userEmail}
                       <button
                         onClick={handleMarkChapterComplete}
                         disabled={completing}
-                        className="px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center gap-1.5 shadow-md shadow-emerald-500/10"
+                        className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer min-h-[48px]"
                       >
                         <CheckCircle2 size={14} /> {completing ? "Completing..." : "Mark Chapter Complete"}
                       </button>
@@ -2216,362 +2671,16 @@ userEmail={userEmail}
           )}
         </main>
 
-        {/* Right Learning Assistant Panel */}
-<aside
-  className={`h-full border-l border-slate-200 flex flex-col shrink-0 transition-all duration-300 select-none overflow-hidden bg-slate-50 ${
-    rightPanelExpanded ? "w-[460px]" : "w-14"
-  }`}
->
-  {rightPanelExpanded ? (
-    <div className="w-full h-full flex flex-col p-4 gap-4 overflow-hidden bg-slate-50">
-
-      {/* ========================================= */}
-      {/* MY LEARNING NOTES */}
-      {/* ========================================= */}
-      <button
-        type="button"
-        onClick={() => router.push("/notes?course=java")}
-        className="w-full text-left bg-white rounded-2xl border border-slate-200 shadow-sm p-4 hover:border-blue-300 hover:shadow-md transition-all group"
-      >
-        <div className="flex items-center gap-3">
-
-          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 group-hover:bg-blue-100 transition-colors shrink-0">
-            <BookOpen size={19} />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-extrabold text-slate-800">
-              My Learning Notes
-            </h3>
-
-            <p className="text-[10px] text-slate-500 mt-0.5">
-              Open your notes
-            </p>
-          </div>
-
-          <ChevronRight
-            size={16}
-            className="text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all"
-          />
-
-        </div>
-      </button>
-
-
-      {/* ========================================= */}
-      {/* CODENTHRA AI MENTOR */}
-      {/* ========================================= */}
-      <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-
-        {/* Mentor Header */}
-        <div className="p-4 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-purple-50 shrink-0">
-
-
-
-          <div className="flex items-center gap-3">
-
-            <div className="w-10 h-10 rounded-xl bg-white border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
-              <Bot size={19} />
-            </div>
-
-            <div>
-              <h3 className="text-sm font-black text-slate-800">
-  Ask AI
-</h3>
-
-<p className="text-[10px] text-slate-500">
-  Ask anything about this lesson
-</p>
-            </div>
-
-          </div>
-
-          {isMentorSpeaking && (
-  <div className="px-4 py-2 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-    <div className="flex items-center gap-2 text-[11px] font-semibold text-blue-600">
-      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-      AI Teacher is speaking...
-    </div>
-
-    <button
-      type="button"
-      onClick={stopMentorSpeaking}
-      className="text-[10px] font-bold text-slate-500 hover:text-red-500"
-    >
-      Stop
-    </button>
-  </div>
-)}
-
-          
-
-        </div>
-
-        {/* ========================================= */}
-{/* CODENTHRA AI MENTOR SCROLL AREA */}
-{/* ========================================= */}
-
-<div
-  ref={chatScrollRef}
-  className="flex-1 min-h-0 overflow-y-auto custom-scrollbar"
->
-
-  {/* Teaching Conversation */}
-  <div className="p-4 space-y-3">
-
-    {chatMessages.map((message, index) => (
-      <div
-        key={index}
-        className={`flex ${
-          message.sender === "user"
-            ? "justify-end"
-            : "justify-start"
-        }`}
-      >
-        <div
-          className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
-            message.sender === "user"
-              ? "bg-blue-600 text-white rounded-br-md"
-              : "bg-slate-100 text-slate-700 border border-slate-200 rounded-bl-md"
+        {/* Right Learning Assistant Panel (Hidden on mobile) */}
+        <aside
+          data-lenis-prevent
+          className={`hidden md:flex h-full border-l border-slate-200 flex-col shrink-0 transition-all duration-300 select-none overflow-hidden bg-slate-50 ${
+            rightPanelExpanded ? "w-[460px]" : "w-14"
           }`}
         >
-          {message.text}
-        </div>
-      </div>
-    ))}
-
-    {chatLoading && (
-      <div className="flex justify-start">
-        <div className="bg-slate-100 border border-slate-200 rounded-2xl rounded-bl-md px-4 py-3 text-sm text-slate-500">
-          AI is thinking...
-        </div>
-      </div>
-    )}
-
-  </div>
-
-  {!chatLoading && (
-  <button
-    type="button"
-    onClick={() => {
-      liveTeacherRef.current?.resume();
-    }}
-    className="w-full mt-3 px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-all"
-  >
-    ▶ Resume Live Teacher
-  </button>
-)}
-
-
-  {/* Learning Actions */}
-  <div className="p-4">
-
-    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3">
-      How can I help you?
-    </p>
-
-    <div className="space-y-2">
-
-      {/* Explain */}
-      <button
-        type="button"
-        onClick={() =>
-          handleTeachingRequest(
-            "Explain this topic in a simple way.",
-            "explain"
-          )
-        }
-        disabled={chatLoading}
-        className="w-full text-left px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-sm font-semibold text-slate-700 disabled:opacity-50"
-      >
-        💡 Explain this topic
-      </button>
-
-
-      {/* Example */}
-      <button
-        type="button"
-        onClick={() =>
-          handleTeachingRequest(
-            "Give me a simple example of this topic.",
-            "example"
-          )
-        }
-        disabled={chatLoading}
-        className="w-full text-left px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-sm font-semibold text-slate-700 disabled:opacity-50"
-      >
-        📝 Give me an example
-      </button>
-
-
-      {/* Visual */}
-      <button
-        type="button"
-        onClick={() =>
-          handleTeachingRequest(
-            "Show me this concept visually. Use a simple flow, diagram, or structured explanation if appropriate.",
-            "visual"
-          )
-        }
-        disabled={chatLoading}
-        className="w-full text-left px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-sm font-semibold text-slate-700 disabled:opacity-50"
-      >
-        🎨 Show me visually
-      </button>
-
-
-      {/* Question */}
-      <button
-        type="button"
-        onClick={() =>
-          handleTeachingRequest(
-            "Ask me one question about this topic to check my understanding. Do not give me the answer immediately.",
-            "question"
-          )
-        }
-        disabled={chatLoading}
-        className="w-full text-left px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-sm font-semibold text-slate-700 disabled:opacity-50"
-      >
-        ❓ Ask me a question
-      </button>
-
-
-      {/* Confused */}
-      <button
-        type="button"
-        onClick={() =>
-          handleTeachingRequest(
-            "I'm confused about this topic. Explain it differently using simpler intuition and a small example.",
-            "confused"
-          )
-        }
-        disabled={chatLoading}
-        className="w-full text-left px-5 py-4 rounded-xl bg-slate-50 border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition-all text-sm font-semibold text-slate-700 disabled:opacity-50"
-      >
-        🤔 I'm confused
-      </button>
-
-    </div>
-
-
-    {/* Current Learning Context */}
-    <div className="mt-5 p-3 rounded-xl bg-blue-50 border border-blue-100">
-
-      <div className="flex items-center gap-2 mb-1.5">
-
-        <Sparkles
-          size={13}
-          className="text-blue-600"
-        />
-
-        <span className="text-[10px] font-black uppercase tracking-wider text-blue-700">
-          Currently Learning
-        </span>
-
-      </div>
-
-
-      <p className="text-[11px] font-bold text-slate-700 leading-relaxed">
-        {currentLesson ||
-          currentChapter?.title ||
-          `Chapter ${chapterOrder}`}
-      </p>
-
-      {currentLesson && (
-  <div className="mt-2 flex items-center gap-2">
-    <span
-      className={`w-2 h-2 rounded-full ${
-        getLessonStatus(currentLesson) === "MASTERED"
-          ? "bg-emerald-500"
-          : getLessonStatus(currentLesson) === "LEARNING"
-          ? "bg-amber-500"
-          : getLessonStatus(currentLesson) === "PRACTICED"
-          ? "bg-blue-500"
-          : getLessonStatus(currentLesson) === "NEEDS_REVIEW"
-          ? "bg-red-500"
-          : "bg-slate-300"
-      }`}
-    />
-
-    <span className="text-[10px] font-semibold text-slate-500">
-      {getLessonStatusLabel(currentLesson)}
-    </span>
-  </div>
-)}
-
-
-      <div className="mt-3 flex items-center justify-between text-[10px]">
-
-        <span className="text-slate-500">
-          Lesson progress
-        </span>
-
-        <span className="font-bold text-blue-600">
-          {completedLessons.length}/
-          {getLessons().length}
-        </span>
-
-      </div>
-
-    </div>
-
-  </div>
-
-</div>
-
-
-     
-
-
-        {/* Ask Mentor */}
-        <div className="p-3 border-t border-slate-200 bg-slate-50/50 shrink-0">
-
-          <form
-  onSubmit={(e) => {
-    e.preventDefault();
-    handleTeachingRequest(chatInput, "chat");
-  }}
-  className="flex items-center gap-2"
->
-  <input
-    type="text"
-    value={chatInput}
-    onChange={(e) => setChatInput(e.target.value)}
-    placeholder="Ask about this lesson..."
-    className="flex-1 min-w-0 px-4 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10"
-  />
-
-  <button
-    type="submit"
-    disabled={!chatInput.trim() || chatLoading}
-    className="w-9 h-9 rounded-xl bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center transition-all shadow-sm shrink-0 disabled:opacity-50"
-    title="Ask AI"
-  >
-    <Send size={13} />
-  </button>
-</form>
-
-          <p className="text-[9px] text-slate-400 mt-2 text-center">
-            Codenthra AI uses this lesson as context.
-          </p>
-
-        </div>
-
-      </div>
-
-
-      {/* ========================================= */}
-      {/* COLLAPSE BUTTON */}
-      {/* ========================================= */}
-      <button
-        type="button"
-        onClick={() => setRightPanelExpanded(false)}
-        className="absolute"
-        aria-label="Collapse learning assistant"
-      />
-
-    </div>
-  ) : (
+          {rightPanelExpanded ? (
+            renderJavaAssistantContent(false)
+          ) : (
     <div className="w-full h-full flex flex-col gap-2 py-4 items-center bg-slate-50">
 
       <button

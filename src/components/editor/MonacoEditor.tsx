@@ -1,7 +1,7 @@
 "use client";
 
 import Editor from "@monaco-editor/react";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { editor as MonacoEditor } from "monaco-editor";
 
@@ -86,11 +86,22 @@ export default function MonacoEditorPanel() {
     showDiagnostics(editorRef.current, activeDiagnostics);
   }, [activeDiagnostics]);
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const updateMobile = () => {
+      setIsMobile(typeof window !== "undefined" && window.innerWidth < 768);
+    };
+    updateMobile();
+    window.addEventListener("resize", updateMobile);
+    return () => window.removeEventListener("resize", updateMobile);
+  }, []);
+
   const editorOptions = useMemo(() => ({
-    fontSize: settings.editor.fontSize,
+    fontSize: isMobile ? Math.max(12, settings.editor.fontSize - 1) : settings.editor.fontSize,
     tabSize: settings.editor.tabSize,
-    minimap: { enabled: settings.editor.minimap },
-    wordWrap: settings.editor.wordWrap ? ("on" as const) : ("off" as const),
+    minimap: { enabled: isMobile ? false : settings.editor.minimap },
+    wordWrap: isMobile ? ("on" as const) : settings.editor.wordWrap ? ("on" as const) : ("off" as const),
     lineNumbers: settings.editor.lineNumbers ? ("on" as const) : ("off" as const),
     fontFamily: settings.editor.fontFamily,
     scrollBeyondLastLine: false,
@@ -98,21 +109,21 @@ export default function MonacoEditorPanel() {
     cursorBlinking: "smooth" as const,
     cursorSmoothCaretAnimation: "on" as const,
     automaticLayout: true,
-    padding: { top: 12, bottom: 12 },
-    folding: true,
+    padding: { top: isMobile ? 8 : 12, bottom: isMobile ? 8 : 12 },
+    folding: !isMobile,
     glyphMargin: false,
-    lineDecorationsWidth: 6,
-    lineNumbersMinChars: 3,
+    lineDecorationsWidth: isMobile ? 2 : 6,
+    lineNumbersMinChars: isMobile ? 2 : 3,
     renderLineHighlight: "line" as const,
     bracketPairColorization: { enabled: true },
     guides: {
-        bracketPairs: true,
+        bracketPairs: !isMobile,
         indentation: true,
     },
     suggest: {
         snippetsPreventQuickSuggestions: false,
     },
-  }), [settings.editor]);
+  }), [settings.editor, isMobile]);
 
   return (
     <div className="h-full w-full relative">

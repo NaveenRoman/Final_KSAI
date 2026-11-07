@@ -114,7 +114,7 @@ export default function TerminalPanel({
 
     return (
         <div
-            className={`h-[230px] flex flex-col border-t ${
+            className={`h-[180px] sm:h-[230px] max-h-[35vh] sm:max-h-[40vh] flex flex-col border-t shrink-0 ${
                 darkMode
                     ? "border-white/10 bg-[#0F1117] text-white"
                     : "border-gray-300 bg-white text-gray-900"
@@ -142,7 +142,7 @@ export default function TerminalPanel({
 
                     <div
                         ref={outputContainerRef}
-                        className={`h-full overflow-auto p-5 flex flex-col justify-between ${
+                        className={`h-full overflow-auto p-3 sm:p-5 flex flex-col justify-between ${
                             darkMode
                                 ? "bg-[#0F1117]"
                                 : "bg-white"
@@ -151,7 +151,7 @@ export default function TerminalPanel({
 
                         <div className="flex-1">
                             <pre
-                                className={`whitespace-pre-wrap font-mono text-sm leading-relaxed ${
+                                className={`whitespace-pre-wrap font-mono text-xs sm:text-sm leading-relaxed ${
                                     darkMode
                                         ? "text-emerald-300"
                                         : "text-emerald-700"
@@ -171,7 +171,7 @@ export default function TerminalPanel({
                                     setCurrentInput("");
                                     sendInput(val);
                                 }}
-                                className={`flex items-center gap-2 mt-3 pt-3 border-t font-mono text-sm shrink-0 ${
+                                className={`flex items-center gap-2 mt-2 sm:mt-3 pt-2 sm:pt-3 border-t font-mono text-sm shrink-0 ${
                                     darkMode ? "border-white/10" : "border-gray-200"
                                 }`}
                             >
@@ -186,7 +186,7 @@ export default function TerminalPanel({
                                     onChange={(e) => setCurrentInput(e.target.value)}
                                     placeholder="Type input here and press Enter..."
                                     autoFocus
-                                    className={`flex-1 bg-transparent outline-none border-none font-mono text-sm ${
+                                    className={`flex-1 bg-transparent outline-none border-none font-mono text-base sm:text-sm ${
                                         darkMode
                                             ? "text-emerald-300 placeholder-slate-500"
                                             : "text-emerald-800 placeholder-gray-400"
@@ -194,7 +194,7 @@ export default function TerminalPanel({
                                 />
                                 <button
                                     type="submit"
-                                    className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded text-xs font-mono transition shrink-0"
+                                    className="px-3 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded text-xs font-mono transition shrink-0 cursor-pointer"
                                 >
                                     Enter ↵
                                 </button>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Sparkles, ArrowRight, Menu, X } from "lucide-react";
 
@@ -21,7 +22,7 @@ export function Navbar() {
     { name: "Journey", href: "/#journey" },
     { name: "Products", href: "/#products" },
     { name: "Demo", href: "/#demo" },
-    { name: "Pricing", href: "/#pricing" },
+    { name: "Plans", href: "/plans" },
     { name: "FAQ", href: "/#faq" },
   ];
 
@@ -67,7 +68,14 @@ export function Navbar() {
         </nav>
 
         {/* CTA Buttons */}
-        <div className="hidden md:flex items-center gap-4">
+        <div className="hidden md:flex items-center gap-3">
+          <Link
+            href="/showcase"
+            className="px-4 py-2 rounded-full text-xs font-bold text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:opacity-95 transition-all shadow-lg shadow-cyan-500/20 border border-cyan-400/30 flex items-center gap-1.5 group"
+          >
+            <Sparkles size={14} className="text-cyan-300 animate-pulse" />
+            <span>Launch Showcase</span>
+          </Link>
           <a
             href="/auth"
             className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
@@ -110,6 +118,14 @@ export function Navbar() {
             </a>
           ))}
           <div className="pt-4 border-t border-white/10 flex flex-col gap-3">
+            <Link
+              href="/showcase"
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full text-center py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20"
+            >
+              <Sparkles size={15} />
+              <span>Launch Showcase</span>
+            </Link>
             <a
               href="/auth"
               className="w-full text-center py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-blue-600 to-purple-600"

@@ -29,7 +29,7 @@ export default function TabBar() {
 
   return (
     <div
-      className={`h-11 flex items-center overflow-x-auto border-b ${
+      className={`h-11 flex items-center overflow-x-auto no-scrollbar border-b shrink-0 ${
         darkMode
           ? "bg-[#11131B] border-white/10"
           : "bg-white border-gray-300"

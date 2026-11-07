@@ -18,10 +18,12 @@ import {
   Users,
   Video,
   Zap,
+  Menu,
 } from "lucide-react";
 
 import { useRouter } from "next/navigation";
 import { useState, useEffect, type ElementType } from "react";
+import { MobileNavigationDrawer } from "@/components/navigation/MobileNavigationDrawer";
 
 
 const interviewTypes = [
@@ -141,6 +143,9 @@ export default function InterviewPage() {
 
   return (
     <div className="min-h-screen bg-[#07070A] text-white overflow-x-hidden">
+      {/* Shared Mobile Navigation Drawer (< 768px) */}
+      <MobileNavigationDrawer activeTab="Interview Prep" />
+
       {/* Pro Subscription Gate Banner */}
       {isPro === false && (
         <div className="bg-gradient-to-r from-purple-900/80 via-blue-900/60 to-slate-900 border-b border-purple-500/30 px-4 py-3 sticky top-0 z-50 backdrop-blur-md">
@@ -187,11 +192,25 @@ export default function InterviewPage() {
 
         <div className="h-full max-w-[1500px] mx-auto px-5 lg:px-8 flex items-center justify-between">
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+
+            {/* Mobile Global Navigation Toggle (< 768px) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("ksai-toggle-mobile-sidebar"));
+                }
+              }}
+              aria-label="Open navigation menu"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 active:scale-95 transition-all cursor-pointer shrink-0"
+            >
+              <Menu size={20} />
+            </button>
 
             <button
               onClick={() => router.back()}
-              className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition"
+              className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition shrink-0"
             >
               <ArrowLeft size={17} />
             </button>

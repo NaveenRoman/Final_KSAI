@@ -16,7 +16,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Crown,
-  Target
+  Target,
+  Menu
 } from "lucide-react";
 
 interface LeaderboardUserEntry {
@@ -219,14 +220,29 @@ export default function LeaderboardPage() {
       <main className="flex-1 h-screen overflow-hidden flex flex-col p-4 sm:p-6 lg:p-7 space-y-4 max-w-[1600px] mx-auto">
         {/* TOP HEADER BANNER - CLEAN HIGH CONTRAST LIGHT CARD */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border-2 border-indigo-200 shadow-2xs shrink-0">
-          <div className="space-y-1">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-black uppercase tracking-wider">
-              <Crown size={12} className="text-amber-500" />
-              <span>Diamond League • Real-Time Database Ranks</span>
+          <div className="flex items-start gap-3 min-w-0">
+            {/* Mobile Global Navigation Toggle (< 768px) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("ksai-toggle-mobile-sidebar"));
+                }
+              }}
+              aria-label="Open navigation menu"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="space-y-1 min-w-0">
+              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-black uppercase tracking-wider">
+                <Crown size={12} className="text-amber-500" />
+                <span>Diamond League • Real-Time Database Ranks</span>
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
+                <span className="text-slate-900 font-black">Weekly Coding</span> <span className="text-indigo-600 font-black">Leaderboard</span> ⚡
+              </h1>
             </div>
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
-              <span className="text-slate-900 font-black">Weekly Coding</span> <span className="text-indigo-600 font-black">Leaderboard</span> ⚡
-            </h1>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">

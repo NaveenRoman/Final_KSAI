@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ShieldAlert,
@@ -96,10 +96,17 @@ export function ProctoredExamPlayer({
   // Proctoring & Timer State
   const [timeRemainingSeconds, setTimeRemainingSeconds] = useState(15 * 60); // 15 mins default
   const [startTime, setStartTime] = useState<number>(0);
+  const [examDurationString, setExamDurationString] = useState<string>("");
   const [warningsCount, setWarningsCount] = useState(0);
   const [warningAlertMessage, setWarningAlertMessage] = useState<string | null>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const endTimeRef = useRef<number>(0);
+  const lastViolationTimeRef = useRef<number>(0);
+  const blurStartTimeRef = useRef<number>(0);
+  const mobileGraceCountRef = useRef<number>(0);
+  const submittingRef = useRef<boolean>(false);
+  const handleAutoSubmitRef = useRef<(reason: string) => Promise<void>>(async () => {});
 
   // Computed counters
   const totalQuestions = questions.length;
@@ -107,103 +114,7 @@ export function ProctoredExamPlayer({
   const unattemptedCount = Math.max(0, totalQuestions - attemptedCount);
   const currentQuestion = questions[currentIndex];
 
-  // Start Proctored Exam
-  const handleStartExam = () => {
-    setExamState("EXAM");
-    setStartTime(Date.now());
-    setTimeRemainingSeconds(Math.max(300, totalQuestions * 90)); // 1.5 mins per question
-    setWarningsCount(0);
-    setWarningAlertMessage(null);
-  };
-
-  // Countdown Timer Logic
-  useEffect(() => {
-    if (examState !== "EXAM") {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      setTimeRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          handleAutoSubmit("Timer expired! Exam auto-submitted.");
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [examState]);
-
-  // Tab Switch & Visibility Change Detection (Proctoring Engine)
-  useEffect(() => {
-    if (examState !== "EXAM") return;
-
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        triggerProctoringWarning("Tab switch / Window minimization detected!");
-      }
-    };
-
-    const handleWindowBlur = () => {
-      triggerProctoringWarning("Browser focus lost!");
-    };
-
-    window.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleWindowBlur);
-
-    return () => {
-      window.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleWindowBlur);
-    };
-  }, [examState, warningsCount]);
-
-  const triggerProctoringWarning = (reason: string) => {
-    setWarningsCount((prevCount) => {
-      const newCount = prevCount + 1;
-      if (newCount >= 3) {
-        handleAutoSubmit("Maximum tab-switch warnings (3/3) exceeded! Exam auto-submitted by AI Proctor.");
-      } else {
-        setWarningAlertMessage(
-          `⚠️ PROCTORING ALERT (${newCount}/3 Warnings): ${reason} Please remain on this exam window. Exceeding 3 warnings will automatically submit your exam!`
-        );
-      }
-      return newCount;
-    });
-  };
-
-  // Auto-Submit wrapper
-  const handleAutoSubmit = async (reasonMsg: string) => {
-    if (submitting || examState === "RESULT") return;
-    alert(reasonMsg);
-    await triggerSubmit();
-  };
-
-  // Trigger Submit
-  const triggerSubmit = async () => {
-    if (submitting) return;
-    setSubmitting(true);
-
-    const durationMs = startTime > 0 ? Date.now() - startTime : 0;
-    try {
-      const res = await onSubmitQuiz(selectedAnswers, durationMs, warningsCount);
-      if (res) {
-        setExamResult(res);
-        setExamState("RESULT");
-      }
-    } catch (err) {
-      console.error("Exam submission failed:", err);
-      alert("Submission error. Please retry.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Format MM:SS
+  // Helper to format MM:SS
   const formatTimer = (totalSecs: number) => {
     const mins = Math.floor(totalSecs / 60);
     const secs = totalSecs % 60;
@@ -217,6 +128,194 @@ export function ProctoredExamPlayer({
     if (mins > 0) return `${mins}m ${secs}s`;
     return `${secs}s`;
   };
+
+  // Safe client-side touch / mobile viewport check
+  const isMobileClient = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia("(max-width: 768px)").matches ||
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0
+    );
+  }, []);
+
+  // Trigger Submit
+  const triggerSubmit = useCallback(async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+
+    const durationMs = startTime > 0 ? Date.now() - startTime : 0;
+    setExamDurationString(formatDurationStr(durationMs));
+
+    try {
+      const res = await onSubmitQuiz(selectedAnswers, durationMs, warningsCount);
+      if (res) {
+        setExamResult(res);
+        setExamState("RESULT");
+      }
+    } catch (err) {
+      console.error("Exam submission failed:", err);
+      alert("Submission error. Please retry.");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  }, [onSubmitQuiz, selectedAnswers, startTime, warningsCount]);
+
+  // Auto-Submit wrapper
+  const handleAutoSubmit = useCallback(async (reasonMsg: string) => {
+    if (submittingRef.current || examState === "RESULT") return;
+    alert(reasonMsg);
+    await triggerSubmit();
+  }, [examState, triggerSubmit]);
+
+  useEffect(() => {
+    handleAutoSubmitRef.current = handleAutoSubmit;
+  }, [handleAutoSubmit]);
+
+  // Proctoring Violation Tracker (Debounced & Coalesced to prevent duplicate counting)
+  const triggerProctoringViolation = useCallback((reason: string) => {
+    const now = Date.now();
+    // Coalesce duplicate blur + visibilitychange events arriving within 2000ms
+    if (now - lastViolationTimeRef.current < 2000) return;
+    lastViolationTimeRef.current = now;
+
+    setWarningsCount((prevCount) => {
+      const newCount = prevCount + 1;
+      if (newCount >= 3) {
+        handleAutoSubmitRef.current(
+          "Maximum proctoring warnings (3/3) exceeded! Exam auto-submitted by AI Proctor."
+        );
+      } else {
+        setWarningAlertMessage(
+          `⚠️ PROCTORING ALERT (${newCount}/3 Warnings): ${reason} Please remain on this exam window. Exceeding 3 warnings will automatically submit your exam!`
+        );
+      }
+      return newCount;
+    });
+  }, []);
+
+  // Start Proctored Exam
+  const handleStartExam = () => {
+    setExamState("EXAM");
+    const now = Date.now();
+    const durationSec = Math.max(300, totalQuestions * 90);
+    setStartTime(now);
+    endTimeRef.current = now + durationSec * 1000;
+    setTimeRemainingSeconds(durationSec);
+    setWarningsCount(0);
+    setWarningAlertMessage(null);
+    lastViolationTimeRef.current = 0;
+    blurStartTimeRef.current = 0;
+    mobileGraceCountRef.current = 0;
+  };
+
+  // Countdown Timer Logic (Absolute timestamp based to defeat background tab throttling)
+  useEffect(() => {
+    if (examState !== "EXAM") {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+
+    timerRef.current = setInterval(() => {
+      if (endTimeRef.current > 0) {
+        const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+        setTimeRemainingSeconds(remaining);
+        if (remaining <= 0) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          handleAutoSubmitRef.current("Timer expired! Exam auto-submitted.");
+        }
+      }
+    }, 1000);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [examState]);
+
+  // Tab Switch & Visibility Change Detection (Proctoring Engine with Mobile Interruption Safety)
+  useEffect(() => {
+    if (examState !== "EXAM") return;
+
+    const handleVisibilityChange = () => {
+      if (submittingRef.current) return;
+
+      if (document.hidden) {
+        // Tab hidden or browser minimized
+        blurStartTimeRef.current = Date.now();
+
+        if (!isMobileClient()) {
+          // Desktop: immediate strike on tab switch / window minimization
+          triggerProctoringViolation("Tab switch / Window minimization detected!");
+        }
+      } else {
+        // Tab returned to visible
+        // 1. Check if timer expired while tab was backgrounded
+        if (endTimeRef.current > 0) {
+          const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+          setTimeRemainingSeconds(remaining);
+          if (remaining <= 0) {
+            handleAutoSubmitRef.current("Timer expired! Exam auto-submitted.");
+            return;
+          }
+        }
+
+        // 2. Mobile Interruption Policy evaluation
+        if (blurStartTimeRef.current > 0) {
+          const awayDurationMs = Date.now() - blurStartTimeRef.current;
+          blurStartTimeRef.current = 0;
+          const awaySeconds = Math.max(1, Math.round(awayDurationMs / 1000));
+
+          if (isMobileClient()) {
+            // 10-second grace window for incoming calls, system notifications, or quick switches
+            if (awayDurationMs < 10000 && mobileGraceCountRef.current < 2) {
+              mobileGraceCountRef.current += 1;
+              setWarningAlertMessage(
+                `⚠️ Mobile interruption detected (${awaySeconds}s away). Please stay inside the exam. Prolonged absence (>10s) or repeated interruptions will register an official violation.`
+              );
+            } else {
+              triggerProctoringViolation(
+                `Mobile app switch or extended interruption detected (${awaySeconds}s away).`
+              );
+            }
+          }
+        }
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (submittingRef.current) return;
+
+      // On mobile devices, interacting with URL bar, browser chrome or keyboard triggers blur while document.hidden is false
+      if (isMobileClient() && !document.hidden) {
+        return;
+      }
+
+      if (!document.hidden) {
+        // Desktop window defocus (e.g. clicked second monitor or other desktop window)
+        triggerProctoringViolation("Browser window focus lost!");
+      }
+    };
+
+    const handleWindowFocus = () => {
+      if (submittingRef.current) return;
+      if (endTimeRef.current > 0) {
+        const remaining = Math.max(0, Math.round((endTimeRef.current - Date.now()) / 1000));
+        setTimeRemainingSeconds(remaining);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("focus", handleWindowFocus);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("blur", handleWindowBlur);
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [examState, isMobileClient, triggerProctoringViolation]);
 
   // -------------------------------------------------------------
   // 1. SCREEN: PRE-EXAM LAUNCHER & INSTRUCTIONS (WHITE GLASS MODE)
@@ -381,53 +480,55 @@ export function ProctoredExamPlayer({
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/30 text-slate-800 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
         {/* Top Proctoring Header Bar */}
-        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200/90 px-4 sm:px-6 py-3 flex items-center justify-between shadow-md shadow-slate-900/5">
-          <div className="flex items-center gap-3">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <div>
-              <span className="text-[10px] font-mono font-black text-blue-600 uppercase tracking-wider block">
-                🛡️ Exam Proctoring Active
-              </span>
-              <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate max-w-xs sm:max-w-md">
-                {courseTitle} &bull; Chapter {chapterOrder}
-              </h2>
-            </div>
-          </div>
-
-          {/* Proctoring Warning Badge & Timer */}
-          <div className="flex items-center gap-3 sm:gap-5">
-            {/* Warning Count */}
-            <div className={`px-3 py-1 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 border shadow-xs ${
-              warningsCount > 0
-                ? "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
-                : "bg-slate-100 text-slate-700 border-slate-200"
-            }`}>
-              <ShieldAlert size={14} className={warningsCount > 0 ? "text-rose-600" : "text-slate-500"} />
-              <span>Warnings: <strong className={warningsCount > 0 ? "text-rose-700 font-extrabold" : "text-slate-900"}>{warningsCount} / 3</strong></span>
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-xl border-b border-slate-200/90 px-3 sm:px-6 py-2.5 sm:py-3 shadow-md shadow-slate-900/5">
+          <div className="flex flex-wrap items-center justify-between gap-2 max-w-6xl mx-auto">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[10px] font-mono font-black text-blue-600 uppercase tracking-wider block truncate">
+                  🛡️ Exam Proctoring Active
+                </span>
+                <h2 className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                  {courseTitle} &bull; Ch. {chapterOrder}
+                </h2>
+              </div>
             </div>
 
-            {/* Timer */}
-            <div className={`px-3.5 py-1 rounded-xl text-sm font-mono font-black flex items-center gap-1.5 border shadow-xs ${
-              timeRemainingSeconds < 120
-                ? "bg-rose-50 text-rose-700 border-rose-200 animate-bounce"
-                : "bg-blue-50 text-blue-700 border-blue-200"
-            }`}>
-              <Clock size={16} />
-              <span>{formatTimer(timeRemainingSeconds)}</span>
+            {/* Proctoring Warning Badge & Timer */}
+            <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+              {/* Warning Count */}
+              <div className={`px-2.5 sm:px-3 py-1 rounded-xl text-[11px] sm:text-xs font-mono font-bold flex items-center gap-1 sm:gap-1.5 border shadow-xs ${
+                warningsCount > 0
+                  ? "bg-rose-50 text-rose-700 border-rose-200 animate-pulse"
+                  : "bg-slate-100 text-slate-700 border-slate-200"
+              }`}>
+                <ShieldAlert size={13} className={warningsCount > 0 ? "text-rose-600 shrink-0" : "text-slate-500 shrink-0"} />
+                <span className="whitespace-nowrap">Warn: <strong className={warningsCount > 0 ? "text-rose-700 font-extrabold" : "text-slate-900"}>{warningsCount} / 3</strong></span>
+              </div>
+
+              {/* Timer */}
+              <div className={`px-2.5 sm:px-3.5 py-1 rounded-xl text-xs sm:text-sm font-mono font-black flex items-center gap-1 sm:gap-1.5 border shadow-xs whitespace-nowrap ${
+                timeRemainingSeconds < 120
+                  ? "bg-rose-50 text-rose-700 border-rose-200 animate-bounce"
+                  : "bg-blue-50 text-blue-700 border-blue-200"
+              }`}>
+                <Clock size={14} className="shrink-0" />
+                <span>{formatTimer(timeRemainingSeconds)}</span>
+              </div>
             </div>
           </div>
         </header>
 
         {/* Tab Switch Warning Alert Banner */}
         {warningAlertMessage && (
-          <div className="bg-rose-50 border-b border-rose-200 p-3 px-6 text-rose-900 text-xs font-bold flex items-center justify-between gap-4 animate-fadeIn shrink-0 z-40 shadow-sm">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-rose-600 shrink-0" />
-              <span>{warningAlertMessage}</span>
+          <div className="bg-rose-50 border-b border-rose-200 p-3 px-4 sm:px-6 text-rose-900 text-xs font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 animate-fadeIn shrink-0 z-40 shadow-sm">
+            <div className="flex items-start sm:items-center gap-2 min-w-0">
+              <AlertTriangle size={16} className="text-rose-600 shrink-0 mt-0.5 sm:mt-0" />
+              <span className="leading-snug">{warningAlertMessage}</span>
             </div>
             <button
               onClick={() => setWarningAlertMessage(null)}
-              className="px-3 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-black text-[11px] cursor-pointer shrink-0 shadow-xs"
+              className="self-end sm:self-center min-h-[36px] px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white font-black text-[11px] cursor-pointer shrink-0 shadow-xs touch-manipulation"
             >
               I Understand &bull; Dismiss
             </button>
@@ -435,14 +536,14 @@ export function ProctoredExamPlayer({
         )}
 
         {/* Exam Palette & Main Content Body */}
-        <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          
+        <main className="flex-1 max-w-6xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+
           {/* Left Column: Focused Single Question Card */}
-          <div className="lg:col-span-8 space-y-5">
-            
+          <div className="lg:col-span-8 space-y-4 sm:space-y-5">
+
             {/* Question Card */}
             {currentQuestion && (
-              <div className="p-6 sm:p-8 rounded-3xl bg-white/90 border border-slate-200/80 backdrop-blur-xl space-y-6 shadow-xl shadow-blue-950/5">
+              <div className="p-4 sm:p-8 rounded-2xl sm:rounded-3xl bg-white/90 border border-slate-200/80 backdrop-blur-xl space-y-4 sm:space-y-6 shadow-xl shadow-blue-950/5">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-xs font-mono font-bold">
                   <span className="text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
                     <Sparkles size={14} /> Question {currentIndex + 1} of {totalQuestions}
@@ -457,7 +558,7 @@ export function ProctoredExamPlayer({
                 </h3>
 
                 {/* Option Choices */}
-                <div className="grid grid-cols-1 gap-3 pt-2">
+                <div className="grid grid-cols-1 gap-2.5 sm:gap-3 pt-2">
                   {currentQuestion.options.map((optionText, optIdx) => {
                     const isSelected = selectedAnswers[currentQuestion.id] === optIdx;
 
@@ -470,13 +571,13 @@ export function ProctoredExamPlayer({
                             [currentQuestion.id]: optIdx,
                           }));
                         }}
-                        className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm font-semibold transition-all flex items-center justify-between cursor-pointer ${
+                        className={`w-full min-h-[48px] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl border text-left text-xs sm:text-sm font-semibold transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] touch-manipulation gap-3 ${
                           isSelected
                             ? "bg-blue-50/90 border-2 border-blue-600 text-blue-950 font-bold shadow-md ring-2 ring-blue-500/20"
-                            : "bg-slate-50/70 border-2 border-slate-200/80 hover:border-blue-300 hover:bg-blue-50/50 text-slate-800 transition-all shadow-xs"
+                            : "bg-slate-50/70 border-2 border-slate-200/80 hover:border-blue-300 hover:bg-blue-50/50 text-slate-800 shadow-xs"
                         }`}
                       >
-                        <div className="flex items-center gap-3.5">
+                        <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0 flex-1">
                           <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-mono text-xs font-black shrink-0 transition-all ${
                             isSelected
                               ? "bg-blue-600 text-white shadow-xs"
@@ -484,7 +585,7 @@ export function ProctoredExamPlayer({
                           }`}>
                             {["A", "B", "C", "D"][optIdx]}
                           </span>
-                          <span>{optionText}</span>
+                          <span className="break-words leading-relaxed">{optionText}</span>
                         </div>
                         {isSelected && (
                           <CheckCircle2 size={18} className="text-blue-600 shrink-0" />
@@ -497,27 +598,27 @@ export function ProctoredExamPlayer({
             )}
 
             {/* Bottom Question Controls */}
-            <div className="flex items-center justify-between gap-4 pt-2">
+            <div className="flex items-center justify-between gap-3 pt-2">
               <button
                 onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
                 disabled={currentIndex === 0}
-                className="px-5 py-3 rounded-2xl font-bold text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+                className="min-h-[44px] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1.5 cursor-pointer shadow-xs touch-manipulation"
               >
-                <ChevronLeft size={16} /> Previous Question
+                <ChevronLeft size={16} /> <span>Previous<span className="hidden sm:inline"> Question</span></span>
               </button>
 
               {currentIndex < totalQuestions - 1 ? (
                 <button
                   onClick={() => setCurrentIndex((prev) => Math.min(totalQuestions - 1, prev + 1))}
-                  className="px-6 py-3 rounded-2xl font-black text-xs text-white bg-blue-600 hover:bg-blue-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-blue-600/20"
+                  className="min-h-[44px] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-lg shadow-blue-600/20 touch-manipulation"
                 >
-                  Next Question <ChevronRight size={16} />
+                  <span>Next<span className="hidden sm:inline"> Question</span></span> <ChevronRight size={16} />
                 </button>
               ) : (
                 <button
                   onClick={triggerSubmit}
                   disabled={submitting}
-                  className="px-7 py-3.5 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20"
+                  className="min-h-[48px] px-5 sm:px-7 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl font-black text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:from-emerald-800 active:to-teal-800 disabled:opacity-50 transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-emerald-600/20 touch-manipulation"
                 >
                   {submitting ? "Submitting Exam..." : "Submit Final Exam"}
                 </button>
@@ -527,9 +628,9 @@ export function ProctoredExamPlayer({
 
           {/* Right Column: Real Exam Palette Overview & Counters */}
           <div className="lg:col-span-4 space-y-4">
-            
+
             {/* Palette Summary Card */}
-            <div className="p-5 rounded-3xl bg-white/90 border border-slate-200/80 backdrop-blur-xl space-y-4 shadow-xl shadow-blue-950/5">
+            <div className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-white/90 border border-slate-200/80 backdrop-blur-xl space-y-3.5 sm:space-y-4 shadow-xl shadow-blue-950/5">
               <h4 className="text-xs font-black uppercase text-slate-600 tracking-wider flex items-center gap-1.5 border-b border-slate-100 pb-3">
                 <Eye size={14} className="text-blue-600" /> Exam Palette &amp; Status
               </h4>
@@ -552,7 +653,7 @@ export function ProctoredExamPlayer({
                 <span className="text-[10px] font-mono text-slate-500 uppercase font-bold block">
                   Question Navigation Grid ({attemptedCount}/{totalQuestions} Answered)
                 </span>
-                
+
                 <div className="grid grid-cols-5 gap-2 pt-1">
                   {questions.map((q, qIdx) => {
                     const isAnswered = selectedAnswers[q.id] !== undefined;
@@ -562,7 +663,7 @@ export function ProctoredExamPlayer({
                       <button
                         key={q.id}
                         onClick={() => setCurrentIndex(qIdx)}
-                        className={`h-10 rounded-xl font-mono text-xs font-black transition-all border flex items-center justify-center cursor-pointer relative ${
+                        className={`h-11 sm:h-10 rounded-xl font-mono text-xs font-black transition-all border flex items-center justify-center cursor-pointer relative touch-manipulation active:scale-95 ${
                           isCurrent
                             ? "bg-blue-600 text-white border-2 border-blue-700 ring-4 ring-blue-200 font-black shadow-md scale-105 z-10"
                             : isAnswered
@@ -585,9 +686,9 @@ export function ProctoredExamPlayer({
                 <button
                   onClick={triggerSubmit}
                   disabled={submitting}
-                  className="w-full py-3 rounded-2xl font-black text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+                  className="w-full min-h-[48px] py-3 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 active:from-emerald-800 active:to-teal-800 disabled:opacity-50 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-emerald-600/20 touch-manipulation"
                 >
-                  {submitting ? "Submitting..." : "Submit Exam Now"}
+                  {submitting ? "Submitting Exam..." : "Submit Exam Now"}
                 </button>
               </div>
             </div>
@@ -627,7 +728,7 @@ export function ProctoredExamPlayer({
       <main className="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-8 space-y-8 animate-fadeIn">
         {examResult && (
           <div className="space-y-8">
-            
+
             {/* Score Header Card */}
             <div className={`p-6 sm:p-8 rounded-3xl border bg-white/90 backdrop-blur-xl text-center space-y-6 shadow-2xl shadow-blue-950/5 ${
               examResult.passed ? "border-emerald-200" : "border-rose-200"
@@ -661,32 +762,32 @@ export function ProctoredExamPlayer({
               </div>
 
               {/* Metrics Grid */}
-              <div className="grid grid-cols-3 gap-3 max-w-md mx-auto pt-2">
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                  <div className="text-[9px] text-slate-500 uppercase font-mono font-bold">Accuracy</div>
-                  <div className="text-lg font-black text-slate-900 font-mono mt-0.5">{examResult.correctCount}/{examResult.totalCount}</div>
+              <div className="grid grid-cols-3 gap-2 sm:gap-3 max-w-md mx-auto pt-2">
+                <div className="p-2.5 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <div className="text-[8px] sm:text-[9px] text-slate-500 uppercase font-mono font-bold">Accuracy</div>
+                  <div className="text-sm sm:text-lg font-black text-slate-900 font-mono mt-0.5">{examResult.correctCount}/{examResult.totalCount}</div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                  <div className="text-[9px] text-slate-500 uppercase font-mono font-bold">Time Taken</div>
-                  <div className="text-sm font-bold text-blue-600 font-mono mt-1">
-                    {examResult.timeTakenString || formatDurationStr(Date.now() - startTime)}
+                <div className="p-2.5 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <div className="text-[8px] sm:text-[9px] text-slate-500 uppercase font-mono font-bold">Time Taken</div>
+                  <div className="text-xs sm:text-sm font-bold text-blue-600 font-mono mt-1 truncate">
+                    {examResult.timeTakenString || examDurationString || "Completed"}
                   </div>
                 </div>
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
-                  <div className="text-[9px] text-slate-500 uppercase font-mono font-bold">Warnings</div>
-                  <div className="text-sm font-bold text-rose-600 font-mono mt-1">{warningsCount}/3 Tab Switch</div>
+                <div className="p-2.5 sm:p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80">
+                  <div className="text-[8px] sm:text-[9px] text-slate-500 uppercase font-mono font-bold">Warnings</div>
+                  <div className="text-xs sm:text-sm font-bold text-rose-600 font-mono mt-1">{warningsCount}/3 Tab Switch</div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap justify-center gap-3 pt-4 border-t border-slate-100">
+              <div className="flex flex-col sm:flex-row flex-wrap justify-center gap-2.5 sm:gap-3 pt-4 border-t border-slate-100">
                 <button
                   onClick={() => {
                     setExamState("START");
                     setSelectedAnswers({});
                     setExamResult(null);
                   }}
-                  className="px-6 py-3 rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                  className="min-h-[44px] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] touch-manipulation"
                 >
                   <RotateCcw size={16} /> Retake Proctored Exam
                 </button>
@@ -701,7 +802,7 @@ export function ProctoredExamPlayer({
                           router.push(`/editor?language=${courseLanguage.toLowerCase()}&chapter=${chapterOrder}`);
                         }
                       }}
-                      className="px-6 py-3 rounded-2xl font-black text-xs text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20"
+                      className="min-h-[44px] px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xs text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-blue-600/20 active:scale-[0.99] touch-manipulation"
                     >
                       <Code2 size={16} />
                       <span>Proceed to Chapter {chapterOrder} Coding Round</span>
@@ -711,7 +812,7 @@ export function ProctoredExamPlayer({
                     {onNextChapter && (
                       <button
                         onClick={onNextChapter}
-                        className="px-5 py-3 rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                        className="min-h-[44px] px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] touch-manipulation"
                       >
                         <span>Next Chapter ({chapterOrder + 1})</span> <ArrowRight size={14} />
                       </button>
@@ -778,7 +879,7 @@ export function ProctoredExamPlayer({
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2.5 sm:gap-3 pt-2">
                 <button
                   onClick={() => {
                     setExamState("START");
@@ -786,7 +887,7 @@ export function ProctoredExamPlayer({
                     setExamResult(null);
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }}
-                  className="px-6 py-3.5 rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center gap-2 cursor-pointer shadow-xs active:scale-[0.99]"
+                  className="w-full sm:w-auto min-h-[44px] px-6 py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] touch-manipulation"
                 >
                   <RotateCcw size={16} /> Retake Proctored Exam
                 </button>
@@ -801,7 +902,7 @@ export function ProctoredExamPlayer({
                           router.push(`/editor?language=${courseLanguage.toLowerCase()}&chapter=${chapterOrder}`);
                         }
                       }}
-                      className="px-8 py-4 rounded-2xl font-black text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center gap-2.5 cursor-pointer shadow-xl shadow-blue-600/25 active:scale-[0.99]"
+                      className="w-full sm:w-auto min-h-[48px] px-6 sm:px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xl shadow-blue-600/25 active:scale-[0.99] touch-manipulation"
                     >
                       <Code2 size={18} />
                       <span>Proceed to Chapter {chapterOrder} Coding Round</span>
@@ -811,7 +912,7 @@ export function ProctoredExamPlayer({
                     {onNextChapter && (
                       <button
                         onClick={onNextChapter}
-                        className="px-6 py-3.5 rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                        className="w-full sm:w-auto min-h-[44px] px-6 py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] touch-manipulation"
                       >
                         <span>Next Chapter ({chapterOrder + 1})</span> <ArrowRight size={16} />
                       </button>
@@ -821,7 +922,7 @@ export function ProctoredExamPlayer({
 
                 <button
                   onClick={onBackToLesson}
-                  className="px-6 py-3.5 rounded-2xl font-bold text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+                  className="w-full sm:w-auto min-h-[44px] px-6 py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] touch-manipulation"
                 >
                   <ArrowLeft size={16} /> Back to Chapter Lesson
                 </button>

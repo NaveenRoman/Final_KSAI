@@ -56,8 +56,9 @@ export default function LanguageDropdown({
     <div className="relative" ref={dropdownRef}>
       {/* Selected Button */}
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className={`flex items-center gap-2.5 px-3.5 h-10 rounded-xl border font-bold text-xs transition select-none ${
+        className={`flex items-center gap-2.5 px-3 sm:px-3.5 min-h-[44px] sm:h-10 rounded-xl border font-bold text-xs transition select-none touch-manipulation cursor-pointer ${
           darkMode
             ? "bg-[#151823] border-white/10 hover:bg-[#1C2130] text-white"
             : "bg-gray-100 border-gray-300 hover:bg-gray-200 text-gray-900"
@@ -119,8 +120,9 @@ export default function LanguageDropdown({
               return (
                 <button
                   key={item.id}
+                  type="button"
                   onClick={() => handleSelect(item)}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-medium transition ${
+                  className={`w-full flex items-center justify-between px-3.5 py-3 sm:py-2.5 min-h-[44px] sm:min-h-0 text-xs font-medium transition touch-manipulation cursor-pointer ${
                     isSelected
                       ? darkMode
                         ? "bg-[#4F46E5]/20 text-[#818CF8]"

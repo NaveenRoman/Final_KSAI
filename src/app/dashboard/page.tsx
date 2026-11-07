@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { normalizeUserRole, getRoleDashboardPath } from "@/lib/roles";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import { handleUserLogout } from "@/lib/auth-logout";
-import { 
+import {
   BookOpen, Star, Sparkles, Trophy, Settings, LogOut, ChevronLeft, ChevronRight,
   TrendingUp, Award, Play, CheckCircle2, AlertTriangle, ArrowRight,
   Terminal, ShieldCheck, Flame, Send, Bot, MessageSquare, GraduationCap, Code2,
-  Bell, Search, Check, CheckSquare, Target, Edit3, X, RefreshCw, Lock
+  Bell, Search, Check, CheckSquare, Target, Edit3, X, RefreshCw, Lock, Menu
 } from "lucide-react";
 
 interface CourseSlide {
@@ -370,14 +370,14 @@ export default function DashboardPage() {
         setChatMessages((prev) => [...prev, { sender: "ai", text: responseData.reply }]);
       } else {
         setChatMessages((prev) => [
-          ...prev, 
+          ...prev,
           { sender: "ai", text: responseData.error || "Sorry, I couldn't process that right now. Please try again!" }
         ]);
       }
     } catch (err) {
       console.error("AI Teacher chat failed:", err);
       setChatMessages((prev) => [
-        ...prev, 
+        ...prev,
         { sender: "ai", text: "Network error connecting to AI Teacher. Please check your internet connection." }
       ]);
     } finally {
@@ -486,7 +486,7 @@ export default function DashboardPage() {
           <AlertTriangle className="text-red-500 mx-auto" size={40} />
           <h2 className="text-lg font-bold text-slate-900">Dashboard Error</h2>
           <p className="text-xs text-slate-500 leading-relaxed">{error}</p>
-          <button 
+          <button
             onClick={() => window.location.reload()}
             className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-all text-xs"
           >
@@ -498,35 +498,49 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="h-screen bg-[#F8FAFC] text-slate-800 flex overflow-hidden font-sans antialiased">
+    <div className="min-h-screen md:h-screen bg-[#F8FAFC] text-slate-800 flex flex-col md:flex-row overflow-x-hidden md:overflow-hidden font-sans antialiased">
       {/* Left Sidebar */}
-      <LeftSidebar 
-        activeTab="Dashboard" 
+      <LeftSidebar
+        activeTab="Dashboard"
         userProfile={activeUser}
         isLight={false}
         fullHeight={true}
       />
 
-      {/* Main Right Area — Single-Screen Viewport Fit Dashboard */}
-      <main className="flex-1 h-full flex flex-col justify-between overflow-hidden p-2.5 sm:p-3 xl:p-3.5 gap-1.5 sm:gap-2 xl:gap-2.5 w-full min-w-0">
-        
+      {/* Main Right Area — Responsive on Mobile, Single-Screen Viewport Fit on Desktop */}
+      <main className="flex-1 w-full min-w-0 p-3 sm:p-4 xl:p-3.5 pb-24 md:pb-3.5 overflow-y-auto md:overflow-hidden md:h-full flex flex-col gap-3 md:gap-2 xl:gap-2.5 md:justify-between">
+
         {/* Header Row */}
         <div className="flex items-center justify-between flex-shrink-0 gap-3">
-          <div>
-            <h1 className="text-lg sm:text-xl xl:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-1.5 leading-tight">
-              Welcome back, {firstName}! <span className="animate-bounce inline-block text-base">👋</span>
-            </h1>
-            <p className="text-[11px] font-semibold text-slate-500 leading-none mt-0.5">
-              Keep learning, keep growing. You&apos;re doing great!
-            </p>
+          <div className="flex items-center gap-2.5 min-w-0">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("ksai-toggle-mobile-sidebar"));
+                }
+              }}
+              aria-label="Open navigation menu"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200/90 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-xl xl:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-1.5 leading-tight truncate">
+                Welcome back, {firstName}! <span className="animate-bounce inline-block text-base">👋</span>
+              </h1>
+              <p className="text-[11px] font-semibold text-slate-500 leading-none mt-0.5 truncate">
+                Keep learning, keep growing. You&apos;re doing great!
+              </p>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             {/* Functional Search Input with Live Dropdown */}
             <div className="relative hidden md:block" ref={searchRef}>
               <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -544,7 +558,7 @@ export default function DashboardPage() {
                     }
                   }
                 }}
-                placeholder="Search courses, topics..." 
+                placeholder="Search courses, topics..."
                 className="pl-8 pr-3 py-1 rounded-xl border border-slate-200 bg-white text-xs text-slate-700 w-44 sm:w-52 lg:w-60 focus:outline-none focus:border-[#4F46E5] placeholder-slate-400 font-medium shadow-2xs transition-all"
               />
 
@@ -589,11 +603,12 @@ export default function DashboardPage() {
 
             {/* Notification Icon */}
             <div className="relative" ref={notificationsRef}>
-              <button 
+              <button
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
-                className="w-7.5 h-7.5 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all hover:shadow-2xs cursor-pointer"
+                aria-label="View notifications"
+                className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-7.5 sm:h-7.5 sm:min-w-0 sm:min-h-0 rounded-xl sm:rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:text-slate-900 transition-all hover:shadow-2xs cursor-pointer shrink-0"
               >
-                <Bell size={14} />
+                <Bell size={15} />
                 {notifications?.unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-white shadow-xs">
                     {notifications.unreadCount}
@@ -602,7 +617,7 @@ export default function DashboardPage() {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-10 w-80 max-h-80 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 scrollbar-thin">
+                <div className="absolute right-0 top-11 w-80 max-w-[calc(100vw-24px)] max-h-80 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl z-50 p-2 space-y-1 scrollbar-thin">
                   <div className="px-3 py-2 border-b border-slate-100 flex items-center justify-between">
                     <span className="text-xs font-black text-slate-900">Notifications</span>
                     <span className="text-[10px] text-slate-400 font-medium">{notifications?.unreadCount} unread</span>
@@ -611,8 +626,8 @@ export default function DashboardPage() {
                     <div className="p-4 text-center text-xs text-slate-400">No notifications yet.</div>
                   ) : (
                     notifications.list.map((n: any) => (
-                      <div 
-                        key={n.id} 
+                      <div
+                        key={n.id}
                         onClick={() => handleMarkAsRead(n.id)}
                         className={`p-2 rounded-xl text-left text-xs transition-colors cursor-pointer border ${
                           n.read ? "bg-white border-transparent text-slate-500" : "bg-blue-50/40 border-slate-100 text-slate-800 hover:bg-blue-50/70"
@@ -635,17 +650,18 @@ export default function DashboardPage() {
               <button
                 type="button"
                 onClick={() => setProfileMenuOpen((prev) => !prev)}
-                className="focus:outline-none cursor-pointer group flex items-center gap-1.5"
+                className="focus:outline-none cursor-pointer group flex items-center gap-1.5 w-11 h-11 min-w-[44px] min-h-[44px] sm:w-auto sm:h-auto sm:min-w-0 sm:min-h-0 justify-center"
                 title="View Profile Details"
+                aria-label="View Profile Details"
               >
                 {activeUser.image ? (
-                  <img 
-                    src={activeUser.image} 
-                    alt={activeUser.name || "User Profile"} 
-                    className="w-7.5 h-7.5 rounded-full object-cover border-2 border-slate-200 group-hover:border-[#4F46E5] shadow-2xs transition-all"
+                  <img
+                    src={activeUser.image}
+                    alt={activeUser.name || "User Profile"}
+                    className="w-10 h-10 sm:w-7.5 sm:h-7.5 rounded-full object-cover border-2 border-slate-200 group-hover:border-[#4F46E5] shadow-2xs transition-all"
                   />
                 ) : (
-                  <div className="w-7.5 h-7.5 rounded-full bg-[#4F46E5] text-white flex items-center justify-center font-black text-[11px] shadow-2xs border-2 border-slate-200 group-hover:border-[#4338CA] transition-all">
+                  <div className="w-10 h-10 sm:w-7.5 sm:h-7.5 rounded-full bg-[#4F46E5] text-white flex items-center justify-center font-black text-xs sm:text-[11px] shadow-2xs border-2 border-slate-200 group-hover:border-[#4338CA] transition-all">
                     {firstName.charAt(0).toUpperCase()}
                   </div>
                 )}
@@ -653,7 +669,7 @@ export default function DashboardPage() {
 
               {/* Profile Dropdown Popover Card */}
               {profileMenuOpen && (
-                <div className="absolute right-0 top-11 w-72 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-fadeIn">
+                <div className="absolute right-0 top-11 w-72 max-w-[calc(100vw-24px)] bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 p-4 space-y-3 animate-fadeIn">
                   {/* User Info Header */}
                   <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
                     {activeUser.image ? (
@@ -694,7 +710,7 @@ export default function DashboardPage() {
                         router.push("/settings");
                         setProfileMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 hover:text-[#4F46E5] transition-colors flex items-center gap-2.5 cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 hover:text-[#4F46E5] transition-colors flex items-center gap-2.5 cursor-pointer min-h-[40px]"
                     >
                       <Settings size={14} className="text-slate-400" />
                       <span>Account Settings</span>
@@ -705,7 +721,7 @@ export default function DashboardPage() {
                         router.push("/courses");
                         setProfileMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 hover:text-[#4F46E5] transition-colors flex items-center gap-2.5 cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 hover:text-[#4F46E5] transition-colors flex items-center gap-2.5 cursor-pointer min-h-[40px]"
                     >
                       <BookOpen size={14} className="text-slate-400" />
                       <span>My Enrolled Courses</span>
@@ -716,7 +732,7 @@ export default function DashboardPage() {
                         router.push("/leaderboard");
                         setProfileMenuOpen(false);
                       }}
-                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 hover:text-[#4F46E5] transition-colors flex items-center gap-2.5 cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-slate-700 hover:bg-slate-50 hover:text-[#4F46E5] transition-colors flex items-center gap-2.5 cursor-pointer min-h-[40px]"
                     >
                       <Trophy size={14} className="text-slate-400" />
                       <span>Leaderboard Rankings</span>
@@ -727,7 +743,7 @@ export default function DashboardPage() {
                   <div className="pt-2 border-t border-slate-100">
                     <button
                       onClick={handleLogout}
-                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 cursor-pointer"
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs font-extrabold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2.5 cursor-pointer min-h-[40px]"
                     >
                       <LogOut size={14} className="text-red-500" />
                       <span>Log Out</span>
@@ -741,18 +757,18 @@ export default function DashboardPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold transition-all cursor-pointer shadow-2xs"
               title="Logout"
             >
               <LogOut size={12} className="text-red-500" />
-              <span className="hidden sm:inline">Logout</span>
+              <span>Logout</span>
             </button>
           </div>
         </div>
 
         {/* Weekend Pending Goals Alert Banner */}
         {computedNotifications.weekendPendingAlert && (
-          <div className="p-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 flex items-center justify-between shadow-2xs shrink-0 text-xs">
+          <div className="p-2 px-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-2xs shrink-0 text-xs">
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm shrink-0">⚠️</span>
               <p className="text-[11px] text-slate-700 font-medium truncate">
@@ -772,11 +788,11 @@ export default function DashboardPage() {
         )}
 
         {/* Top 4 Stat Cards */}
-        <div className="grid grid-cols-4 gap-2 xl:gap-2.5 flex-shrink-0 select-none h-[68px] xl:h-[72px] 2xl:h-[78px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 xl:gap-2.5 flex-shrink-0 select-none md:h-[68px] xl:h-[72px] 2xl:h-[78px]">
           {/* Courses Enrolled */}
-          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
-            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-indigo-50 flex items-center justify-center text-[#4F46E5] shrink-0">
-              <BookOpen size={16} />
+          <div className="p-3 sm:p-2 xl:p-2.5 px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-3 xl:gap-3 min-h-[64px] md:h-full min-w-0 w-full">
+            <div className="w-9 h-9 xl:w-9 xl:h-9 rounded-xl xl:rounded-xl bg-indigo-50 flex items-center justify-center text-[#4F46E5] shrink-0">
+              <BookOpen size={17} />
             </div>
             <div className="min-w-0 flex-1 flex flex-col justify-center leading-none">
               <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider truncate">Courses Enrolled</span>
@@ -788,9 +804,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Chapters Completed */}
-          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
-            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
-              <CheckCircle2 size={16} />
+          <div className="p-3 sm:p-2 xl:p-2.5 px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-3 xl:gap-3 min-h-[64px] md:h-full min-w-0 w-full">
+            <div className="w-9 h-9 xl:w-9 xl:h-9 rounded-xl xl:rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
+              <CheckCircle2 size={17} />
             </div>
             <div className="min-w-0 flex-1 flex flex-col justify-center space-y-0.5 leading-none">
               <div className="flex justify-between items-end leading-none gap-1">
@@ -800,8 +816,8 @@ export default function DashboardPage() {
               <span className="text-lg xl:text-xl font-black text-slate-900 leading-tight">{stats?.completedChaptersCount ?? 0}</span>
               <div className="flex items-center gap-1.5">
                 <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                  <div 
-                    className="h-full bg-emerald-500 rounded-full transition-all duration-500" 
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-500"
                     style={{ width: `${stats?.chaptersPercentage ?? 0}%` }}
                   />
                 </div>
@@ -811,9 +827,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Quiz Accuracy */}
-          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
-            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
-              <Trophy size={16} />
+          <div className="p-3 sm:p-2 xl:p-2.5 px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-3 xl:gap-3 min-h-[64px] md:h-full min-w-0 w-full">
+            <div className="w-9 h-9 xl:w-9 xl:h-9 rounded-xl xl:rounded-xl bg-blue-50 flex items-center justify-center text-blue-500 shrink-0">
+              <Trophy size={17} />
             </div>
             <div className="min-w-0 flex-1 flex flex-col justify-center leading-none">
               <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider truncate">Quiz Accuracy</span>
@@ -825,9 +841,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Learning Streak */}
-          <div className="p-2 xl:p-2.5 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-2.5 xl:gap-3 h-full min-w-0">
-            <div className="w-8 h-8 xl:w-9 xl:h-9 rounded-lg xl:rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
-              <Flame size={16} className="animate-pulse" />
+          <div className="p-3 sm:p-2 xl:p-2.5 px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex items-center gap-3 xl:gap-3 min-h-[64px] md:h-full min-w-0 w-full">
+            <div className="w-9 h-9 xl:w-9 xl:h-9 rounded-xl xl:rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0">
+              <Flame size={17} className="animate-pulse" />
             </div>
             <div className="min-w-0 flex-1 flex flex-col justify-center leading-none">
               <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider truncate">Learning Streak</span>
@@ -845,7 +861,7 @@ export default function DashboardPage() {
 
 <div className="flex-shrink-0 p-1.5 xl:p-2 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-blue-100 bg-gradient-to-r from-white via-blue-50/40 to-indigo-50/40 shadow-2xs">
 
-  <div className="flex items-center gap-2 xl:gap-3">
+  <div className="flex flex-col sm:flex-row sm:items-center gap-2 xl:gap-3">
 
     {/* Header */}
     <div className="flex items-center gap-1.5 shrink-0">
@@ -865,7 +881,7 @@ export default function DashboardPage() {
     </div>
 
     {/* Metrics */}
-    <div className="grid grid-cols-6 gap-1.5 flex-1 min-w-0">
+    <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-6 gap-1.5 flex-1 min-w-0">
 
       {/* Activities */}
       <div className="px-2 py-0.5 rounded-lg bg-white border border-slate-200 flex items-center justify-between min-w-0">
@@ -998,10 +1014,10 @@ export default function DashboardPage() {
 </div>
 
         {/* Middle Row: Continue Learning (2 cols) & Skill Mastery Matrix (3 cols) */}
-        <div className="grid grid-cols-5 gap-2 xl:gap-2.5 flex-1 min-h-0 overflow-hidden">
-          
+        <div className="flex flex-col lg:grid lg:grid-cols-5 gap-2.5 xl:gap-2.5 flex-1 md:min-h-0 md:overflow-hidden">
+
           {/* Continue Learning Carousel - Ultra-Premium Modern Card */}
-          <div className="col-span-2 p-2.5 xl:p-3 2xl:p-3.5 rounded-xl xl:rounded-2xl border-2 border-indigo-100 bg-gradient-to-b from-slate-50/50 via-white to-indigo-50/20 flex flex-col justify-between shadow-2xs relative group h-full overflow-hidden">
+          <div className="col-span-1 lg:col-span-2 w-full min-w-0 p-2.5 xl:p-3 2xl:p-3.5 rounded-xl xl:rounded-2xl border-2 border-indigo-100 bg-gradient-to-b from-slate-50/50 via-white to-indigo-50/20 flex flex-col justify-between shadow-2xs relative group min-h-[220px] md:min-h-0 md:h-full overflow-hidden">
             <div className="flex items-center justify-between pb-1.5 border-b border-slate-200/80 flex-shrink-0">
               <div className="flex items-center gap-1.5">
                 <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-xs">
@@ -1022,18 +1038,20 @@ export default function DashboardPage() {
                   <span className="text-[9px] font-mono font-black text-indigo-600 bg-indigo-50 px-1.5 py-0.2 rounded-full border border-indigo-200">
                     {currentLearnIndex + 1}/{continueLearningCourses.length}
                   </span>
-                  <div className="flex items-center gap-0.5">
-                    <button 
+                  <div className="flex items-center gap-1 md:gap-0.5">
+                    <button
                       onClick={() => triggerManualLearnSelect((currentLearnIndex - 1 + continueLearningCourses.length) % continueLearningCourses.length)}
-                      className="w-5 h-5 rounded-md bg-white shadow-2xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
+                      aria-label="Previous course"
+                      className="w-8 h-8 md:w-5 md:h-5 rounded-md bg-white shadow-2xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
                     >
-                      <ChevronLeft size={11} />
+                      <ChevronLeft size={13} className="md:w-3 md:h-3" />
                     </button>
-                    <button 
+                    <button
                       onClick={() => triggerManualLearnSelect((currentLearnIndex + 1) % continueLearningCourses.length)}
-                      className="w-5 h-5 rounded-md bg-white shadow-2xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
+                      aria-label="Next course"
+                      className="w-8 h-8 md:w-5 md:h-5 rounded-md bg-white shadow-2xs border border-slate-200 flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-300 transition-all cursor-pointer"
                     >
-                      <ChevronRight size={11} />
+                      <ChevronRight size={13} className="md:w-3 md:h-3" />
                     </button>
                   </div>
                 </div>
@@ -1051,9 +1069,9 @@ export default function DashboardPage() {
                     Choose from our Python, Java, C++, or C curricula to start learning.
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={() => router.push("/courses/catalog")}
-                  className="px-4 py-1.5 rounded-lg text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity cursor-pointer shadow-sm shadow-blue-500/20"
+                  className="px-4 py-2 md:py-1.5 min-h-[40px] md:min-h-0 rounded-lg text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity cursor-pointer shadow-sm shadow-blue-500/20"
                 >
                   Explore Catalog
                 </button>
@@ -1078,8 +1096,8 @@ export default function DashboardPage() {
                       {/* Course Card Top Row */}
                       <div className="p-2 xl:p-2.5 rounded-xl bg-white border border-slate-200/90 shadow-2xs flex gap-2.5 items-start">
                         <div className="relative shrink-0">
-                          <img 
-                            src={course.courseThumbnail} 
+                          <img
+                            src={course.courseThumbnail}
                             alt={course.courseTitle}
                             className="w-12 h-12 xl:w-13 xl:h-13 rounded-lg object-cover border border-slate-200 shadow-2xs"
                           />
@@ -1121,7 +1139,7 @@ export default function DashboardPage() {
                           </span>
                         </div>
                         <div className="h-1.5 rounded-full bg-slate-100 p-0.2 border border-slate-200/60 overflow-hidden">
-                          <div 
+                          <div
                             className="h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-400 rounded-full transition-all duration-500 shadow-xs"
                             style={{ width: `${Math.max(5, course.progressPercent)}%` }}
                           />
@@ -1129,20 +1147,20 @@ export default function DashboardPage() {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                        <button 
+                      <div className="grid grid-cols-2 gap-2 pt-0.5">
+                        <button
                           onClick={() => {
                             const startOrder = course.currentChapter?.orderNumber ?? ((course.courseLanguage === "c" || course.courseLanguage === "python") ? 0 : 1);
                             router.push(`/courses/${course.courseLanguage}/chapter/${startOrder}`);
                           }}
-                          className="py-1.5 px-3 rounded-lg text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-all text-center cursor-pointer shadow-xs shadow-blue-500/20 flex items-center justify-center gap-1 active:scale-[0.98]"
+                          className="py-2.5 md:py-1.5 px-3 min-h-[40px] md:min-h-0 rounded-lg text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-all text-center cursor-pointer shadow-xs shadow-blue-500/20 flex items-center justify-center gap-1 active:scale-[0.98]"
                         >
                           <span>Resume</span>
                           <ArrowRight size={12} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => router.push(`/courses/${course.courseLanguage}/curriculum`)}
-                          className="py-1.5 px-3 rounded-lg text-xs font-black text-slate-800 bg-white border border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 transition-all text-center cursor-pointer shadow-2xs flex items-center justify-center gap-1 active:scale-[0.98]"
+                          className="py-2.5 md:py-1.5 px-3 min-h-[40px] md:min-h-0 rounded-lg text-xs font-black text-slate-800 bg-white border border-slate-200/90 hover:bg-slate-50 hover:border-slate-300 transition-all text-center cursor-pointer shadow-2xs flex items-center justify-center gap-1 active:scale-[0.98]"
                         >
                           <BookOpen size={12} className="text-slate-600" />
                           <span>Curriculum</span>
@@ -1177,12 +1195,12 @@ export default function DashboardPage() {
             const currentLevel = activeUser?.level ?? 1;
             const targetXp = activeUser?.targetXp ?? 1000;
 
-            const levelTitle = currentLevel >= 10 
-              ? "Level 10 Grandmaster" 
-              : currentLevel >= 5 
-              ? "Level 5 Tech Master" 
-              : currentLevel >= 3 
-              ? "Level 3 Code Warrior" 
+            const levelTitle = currentLevel >= 10
+              ? "Level 10 Grandmaster"
+              : currentLevel >= 5
+              ? "Level 5 Tech Master"
+              : currentLevel >= 3
+              ? "Level 3 Code Warrior"
               : "Level 1 Code Novice";
 
             // Dynamic Attribute Power Scores (0% for new users)
@@ -1220,8 +1238,8 @@ export default function DashboardPage() {
             const isGrandChampionUnlocked = (stats?.completedChaptersCount ?? 0) >= (stats?.totalChaptersCount ?? 999) && (stats?.totalChaptersCount ?? 0) > 0;
 
             return (
-              <div className="col-span-3 p-2.5 xl:p-3 2xl:p-3.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white flex flex-col justify-between shadow-2xs relative space-y-1.5 h-full overflow-hidden">
-                
+              <div className="col-span-1 lg:col-span-3 w-full min-w-0 p-2.5 xl:p-3 2xl:p-3.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white flex flex-col justify-between shadow-2xs relative space-y-2 md:space-y-1.5 min-h-[300px] md:min-h-0 md:h-full overflow-hidden">
+
                 {/* Header: Gamified Level & XP Velocity */}
                 <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100 flex-shrink-0">
                   <div className="flex items-center gap-1.5">
@@ -1253,8 +1271,8 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Main Content Grid: Skill Radar Breakdown (Left) + Weekly XP Area Wave Chart (Right) */}
-                <div className="grid grid-cols-2 gap-2 xl:gap-2.5 items-stretch flex-1 min-h-0 overflow-hidden py-0.5">
-                  
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 xl:gap-2.5 items-stretch flex-1 min-h-0 md:overflow-hidden py-0.5">
+
                   {/* Left Column: Multi-Attribute Skill Mastery Meters */}
                   <div className="space-y-1 bg-slate-50/70 p-2 xl:p-2.5 rounded-xl border border-slate-100 flex flex-col justify-between overflow-hidden">
                     <div className="flex items-center justify-between text-[10px] font-black text-slate-900 border-b border-slate-200/60 pb-0.5">
@@ -1378,11 +1396,11 @@ export default function DashboardPage() {
                 </div>
 
                 {/* Dynamic Achievement Badges Footer Strip */}
-                <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-slate-100 flex-shrink-0 text-xs">
+                <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-1.5 pt-1 border-t border-slate-100 flex-shrink-0 text-xs">
                   <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">
                     🏆 Achievements
                   </span>
-                  <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
                     <span className={`px-1.5 py-0.5 rounded text-[8.5px] font-black flex items-center gap-1 border ${
                       isSpeedDemonUnlocked
                         ? "bg-emerald-50 border-emerald-200 text-emerald-700"
@@ -1419,27 +1437,27 @@ export default function DashboardPage() {
         </div>
 
         {/* Bottom Row: Donut Chart, Goals, Heatmap */}
-        <div className="grid grid-cols-3 gap-2 xl:gap-2.5 flex-shrink-0 h-[145px] xl:h-[160px] 2xl:h-[175px]">
-          
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 xl:gap-2.5 flex-shrink-0 md:h-[145px] xl:h-[160px] 2xl:h-[175px]">
+
           {/* Learning Progress Donut */}
-          <div className="p-2 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none h-full">
+          <div className="w-full min-w-0 p-2.5 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none min-h-[145px] md:h-full">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-wider pb-0.5 border-b border-slate-100 flex-shrink-0 leading-none">
               Learning Progress
             </h3>
-            
+
             <div className="flex items-center gap-2.5 py-0.5 flex-1 min-h-0">
               <div className="relative w-16 h-16 xl:w-18 xl:h-18 shrink-0 flex items-center justify-center">
                 <svg className="w-full h-full transform -rotate-90" viewBox="0 0 80 80">
                   <circle cx="40" cy="40" r="30" className="stroke-slate-100 fill-none" strokeWidth="7" />
-                  <circle cx="40" cy="40" r="30" className="stroke-slate-300 fill-none" strokeWidth="7" 
+                  <circle cx="40" cy="40" r="30" className="stroke-slate-300 fill-none" strokeWidth="7"
                     strokeDasharray={2 * Math.PI * 30}
                     strokeDashoffset={2 * Math.PI * 30 - (100 / 100) * (2 * Math.PI * 30)}
                   />
-                  <circle cx="40" cy="40" r="30" className="stroke-[#7C3AED] fill-none" strokeWidth="7" 
+                  <circle cx="40" cy="40" r="30" className="stroke-[#7C3AED] fill-none" strokeWidth="7"
                     strokeDasharray={2 * Math.PI * 30}
                     strokeDashoffset={2 * Math.PI * 30 - ((learningProgress?.completedPercentage + learningProgress?.inProgressPercentage) / 100) * (2 * Math.PI * 30)}
                   />
-                  <circle cx="40" cy="40" r="30" className="stroke-emerald-500 fill-none" strokeWidth="7" 
+                  <circle cx="40" cy="40" r="30" className="stroke-emerald-500 fill-none" strokeWidth="7"
                     strokeDasharray={2 * Math.PI * 30}
                     strokeDashoffset={2 * Math.PI * 30 - (learningProgress?.completedPercentage / 100) * (2 * Math.PI * 30)}
                   />
@@ -1478,7 +1496,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Goals Widget */}
-          <div className="p-2 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none h-full">
+          <div className="w-full min-w-0 p-2.5 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none min-h-[145px] md:h-full">
             <div className="flex items-center justify-between pb-0.5 border-b border-slate-100 flex-shrink-0 gap-1 leading-none">
               <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1 truncate">
                 This Week&apos;s Goals {isGoalsLocked && <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">LOCKED</span>}
@@ -1505,7 +1523,7 @@ export default function DashboardPage() {
                 {isGoalsLocked ? "Locked" : "Edit Goals"}
               </button>
             </div>
-            
+
             <div className="space-y-1 py-0.5 flex-1 flex flex-col justify-center text-[9.5px] xl:text-[10px] text-slate-700 font-extrabold">
               <div className="space-y-0.5">
                 <div className="flex justify-between items-center leading-none">
@@ -1513,7 +1531,7 @@ export default function DashboardPage() {
                   <span className="font-mono text-slate-500 font-bold text-[9px] shrink-0">{weeklyGoals?.chapters?.current ?? 0}/{weeklyGoals?.chapters?.target ?? 2}</span>
                 </div>
                 <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-blue-500 rounded-full"
                     style={{ width: `${Math.min(100, ((weeklyGoals?.chapters?.current ?? 0) / (weeklyGoals?.chapters?.target ?? 2)) * 100)}%` }}
                   />
@@ -1526,7 +1544,7 @@ export default function DashboardPage() {
                   <span className="font-mono text-slate-500 font-bold text-[9px] shrink-0">{weeklyGoals?.quizzes?.current ?? 0}/{weeklyGoals?.quizzes?.target ?? 10}</span>
                 </div>
                 <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-purple-500 rounded-full"
                     style={{ width: `${Math.min(100, ((weeklyGoals?.quizzes?.current ?? 0) / (weeklyGoals?.quizzes?.target ?? 10)) * 100)}%` }}
                   />
@@ -1539,7 +1557,7 @@ export default function DashboardPage() {
                   <span className="font-mono text-slate-500 font-bold text-[9px] shrink-0">{weeklyGoals?.aiSessions?.current ?? 0}/{weeklyGoals?.aiSessions?.target ?? 5}</span>
                 </div>
                 <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
-                  <div 
+                  <div
                     className="h-full bg-emerald-500 rounded-full"
                     style={{ width: `${Math.min(100, ((weeklyGoals?.aiSessions?.current ?? 0) / (weeklyGoals?.aiSessions?.target ?? 5)) * 100)}%` }}
                   />
@@ -1548,14 +1566,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="text-center pt-0.5 border-t border-slate-100 flex-shrink-0">
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setEditTargetChapters(weeklyGoals?.chapters?.target ?? 2);
                   setEditTargetQuizzes(weeklyGoals?.quizzes?.target ?? 10);
                   setEditTargetAIChats(weeklyGoals?.aiSessions?.target ?? 5);
                   setIsGoalsModalOpen(true);
-                }} 
+                }}
                 className="text-[9.5px] font-black text-[#4F46E5] hover:underline cursor-pointer leading-none"
               >
                 Manage &amp; Customize Goals
@@ -1564,7 +1582,7 @@ export default function DashboardPage() {
           </div>
 
           {/* LeetCode Style Coding Activity Heatmap */}
-          <div className="p-2 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none h-full space-y-1">
+          <div className="w-full min-w-0 p-2.5 xl:p-2.5 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden relative select-none min-h-[145px] md:h-full space-y-1">
             <div className="flex items-center justify-between pb-0.5 border-b border-slate-100 flex-shrink-0 leading-none">
               <h3 className="text-[10px] font-black text-slate-900 uppercase tracking-wider flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -1574,25 +1592,25 @@ export default function DashboardPage() {
                 {heatmap.reduce((sum: number, w: any) => sum + w.days.reduce((dSum: number, d: any) => dSum + d.count, 0), 0)} Submissions
               </span>
             </div>
-            
+
             <div className="flex flex-col justify-between flex-1 min-h-0 pt-0.5 space-y-1">
               {/* LeetCode Green Grid Matrix */}
-              <div className="flex gap-0.5 sm:gap-1 justify-between items-center overflow-x-hidden py-0.5">
+              <div className="flex gap-0.5 sm:gap-1 justify-between items-center overflow-x-auto pb-1 custom-scrollbar md:overflow-x-hidden py-0.5">
                 {heatmap.map((week: any, wIdx: number) => (
                   <div key={wIdx} className="flex flex-col gap-0.5 shrink-0">
                     {week.days.map((day: any, dIdx: number) => (
-                      <div 
+                      <div
                         key={dIdx}
                         title={`${day.date}: ${day.count} coding submissions`}
                         className={`w-2 h-2 xl:w-2.5 xl:h-2.5 rounded-2xs transition-all duration-200 hover:scale-125 cursor-pointer shadow-xs ${
-                          day.intensity === 0 
-                            ? "bg-slate-100 border border-slate-200/40 hover:bg-slate-200/60" 
-                            : day.intensity === 1 
-                            ? "bg-[#9BE9A8] border border-[#6CC686]" 
-                            : day.intensity === 2 
-                            ? "bg-[#40C463] border border-[#2E994B]" 
-                            : day.intensity === 3 
-                            ? "bg-[#30A14E] border border-[#237A39]" 
+                          day.intensity === 0
+                            ? "bg-slate-100 border border-slate-200/40 hover:bg-slate-200/60"
+                            : day.intensity === 1
+                            ? "bg-[#9BE9A8] border border-[#6CC686]"
+                            : day.intensity === 2
+                            ? "bg-[#40C463] border border-[#2E994B]"
+                            : day.intensity === 3
+                            ? "bg-[#30A14E] border border-[#237A39]"
                             : "bg-[#216E39] border border-[#144A24] shadow-sm shadow-emerald-700/20"
                         }`}
                       />
@@ -1618,20 +1636,20 @@ export default function DashboardPage() {
         </div>
 
         {/* Recommended for You Row */}
-        <div className="p-1.5 xl:p-2 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden flex-shrink-0 h-[56px] xl:h-[60px] 2xl:h-[66px] select-none">
+        <div className="p-1.5 xl:p-2 px-2.5 sm:px-3 rounded-xl xl:rounded-2xl border border-slate-200/80 bg-white shadow-2xs flex flex-col justify-between overflow-hidden flex-shrink-0 min-h-[56px] md:h-[56px] xl:h-[60px] 2xl:h-[66px] select-none">
           <div className="flex items-center justify-between pb-0.5 border-b border-slate-100 flex-shrink-0 leading-none">
             <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-wider leading-none">
               Recommended for You
             </h3>
             <span className="text-[9px] text-slate-400 font-bold uppercase leading-none">Based on progress</span>
           </div>
-          
+
           <div className="flex items-center gap-2 overflow-x-auto py-0.5 scrollbar-thin flex-shrink-0 relative">
             {recommended.length === 0 ? (
               <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wide">All courses fully enrolled! Outstanding progress!</span>
             ) : (
               recommended.map((course: any) => (
-                <div 
+                <div
                   key={course.id}
                   onClick={() => {
                     if (course.badge === "Review Required") {
@@ -1642,16 +1660,16 @@ export default function DashboardPage() {
                   }}
                   className="flex-shrink-0 w-48 sm:w-52 p-1 px-2 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/50 hover:border-[#4F46E5]/40 flex gap-2 items-center cursor-pointer transition-all hover:scale-[1.01] group shadow-2xs"
                 >
-                  <img 
-                    src={course.thumbnail} 
+                  <img
+                    src={course.thumbnail}
                     alt={course.title}
                     className="w-6 h-6 rounded-md object-cover border border-slate-200 shrink-0"
                   />
                   <div className="min-w-0 flex-1 space-y-0.2">
                     <div className="flex items-center justify-between gap-1 leading-none">
                       <span className={`text-[7px] font-black uppercase px-1 py-0.2 rounded border leading-none ${
-                        course.badge === "Review Required" 
-                          ? "bg-red-50 border-red-200 text-red-600" 
+                        course.badge === "Review Required"
+                          ? "bg-red-50 border-red-200 text-red-600"
                           : "bg-indigo-50 border-indigo-100 text-[#4F46E5]"
                       }`}>
                         {course.badge}
@@ -1674,7 +1692,7 @@ export default function DashboardPage() {
         {/* Edit Weekly Goals Modal */}
         {isGoalsModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-fadeIn">
-            <div className="bg-white rounded-3xl border border-slate-200 p-6 max-w-md w-full shadow-2xl space-y-5">
+            <div className="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-4 sm:space-y-5 max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                   <Target size={18} className="text-[#4F46E5]" /> Customize Weekly Goals 🎯
@@ -1682,7 +1700,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsGoalsModalOpen(false)}
-                  className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
+                  className="p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all cursor-pointer"
                 >
                   <X size={18} />
                 </button>
@@ -1753,7 +1771,7 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   onClick={() => setIsGoalsModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-extrabold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer"
+                  className="px-4 py-2.5 min-h-[44px] rounded-xl text-xs font-extrabold text-slate-600 hover:bg-slate-100 transition-all cursor-pointer flex items-center justify-center"
                 >
                   Cancel
                 </button>
@@ -1761,7 +1779,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={handleSaveGoals}
                   disabled={savingGoals}
-                  className={`px-5 py-2 rounded-xl text-xs font-black transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                  className={`px-5 py-2.5 min-h-[44px] rounded-xl text-xs font-black transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
                     isGoalsLocked
                       ? "bg-amber-600 hover:bg-amber-700 text-white"
                       : "bg-[#4F46E5] hover:bg-[#4338CA] text-white"

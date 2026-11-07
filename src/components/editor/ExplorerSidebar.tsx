@@ -32,7 +32,7 @@ import {
 
 export default function ExplorerSidebar() {
     const { workspace } = useExplorer();
-  
+
   const { darkMode } = useEditorTheme();
 
   const [activePanel, setActivePanel] = useState<
@@ -44,17 +44,17 @@ export default function ExplorerSidebar() {
   null
 >("explorer");
 
-  
+
 
   return (
   <div
-    className={`flex h-full ${
+    className={`flex h-full w-full ${
       darkMode ? "bg-[#09090B]" : "bg-gray-100"
     }`}
   >
     {/* Activity Bar */}
     <div
-      className={`w-14 border-r flex flex-col items-center py-4 gap-6 ${
+      className={`w-12 sm:w-14 border-r flex flex-col items-center py-3 sm:py-4 gap-3 sm:gap-6 shrink-0 ${
         darkMode
           ? "bg-[#0B0D14] border-white/10"
           : "bg-gray-100 border-gray-300"
@@ -66,11 +66,12 @@ export default function ExplorerSidebar() {
             prev === "explorer" ? null : "explorer"
           )
         }
-        className={
+        className={`p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg touch-manipulation transition ${
           activePanel === "explorer"
-            ? "text-cyan-400"
+            ? "text-cyan-400 bg-white/5"
             : "text-slate-500 hover:text-white"
-        }
+        }`}
+        title="Explorer"
       >
         <FileCode2 size={22} />
       </button>
@@ -81,11 +82,12 @@ export default function ExplorerSidebar() {
             prev === "search" ? null : "search"
           )
         }
-        className={
+        className={`p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg touch-manipulation transition ${
           activePanel === "search"
-            ? "text-cyan-400"
+            ? "text-cyan-400 bg-white/5"
             : "text-slate-500 hover:text-white"
-        }
+        }`}
+        title="Search"
       >
         <Search size={20} />
       </button>
@@ -96,11 +98,12 @@ export default function ExplorerSidebar() {
             prev === "git" ? null : "git"
           )
         }
-        className={
+        className={`p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg touch-manipulation transition ${
           activePanel === "git"
-            ? "text-cyan-400"
+            ? "text-cyan-400 bg-white/5"
             : "text-slate-500 hover:text-white"
-        }
+        }`}
+        title="Source Control"
       >
         <GitBranch size={20} />
       </button>
@@ -111,11 +114,12 @@ export default function ExplorerSidebar() {
             prev === "run" ? null : "run"
           )
         }
-        className={
+        className={`p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg touch-manipulation transition ${
           activePanel === "run"
-            ? "text-cyan-400"
+            ? "text-cyan-400 bg-white/5"
             : "text-slate-500 hover:text-white"
-        }
+        }`}
+        title="Run & Debug"
       >
         <Play size={20} />
       </button>
@@ -126,16 +130,17 @@ export default function ExplorerSidebar() {
             prev === "extensions" ? null : "extensions"
           )
         }
-        className={
+        className={`p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg touch-manipulation transition ${
           activePanel === "extensions"
-            ? "text-cyan-400"
+            ? "text-cyan-400 bg-white/5"
             : "text-slate-500 hover:text-white"
-        }
+        }`}
+        title="Extensions"
       >
         <Boxes size={20} />
       </button>
 
-      <button className="text-slate-500 hover:text-white mt-auto">
+      <button className="text-slate-500 hover:text-white mt-auto p-2 min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg touch-manipulation">
         <FlaskConical size={20} />
       </button>
     </div>
@@ -143,7 +148,7 @@ export default function ExplorerSidebar() {
     {/* Sidebar */}
     {activePanel && (
   <div
-    className={`w-72 border-r flex flex-col transition-all ${
+    className={`flex-1 md:w-72 border-r flex flex-col min-w-0 transition-all ${
       darkMode
         ? "bg-[#11131B] border-white/10"
         : "bg-white border-gray-300"

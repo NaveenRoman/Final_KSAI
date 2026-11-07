@@ -186,9 +186,14 @@ INSTRUCTIONS:
 5. Keep your response concise, actionable, and structured with clean markdown.
 `;
 
-    const response = await fetch("http://127.0.0.1:8000/api/ai/teach/", {
+    const teachUrl = process.env.DJANGO_TEACH_URL || "http://127.0.0.1:8000/api/ai/teach/";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (process.env.INTERNAL_API_SECRET) {
+      headers["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
+    }
+    const response = await fetch(teachUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         course: activeSummary.courseTitle,
         chapter: activeSummary.focusTopic,

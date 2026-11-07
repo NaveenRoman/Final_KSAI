@@ -124,28 +124,28 @@ export default function RunButton() {
     <button
       onClick={runCode}
       disabled={running}
-      className={`group flex items-center gap-3 px-5 py-3 rounded-2xl
+      className={`group flex items-center gap-2 sm:gap-3 min-h-[44px] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl
       bg-gradient-to-r from-green-500 to-emerald-600
-      text-white shadow-lg transition-all duration-300
+      text-white shadow-lg transition-all duration-300 shrink-0 touch-manipulation cursor-pointer
       ${
         running
           ? "opacity-70 cursor-not-allowed"
-          : "hover:scale-105 hover:shadow-xl"
+          : "hover:scale-105 active:scale-95 hover:shadow-xl"
       }`}
     >
       {running ? (
         <Loader2
-          size={20}
-          className="animate-spin"
+          size={18}
+          className="animate-spin sm:w-5 sm:h-5"
         />
       ) : (
         <Play
-          size={20}
-          className="group-hover:scale-110 transition-transform"
+          size={18}
+          className="group-hover:scale-110 transition-transform sm:w-5 sm:h-5"
         />
       )}
 
-      <span className="font-semibold text-sm">
+      <span className="font-semibold text-xs sm:text-sm">
         {running ? "Running..." : "Run"}
       </span>
     </button>

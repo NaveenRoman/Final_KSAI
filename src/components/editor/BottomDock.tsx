@@ -170,7 +170,7 @@ export default function BottomDock() {
 
     return (
         <div
-            className={`h-20 border-t backdrop-blur-xl flex items-center justify-center gap-4 px-6 transition-all duration-300 ${
+            className={`min-h-[56px] sm:h-20 border-t backdrop-blur-xl flex items-center justify-start sm:justify-center gap-2.5 sm:gap-4 px-3 sm:px-6 py-2 sm:py-0 overflow-x-auto sm:overflow-x-visible no-scrollbar shrink-0 transition-all duration-300 ${
                 darkMode
                     ? "bg-[#0B0D14] border-white/10"
                     : "bg-white border-gray-300 shadow-md"
@@ -178,71 +178,60 @@ export default function BottomDock() {
         >
 
             {/* ========================= */}
+            {/* RUN & CHALLENGE SUBMIT (Prominent First on Mobile) */}
+            {/* ========================= */}
+            <div key="run-group" className="flex items-center gap-2 shrink-0">
+                <RunButton key="run" />
+                {isChallengeMode && (
+                    <button
+                        type="button"
+                        onClick={() => submitChallengeCode()}
+                        disabled={evaluating || testRunning}
+                        className="flex items-center gap-2 min-h-[44px] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:scale-105 active:scale-95 transition-all duration-300 shadow-lg hover:shadow-xl text-white font-semibold text-xs sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed shrink-0 touch-manipulation cursor-pointer"
+                        title="Submit your code against all test cases"
+                    >
+                        {evaluating ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                <span>Submitting...</span>
+                            </>
+                        ) : (
+                            <>
+                                <CheckCircle2 size={18} />
+                                <span>Submit Solution</span>
+                            </>
+                        )}
+                    </button>
+                )}
+            </div>
+
+            {/* ========================= */}
             {/* AI GUIDE */}
             {/* ========================= */}
-
             <button
                 type="button"
                 onClick={handleAIGuide}
-                className="group flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600
-                hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl text-white"
+                className="group flex items-center gap-2 sm:gap-3 min-h-[44px] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600
+                hover:scale-105 active:scale-95 transition-all duration-300 shadow-lg hover:shadow-xl text-white shrink-0 touch-manipulation cursor-pointer"
             >
-
-                <Brain size={20} />
-
-                <span className="font-semibold text-sm">
+                <Brain size={18} className="sm:w-5 sm:h-5 shrink-0" />
+                <span className="font-semibold text-xs sm:text-sm whitespace-nowrap">
                     AI Guide
                 </span>
-
             </button>
-
 
             {/* ========================= */}
             {/* EXPLAIN */}
             {/* ========================= */}
-
-            <ExplainButton />
-
+            <div className="shrink-0 flex items-center">
+                <ExplainButton />
+            </div>
 
             {/* ========================= */}
             {/* OTHER BUTTONS */}
             {/* ========================= */}
-
-            {buttons.map((button) => {
-
-                {/* RUN & CHALLENGE SUBMIT */}
-
-                if (button.title === "Run") {
-                    return (
-                        <div key="run-group" className="flex items-center gap-2">
-                            <RunButton key="run" />
-                            {isChallengeMode && (
-                                <button
-                                    type="button"
-                                    onClick={() => submitChallengeCode()}
-                                    disabled={evaluating || testRunning}
-                                    className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                    title="Submit your code against all test cases"
-                                >
-                                    {evaluating ? (
-                                        <>
-                                            <Loader2 size={18} className="animate-spin" />
-                                            <span>Submitting...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <CheckCircle2 size={18} />
-                                            <span>Submit Solution</span>
-                                        </>
-                                    )}
-                                </button>
-                            )}
-                        </div>
-                    );
-                }
-
-                const Icon =
-                    button.icon;
+            {buttons.filter((b) => b.title !== "Run").map((button) => {
+                const Icon = button.icon;
 
                 return (
                     <button
@@ -255,22 +244,19 @@ export default function BottomDock() {
                                     ? handleAutoCode
                                     : undefined
                         }
-                        className={`group flex items-center gap-3 px-5 py-3 rounded-2xl bg-gradient-to-r ${button.color}
-                        hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl text-white`}
+                        className={`group flex items-center gap-2 sm:gap-3 min-h-[44px] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl bg-gradient-to-r ${button.color}
+                        hover:scale-105 active:scale-95 transition-all duration-300 shadow-lg hover:shadow-xl text-white shrink-0 touch-manipulation cursor-pointer`}
                     >
-
                         {Icon && (
-                            <Icon size={20} />
+                            <Icon size={18} className="sm:w-5 sm:h-5 shrink-0" />
                         )}
 
-                        <span className="font-semibold text-sm">
+                        <span className="font-semibold text-xs sm:text-sm whitespace-nowrap">
                             {button.title}
                         </span>
-
                     </button>
                 );
             })}
-
         </div>
     );
 }

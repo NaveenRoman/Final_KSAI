@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
 import {
   User, Lock, ShieldCheck, Check, Key, Eye, EyeOff,
-  Save, Sparkles, CheckCircle2, RefreshCw, AlertTriangle
+  Save, Sparkles, CheckCircle2, RefreshCw, AlertTriangle, Menu
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -201,17 +201,32 @@ export default function SettingsPage() {
       {/* Main Workspace Content Area */}
       <main className="flex-1 h-full flex flex-col overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 w-full custom-scrollbar">
         {/* Top Header Banner */}
-        <div className="glass-panel p-6 rounded-3xl border border-slate-200 bg-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-[#4F46E5] text-xs font-bold border border-blue-100 mb-2">
-              <Sparkles size={13} /> Account &amp; Preferences
+        <div className="glass-panel p-4 sm:p-6 rounded-3xl border border-slate-200 bg-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3 min-w-0">
+            {/* Mobile Global Navigation Toggle (< 768px) */}
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("ksai-toggle-mobile-sidebar"));
+                }
+              }}
+              aria-label="Open navigation menu"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-[#4F46E5] text-xs font-bold border border-blue-100 mb-2">
+                <Sparkles size={13} /> Account &amp; Preferences
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Settings ⚙️
+              </h1>
+              <p className="text-slate-500 text-xs sm:text-sm mt-1">
+                Manage your personal profile and security password options.
+              </p>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-              Settings ⚙️
-            </h1>
-            <p className="text-slate-500 text-xs sm:text-sm mt-1">
-              Manage your personal profile and security password options.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
