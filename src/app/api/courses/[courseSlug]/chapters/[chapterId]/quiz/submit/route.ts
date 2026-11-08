@@ -12,6 +12,7 @@ import {
   QUIZ_PASS_THRESHOLD,
 } from "@/lib/adaptive/unlock-service";
 import { recordStudentEvidence } from "@/lib/adaptive/profile-service";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +77,25 @@ export async function POST(
       return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
     }
 
-    // Authoritative check: ensure chapter is unlocked before allowing quiz submission
+    // 1. Authoritative Course Access Check (quiz submission is a protected assessment action)
+    const access = await checkCourseAccess(user.id, courseSlug);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Please renew your plan to submit quizzes."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${course.title}. Upgrade your plan to submit this quiz.`
+              : `Enrollment in ${course.title} is required to submit quizzes.`,
+          locked: true,
+          lockReason: access.reason,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 2. Authoritative check: ensure chapter is unlocked before allowing quiz submission
     const unlockStatus = await getChapterUnlockStatus({
       userId: user.id,
       courseSlug,
@@ -86,7 +105,12 @@ export async function POST(
     if (!unlockStatus.isUnlocked) {
       return NextResponse.json(
         {
-          error: "Chapter is locked. Cannot submit quiz for a locked chapter.",
+          error:
+            unlockStatus.lockReason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Please renew your plan to submit quizzes."
+              : unlockStatus.lockReason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${course.title}. Upgrade your plan to submit this quiz.`
+              : "Chapter is locked. Cannot submit quiz for a locked chapter.",
           locked: true,
           lockReason: unlockStatus.lockReason,
           previousChapter: unlockStatus.previousChapter,

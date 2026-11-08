@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
+import { cookies, headers } from "next/headers";
 import { db } from "@/lib/db";
+import { auth } from "@/lib/auth";
+import { parseSessionToken } from "@/lib/auth-cookie";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -15,18 +19,54 @@ export async function GET(
   try {
     const { courseSlug, chapterId } = await context.params;
 
-    const url = new URL(request.url);
+    // 1. Authenticate user strictly from server session
+    const sessionData = await auth.api.getSession({
+      headers: await headers().catch(() => request.headers),
+    });
+    let user = sessionData?.user ?? null;
 
-    const userEmail = url.searchParams.get("userEmail");
-    let courseId = url.searchParams.get("courseId");
+    if (!user) {
+      const cookieStore = await cookies();
+      const sessionTokenRaw =
+        cookieStore.get("better-auth.session_token")?.value ||
+        cookieStore.get("__Secure-better-auth.session_token")?.value ||
+        cookieStore.get("better-auth.session-token")?.value ||
+        cookieStore.get("sessionToken")?.value;
 
-    if (!userEmail) {
+      if (sessionTokenRaw) {
+        const rawToken = parseSessionToken(sessionTokenRaw);
+        const dbSession = await db.session.findUnique({
+          where: { token: rawToken },
+          include: { user: true },
+        });
+        if (dbSession && new Date() < dbSession.expiresAt) {
+          user = dbSession.user;
+        }
+      }
+    }
+
+    if (!user) {
       return NextResponse.json(
         {
           success: false,
-          error: "User email is required.",
+          error: "Not authenticated",
         },
-        { status: 400 }
+        { status: 401 }
+      );
+    }
+
+    const url = new URL(request.url);
+    const requestedEmail = url.searchParams.get("userEmail");
+    let courseId = url.searchParams.get("courseId");
+
+    // Prevent parameter spoofing: if client supplied userEmail, verify it matches
+    if (requestedEmail && user.email && requestedEmail.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Cannot access chapter summary of another user.",
+        },
+        { status: 403 }
       );
     }
 
@@ -51,22 +91,21 @@ export async function GET(
       );
     }
 
-    const user = await db.user.findUnique({
-      where: {
-        email: userEmail,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (!user) {
+    // 2. Authoritative Course Access Check
+    const access = await checkCourseAccess(user.id, courseSlug);
+    if (!access.hasAccess) {
       return NextResponse.json(
         {
           success: false,
-          error: "User not found.",
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Active subscription is required to access chapter summaries."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${courseSlug}. Upgrade your plan to access this course.`
+              : `Enrollment in ${courseSlug} is required to access chapter summaries.`,
+          lockReason: access.reason,
         },
-        { status: 404 }
+        { status: 403 }
       );
     }
 

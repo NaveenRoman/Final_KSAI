@@ -121,9 +121,16 @@ export async function GET(
           previousChapter: unlockStatus.previousChapter,
           requirements: unlockStatus.requirements,
           quizStatus: unlockStatus.quizStatus,
-          message: unlockStatus.previousChapter
-            ? `Chapter ${currentChapter.orderNumber} is locked. Complete Chapter ${unlockStatus.previousChapter.orderNumber} and pass its required assessment to continue.`
-            : `Chapter ${currentChapter.orderNumber} is locked. Complete previous chapter requirements first.`,
+          message:
+            unlockStatus.lockReason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Please renew your plan to continue learning."
+              : unlockStatus.lockReason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${course.title}. Upgrade your plan to access all courses.`
+              : unlockStatus.lockReason === "ENROLLMENT_REQUIRED"
+              ? `Enrollment in ${course.title} is required.`
+              : unlockStatus.previousChapter
+              ? `Chapter ${currentChapter.orderNumber} is locked. Complete Chapter ${unlockStatus.previousChapter.orderNumber} and pass its required assessment to continue.`
+              : `Chapter ${currentChapter.orderNumber} is locked. Complete previous chapter requirements first.`,
           courseTitle: course.title,
           courseSlug: course.language || courseSlug,
           courseId: course.id,

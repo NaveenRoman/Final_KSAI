@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { getChapterChallengeProgression } from "@/lib/adaptive/unlock-service";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,24 @@ export async function GET(
 
     if (!user) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // 2. Authoritative Course Access Gate
+    const access = await checkCourseAccess(user.id, courseSlug);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Please renew your plan to access coding challenges."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${courseSlug}. Upgrade your plan to access these challenges.`
+              : `Enrollment in ${courseSlug} is required to access coding challenges.`,
+          locked: true,
+          lockReason: access.reason,
+        },
+        { status: 403 }
+      );
     }
 
     const url = new URL(req.url);

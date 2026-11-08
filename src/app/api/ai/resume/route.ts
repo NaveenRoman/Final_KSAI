@@ -1,19 +1,62 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { parseSessionToken } from "@/lib/auth-cookie";
+import { checkFeatureAccess } from "@/lib/subscription-service";
 import { callGeminiWithResilience } from "@/lib/ai/gemini-client";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
-    let studentId: string | undefined;
-    try {
-      const session = await auth.api.getSession({
-        headers: await headers().catch(() => request.headers),
-      });
-      studentId = session?.user?.id;
-    } catch {
-      // unauthenticated or guest usage
+    // 1. Resolve requesting user strictly from server session
+    const sessionData = await auth.api.getSession({
+      headers: await headers().catch(() => request.headers),
+    });
+    let user = sessionData?.user ?? null;
+
+    if (!user) {
+      const cookieStore = await cookies();
+      const sessionTokenRaw =
+        cookieStore.get("better-auth.session_token")?.value ||
+        cookieStore.get("__Secure-better-auth.session_token")?.value ||
+        cookieStore.get("better-auth.session-token")?.value ||
+        cookieStore.get("sessionToken")?.value;
+
+      if (sessionTokenRaw) {
+        const rawToken = parseSessionToken(sessionTokenRaw);
+        const dbSession = await db.session.findUnique({
+          where: { token: rawToken },
+          include: { user: true },
+        });
+        if (dbSession && new Date() < dbSession.expiresAt) {
+          user = dbSession.user;
+        }
+      }
     }
+
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required to use AI Resume Builder" },
+        { status: 401 }
+      );
+    }
+
+    // 2. Enforce Pro entitlement for Resume Builder
+    const access = await checkFeatureAccess(user.id, "RESUME_BUILDER");
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Pro subscription required for AI Resume Builder",
+          reason: access.reason || "PRO_PLAN_REQUIRED",
+        },
+        { status: 403 }
+      );
+    }
+
+    const studentId: string = user.id;
 
     const body = await request.json().catch(() => ({}));
     const {

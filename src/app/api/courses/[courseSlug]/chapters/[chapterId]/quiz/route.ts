@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { getAuthoritativeProgression } from "@/lib/progression";
 import { getChapterUnlockStatus } from "@/lib/adaptive/unlock-service";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -64,7 +65,25 @@ export async function GET(
       return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
     }
 
-    // Check authoritative chapter unlock status
+    // 1. Authoritative Course Access Check (quizzes are protected assessment actions)
+    const access = await checkCourseAccess(user.id, courseSlug);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Please renew your plan to take quizzes."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${course.title}. Upgrade your plan to access this quiz.`
+              : `Enrollment in ${course.title} is required to take quizzes.`,
+          locked: true,
+          lockReason: access.reason,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 2. Check authoritative chapter sequential unlock status
     const unlockStatus = await getChapterUnlockStatus({
       userId: user.id,
       courseSlug,
@@ -74,7 +93,12 @@ export async function GET(
     if (!unlockStatus.isUnlocked) {
       return NextResponse.json(
         {
-          error: "Chapter is locked. Complete previous chapter requirements first.",
+          error:
+            unlockStatus.lockReason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Please renew your plan to take quizzes."
+              : unlockStatus.lockReason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${course.title}. Upgrade your plan to access this quiz.`
+              : "Chapter is locked. Complete previous chapter requirements first.",
           locked: true,
           lockReason: unlockStatus.lockReason,
           previousChapter: unlockStatus.previousChapter,

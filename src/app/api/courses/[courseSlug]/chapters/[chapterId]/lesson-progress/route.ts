@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
+import { parseSessionToken } from "@/lib/auth-cookie";
 import { getAuthoritativeProgression } from "@/lib/progression";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +17,33 @@ const VALID_STATUSES = [
 ] as const;
 
 type LessonStatus = (typeof VALID_STATUSES)[number];
+
+async function resolveAuthenticatedUser(req: NextRequest) {
+  const sessionData = await auth.api.getSession({ headers: req.headers });
+  if (sessionData?.user) {
+    return sessionData.user;
+  }
+
+  const cookieStore = await cookies();
+  const sessionTokenRaw =
+    cookieStore.get("better-auth.session_token")?.value ||
+    cookieStore.get("__Secure-better-auth.session_token")?.value ||
+    cookieStore.get("better-auth.session-token")?.value ||
+    cookieStore.get("sessionToken")?.value;
+
+  if (sessionTokenRaw) {
+    const rawToken = parseSessionToken(sessionTokenRaw);
+    const dbSession = await prisma.session.findUnique({
+      where: { token: rawToken },
+      include: { user: true },
+    });
+    if (dbSession && new Date() < dbSession.expiresAt) {
+      return dbSession.user;
+    }
+  }
+
+  return null;
+}
 
 export async function GET(
   request: NextRequest,
@@ -28,31 +59,27 @@ export async function GET(
   try {
     const { courseSlug, chapterId } = await params;
 
-    const userEmail = request.nextUrl.searchParams.get("userEmail");
-
-    if (!userEmail) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "userEmail is required.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const user = await prisma.user.findUnique({
-      where: {
-        email: userEmail,
-      },
-    });
-
+    // 1. Authenticate user strictly from server session
+    const user = await resolveAuthenticatedUser(request);
     if (!user) {
       return NextResponse.json(
         {
           success: false,
-          error: "User not found.",
+          error: "Not authenticated",
         },
-        { status: 404 }
+        { status: 401 }
+      );
+    }
+
+    // Prevent parameter spoofing: if client supplied userEmail, it must match authenticated user
+    const requestedEmail = request.nextUrl.searchParams.get("userEmail");
+    if (requestedEmail && user.email && requestedEmail.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Cannot access lesson progress of another user.",
+        },
+        { status: 403 }
       );
     }
 
@@ -159,35 +186,60 @@ export async function POST(
       lastScore,
     } = body;
 
-    if (!userEmail || !lesson) {
+    // 1. Authenticate user strictly from server session
+    const user = await resolveAuthenticatedUser(request);
+    if (!user) {
       return NextResponse.json(
         {
           success: false,
-          error: "userEmail and lesson are required.",
+          error: "Not authenticated",
+        },
+        { status: 401 }
+      );
+    }
+
+    // 2. Prevent parameter spoofing: if client supplied userEmail, verify it matches authenticated user
+    if (userEmail && user.email && userEmail.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Forbidden: Cannot modify lesson progress of another user.",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (!lesson) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "lesson is required.",
         },
         { status: 400 }
+      );
+    }
+
+    // 3. Authoritative Course Access Gate
+    const access = await checkCourseAccess(user.id, courseSlug);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Active subscription is required to record lesson progress."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${courseSlug}. Upgrade your plan to access this course.`
+              : `Enrollment in ${courseSlug} is required to record lesson progress.`,
+          lockReason: access.reason,
+        },
+        { status: 403 }
       );
     }
 
     const nextStatus: LessonStatus = VALID_STATUSES.includes(status)
       ? status
       : "LEARNING";
-
-    const user = await prisma.user.findUnique({
-      where: {
-        email: userEmail,
-      },
-    });
-
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "User not found.",
-        },
-        { status: 404 }
-      );
-    }
 
     const normSlug = courseSlug.toLowerCase();
     let chapter = await prisma.chapter.findFirst({

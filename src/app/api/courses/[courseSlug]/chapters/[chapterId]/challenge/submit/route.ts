@@ -12,6 +12,7 @@ import {
   CHALLENGE_PASS_THRESHOLD,
 } from "@/lib/adaptive/unlock-service";
 import { getChallengeById, normalizeCourseSlug } from "@/lib/challenges/challenge-bank";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,25 @@ export async function POST(
       );
     }
 
-    // 3. Server-authoritative sequential unlock gate check
+    // 3. Authoritative Course Access Gate (Challenge evaluation requires active access)
+    const access = await checkCourseAccess(user.id, courseSlug);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Active subscription is required to submit coding challenges."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${courseSlug}. Upgrade your plan to submit this challenge.`
+              : `Enrollment in ${courseSlug} is required to submit coding challenges.`,
+          isUnlocked: false,
+          lockReason: access.reason,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 4. Server-authoritative sequential unlock gate check
     const progression = await getChapterChallengeProgression({
       userId: user.id,
       courseSlug: normSlug,

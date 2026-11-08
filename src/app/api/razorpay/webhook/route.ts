@@ -32,7 +32,7 @@ interface RazorpayWebhookPayload {
       entity: RazorpayWebhookPaymentEntity;
     };
     order?: {
-      entity: any;
+      entity: Record<string, unknown>;
     };
   };
   created_at?: number;
@@ -188,6 +188,25 @@ export async function POST(req: Request) {
         const feeAmount = paymentOrder?.feeAmount ?? 0;
         const totalAmount = paymentOrder?.totalAmount ?? amountPaise / 100;
 
+        let metaSubject: string | null = notes.subject || null;
+        let metaCourseIds: string[] = [];
+
+        if (notes.courseIds && typeof notes.courseIds === "string") {
+          metaCourseIds = notes.courseIds.split(",").map((s) => s.trim()).filter(Boolean);
+        }
+
+        if (paymentOrder?.metadata) {
+          try {
+            const parsed = JSON.parse(paymentOrder.metadata);
+            if (!metaSubject && typeof parsed.subject === "string") {
+              metaSubject = parsed.subject;
+            }
+            if (metaCourseIds.length === 0 && Array.isArray(parsed.courseIds)) {
+              metaCourseIds = parsed.courseIds.map(String);
+            }
+          } catch {}
+        }
+
         const subscription = await activateSubscriptionRecord({
           userId: targetUser.id,
           plan: planTier,
@@ -198,6 +217,8 @@ export async function POST(req: Request) {
           gstAmount,
           feeAmount,
           totalAmount,
+          subject: metaSubject,
+          courseIds: metaCourseIds,
         });
 
         return NextResponse.json(
@@ -432,7 +453,7 @@ export async function POST(req: Request) {
       { status: "ignored", event: eventType },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Razorpay Webhook Error]:", error);
     return NextResponse.json(
       { error: "Internal webhook processing error." },

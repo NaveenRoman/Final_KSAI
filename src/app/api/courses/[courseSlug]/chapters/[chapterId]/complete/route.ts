@@ -7,6 +7,7 @@ import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
 import { getAuthoritativeProgression, logUserActivity } from "@/lib/progression";
 import { checkChapterCompletion } from "@/lib/adaptive/unlock-service";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export async function POST(
   req: Request,
@@ -62,6 +63,24 @@ export async function POST(
 
     if (!chapter) {
       return NextResponse.json({ error: "Chapter not found" }, { status: 404 });
+    }
+
+    // Authoritative Course Access Gate
+    const access = await checkCourseAccess(user.id, courseSlug);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Active subscription is required to complete chapters."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${course.title}. Upgrade your plan to complete this chapter.`
+              : `Enrollment in ${course.title} is required to complete chapters.`,
+          success: false,
+          lockReason: access.reason,
+        },
+        { status: 403 }
+      );
     }
 
     // Check progression

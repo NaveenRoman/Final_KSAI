@@ -5,13 +5,15 @@ import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
+import { checkCourseAccess } from "@/lib/subscription-service";
+import { getChallengeById } from "@/lib/challenges/challenge-bank";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { courseId, chapterId, challengeId } = body;
+    const { chapterId, challengeId } = body;
     const difficultyRaw = (body.difficulty || "EASY").toString().toUpperCase();
 
     // Check for explicit submission failure
@@ -48,9 +50,75 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
+    // 2. Authoritatively resolve course from trusted DB records / challenge definitions
+    // Never trust client-supplied courseId, user claims, or parameters
+    let trustedCourse: { id: string; language: string; title: string } | null = null;
+    let resolvedChapter: { id: string; courseId: string } | null = null;
+
+    if (chapterId && typeof chapterId === "string") {
+      const parsedOrder = parseInt(chapterId.replace(/[^0-9]/g, ""), 10);
+      const ch = await db.chapter.findFirst({
+        where: {
+          OR: [
+            { id: chapterId },
+            ...(!isNaN(parsedOrder) ? [{ orderNumber: parsedOrder }] : []),
+          ],
+        },
+        include: {
+          course: {
+            select: { id: true, language: true, title: true },
+          },
+        },
+      });
+
+      if (ch?.course) {
+        trustedCourse = ch.course;
+        resolvedChapter = { id: ch.id, courseId: ch.courseId };
+      }
+    }
+
+    if (!trustedCourse && challengeId && typeof challengeId === "string") {
+      const challengeDef = getChallengeById(challengeId);
+      if (challengeDef?.course) {
+        const c = await db.course.findFirst({
+          where: { language: challengeDef.course.toLowerCase() },
+          select: { id: true, language: true, title: true },
+        });
+        if (c) {
+          trustedCourse = c;
+        }
+      }
+    }
+
+    if (!trustedCourse) {
+      return NextResponse.json(
+        { error: "Unable to authoritatively determine course for this challenge submission." },
+        { status: 400 }
+      );
+    }
+
+    // 3. Authoritative Course Access Check (enforces active subscription and purchase scope)
+    const access = await checkCourseAccess(user.id, trustedCourse.language);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Active subscription is required to submit challenges."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? `Your current subscription does not cover ${trustedCourse.title || trustedCourse.language}. Upgrade your plan to submit this challenge.`
+              : `Active subscription is required to submit challenges.`,
+          success: false,
+          locked: true,
+          lockReason: access.reason,
+        },
+        { status: 403 }
+      );
+    }
+
     // Validate difficulty tier (EASY: 30 XP, MEDIUM: 75 XP, HARD: 150 XP)
     const validTiers = ["EASY", "MEDIUM", "HARD"] as const;
-    const difficultyTier = validTiers.includes(difficultyRaw as any)
+    const difficultyTier = (validTiers as readonly string[]).includes(difficultyRaw)
       ? (difficultyRaw as (typeof validTiers)[number])
       : "EASY";
 
@@ -60,12 +128,14 @@ export async function POST(req: Request) {
     let isAlreadySolved = false;
     let existingProgress = null;
 
-    if (chapterId) {
+    const targetChapterId = resolvedChapter?.id || chapterId || null;
+
+    if (targetChapterId) {
       existingProgress = await db.chapterProgress.findUnique({
         where: {
           userId_chapterId: {
             userId: user.id,
-            chapterId,
+            chapterId: targetChapterId,
           },
         },
       });
@@ -75,7 +145,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const targetId = challengeId || chapterId || null;
+    const targetId = challengeId || targetChapterId || null;
     if (!isAlreadySolved && targetId) {
       const previousSolveLog = await db.activityLog.findFirst({
         where: {
@@ -107,8 +177,8 @@ export async function POST(req: Request) {
       });
     }
 
-    // Mark codeSolved on chapter progress if chapterId is provided
-    if (chapterId) {
+    // Mark codeSolved on chapter progress if targetChapterId is provided
+    if (targetChapterId) {
       if (existingProgress) {
         await db.chapterProgress.update({
           where: { id: existingProgress.id },
@@ -118,7 +188,7 @@ export async function POST(req: Request) {
         await db.chapterProgress.create({
           data: {
             userId: user.id,
-            chapterId,
+            chapterId: targetChapterId,
             codeSolved: true,
           },
         });
@@ -130,7 +200,8 @@ export async function POST(req: Request) {
       userId: user.id,
       amount,
       source: "challenge_solved",
-      courseId: courseId ?? null,
+      courseId: trustedCourse.id,
+      idempotencyKey: `legacy_challenge_solved_${user.id}_${targetId}`,
     });
 
     // Log activity record
@@ -141,8 +212,9 @@ export async function POST(req: Request) {
         metadata: JSON.stringify({
           difficulty: difficultyTier,
           xpEarned: amount,
-          courseId,
-          chapterId,
+          courseId: trustedCourse.id,
+          courseLanguage: trustedCourse.language,
+          chapterId: targetChapterId,
           challengeId,
         }),
       },

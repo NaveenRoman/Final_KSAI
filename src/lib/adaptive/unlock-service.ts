@@ -20,6 +20,7 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeTopicName } from "./resume-service";
 import { getChallengesForChapter } from "@/lib/challenges/challenge-bank";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const QUIZ_PASS_THRESHOLD = 75;
 export const CHALLENGE_PASS_THRESHOLD = 70;
@@ -52,7 +53,12 @@ export interface ChapterUnlockResult {
   title: string;
   isUnlocked: boolean;
   isCompleted: boolean;
-  lockReason?: "PREVIOUS_CHAPTER_INCOMPLETE" | "ENROLLMENT_REQUIRED" | "NONE";
+  lockReason?:
+    | "PREVIOUS_CHAPTER_INCOMPLETE"
+    | "ENROLLMENT_REQUIRED"
+    | "SUBSCRIPTION_EXPIRED"
+    | "SUBJECT_NOT_INCLUDED"
+    | "NONE";
   previousChapter?: {
     id: string;
     orderNumber: number;
@@ -424,7 +430,6 @@ export async function getChapterUnlockStatus(params: {
       courseId: course.id,
     },
   });
-  const isEnrolled = Boolean(enrollment);
 
   // 4. Compute Current Chapter Completion Status
   const currentCompletion = await checkChapterCompletion({
@@ -435,48 +440,66 @@ export async function getChapterUnlockStatus(params: {
 
   // 5. Compute Sequential Unlock State
   let isUnlocked = false;
-  let lockReason: "PREVIOUS_CHAPTER_INCOMPLETE" | "ENROLLMENT_REQUIRED" | "NONE" = "NONE";
+  let lockReason:
+    | "PREVIOUS_CHAPTER_INCOMPLETE"
+    | "ENROLLMENT_REQUIRED"
+    | "SUBSCRIPTION_EXPIRED"
+    | "SUBJECT_NOT_INCLUDED"
+    | "NONE" = "NONE";
   let previousChapterInfo: ChapterUnlockResult["previousChapter"] | undefined;
 
   // Chapter 0 (Preview): Always unlocked
   if (currentChapter.orderNumber === 0) {
     isUnlocked = true;
   }
-  // Chapter 1: Unlocked by default according to existing enrollment/course rules
+  // Chapter 1: Unlocked by default according to existing free preview / intro rules
   else if (currentChapter.orderNumber === 1) {
     isUnlocked = true;
   }
-  // Chapter N (N >= 2): Strictly locked until Chapter N-1 is complete
+  // Chapter N (N >= 2): Strictly locked unless user has active course access AND Chapter N-1 is complete
   else {
-    // Resolve preceding chapter (by orderNumber or index)
-    const prevChapter =
-      course.chapters.find((c) => c.orderNumber === currentChapter.orderNumber - 1) ||
-      (currentIdx > 0 ? course.chapters[currentIdx - 1] : null);
+    // 5a. Authoritative Course Access Gate
+    const access = await checkCourseAccess(userId, course.id);
+    if (!access.hasAccess) {
+      isUnlocked = false;
+      if (access.reason === "SUBSCRIPTION_EXPIRED") {
+        lockReason = "SUBSCRIPTION_EXPIRED";
+      } else if (access.reason === "SUBJECT_NOT_INCLUDED") {
+        lockReason = "SUBJECT_NOT_INCLUDED";
+      } else {
+        lockReason = "ENROLLMENT_REQUIRED";
+      }
+    } else {
+      // 5b. Resolve preceding chapter (by orderNumber or index)
+      const prevChapter =
+        course.chapters.find((c) => c.orderNumber === currentChapter.orderNumber - 1) ||
+        (currentIdx > 0 ? course.chapters[currentIdx - 1] : null);
 
-    if (prevChapter) {
-      const prevCompletion = await checkChapterCompletion({
-        userId,
-        courseId: course.id,
-        chapterId: prevChapter.id,
-      });
+      if (prevChapter) {
+        const prevCompletion = await checkChapterCompletion({
+          userId,
+          courseId: course.id,
+          chapterId: prevChapter.id,
+        });
 
-      previousChapterInfo = {
-        id: prevChapter.id,
-        orderNumber: prevChapter.orderNumber,
-        title: prevChapter.title,
-        isCompleted: prevCompletion.isCompleted,
-        requirements: prevCompletion.requirements,
-      };
+        previousChapterInfo = {
+          id: prevChapter.id,
+          orderNumber: prevChapter.orderNumber,
+          title: prevChapter.title,
+          isCompleted: prevCompletion.isCompleted,
+          requirements: prevCompletion.requirements,
+        };
 
-      if (prevCompletion.isCompleted) {
-        isUnlocked = true;
+        if (prevCompletion.isCompleted) {
+          isUnlocked = true;
+        } else {
+          isUnlocked = false;
+          lockReason = "PREVIOUS_CHAPTER_INCOMPLETE";
+        }
       } else {
         isUnlocked = false;
         lockReason = "PREVIOUS_CHAPTER_INCOMPLETE";
       }
-    } else {
-      isUnlocked = false;
-      lockReason = "PREVIOUS_CHAPTER_INCOMPLETE";
     }
   }
 
@@ -743,11 +766,15 @@ export async function getChapterChallengeProgression(params: {
   let previousPassed = isChapterQuizPassed;
   let passedCount = 0;
 
+  // Verify course authorization: challenges are protected learning actions
+  const courseAccess = await checkCourseAccess(userId, normSlug);
+  const isAuthorized = courseAccess.hasAccess;
+
   const progressionItems: ChallengeProgressionItem[] = chapterChallenges.map(
     (ch, idx) => {
       const bestScore = passedScores.get(ch.id) ?? 0;
       const isPassed = bestScore >= CHALLENGE_PASS_THRESHOLD;
-      const isUnlocked = idx === 0 ? isChapterQuizPassed : previousPassed;
+      const isUnlocked = isAuthorized && (idx === 0 ? isChapterQuizPassed : previousPassed);
 
       if (isPassed) {
         passedCount++;

@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { appendLearningUnitToNotebook } from "@/lib/notebook/notebook-service";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +134,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Chapter not found." },
         { status: 404 }
+      );
+    }
+
+    // Authoritative Course Access Gate
+    const access = await checkCourseAccess(user.id, chapter.course.language || chapter.course.id);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Active subscription is required to complete chapter recaps."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? "Your current subscription does not cover this course."
+              : "Active course enrollment is required.",
+          lockReason: access.reason,
+        },
+        { status: 403 }
       );
     }
 

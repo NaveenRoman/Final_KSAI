@@ -14,13 +14,9 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/sections/Navbar";
 import {
-  OFFICIAL_PLANS,
   calculateOrderSummary,
   isValidPlanTier,
   isValidDuration,
-  PlanTier,
-  PlanDurationMonths,
-  OrderSummary,
 } from "@/lib/subscription-config";
 import { loadRazorpayScript, RazorpaySuccessResponse } from "@/lib/razorpay-checkout";
 
@@ -77,6 +73,7 @@ function OrderSummaryContent() {
         body: JSON.stringify({
           plan: summary.planTier,
           durationMonths: summary.durationMonths,
+          subject: rawSubject || undefined,
         }),
       });
 

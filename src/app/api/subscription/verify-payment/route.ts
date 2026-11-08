@@ -167,6 +167,18 @@ export async function POST(req: Request) {
     }
 
     // 7. Atomically activate subscription and update order status
+    let metaSubject: string | null = null;
+    let metaCourseIds: string[] = [];
+    if (paymentOrder.metadata) {
+      try {
+        const parsed = JSON.parse(paymentOrder.metadata);
+        metaSubject = typeof parsed.subject === "string" ? parsed.subject : null;
+        if (Array.isArray(parsed.courseIds)) {
+          metaCourseIds = parsed.courseIds.map(String);
+        }
+      } catch {}
+    }
+
     const subscription = await activateSubscriptionRecord({
       userId: paymentOrder.userId,
       plan: paymentOrder.plan as PlanTier,
@@ -177,6 +189,8 @@ export async function POST(req: Request) {
       gstAmount: paymentOrder.gstAmount,
       feeAmount: paymentOrder.feeAmount,
       totalAmount: paymentOrder.totalAmount,
+      subject: metaSubject,
+      courseIds: metaCourseIds,
     });
 
     return NextResponse.json({

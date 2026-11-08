@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
+import { checkCourseAccess } from "@/lib/subscription-service";
 
 export const dynamic = "force-dynamic";
 
@@ -70,6 +71,24 @@ export async function POST(request: NextRequest) {
           error: "courseId, chapterId and topic are required.",
         },
         { status: 400 }
+      );
+    }
+
+    // Authoritative Course Access Gate
+    const access = await checkCourseAccess(user.id, courseId);
+    if (!access.hasAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            access.reason === "SUBSCRIPTION_EXPIRED"
+              ? "Your subscription has expired. Active subscription is required to generate AI note enhancements."
+              : access.reason === "SUBJECT_NOT_INCLUDED"
+              ? "Your current subscription does not cover this course."
+              : "Active course enrollment is required.",
+          lockReason: access.reason,
+        },
+        { status: 403 }
       );
     }
 
