@@ -1204,6 +1204,22 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
     // --------------------------------------------------
     // AUTOMATIC QUICK RECAP FLOW
     // --------------------------------------------------
+    const handleSkipRecap = () => {
+      if (typeof window !== "undefined" && userEmail && chapterId && autoResumeTopic) {
+        try {
+          sessionStorage.setItem(
+            `ksai_quick_recap_${userEmail}_${(course || "python").toLowerCase()}_${chapterId}_${autoResumeTopic}`,
+            "done"
+          );
+        } catch {}
+      }
+      checkpointContinueRef.current = true;
+      setState("IDLE");
+      setTimeout(() => {
+        void startTeaching();
+      }, 50);
+    };
+
     const executeQuickRecap = async (resumeTopicTitle: string) => {
       if (!isMountedRef.current) return;
       const sessionKey = `${course}_quick_recap_${resumeTopicTitle}_${Date.now()}`;
@@ -1211,7 +1227,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
 
       setState("QUICK_RECAP");
       setUnderstandingStep("QUICK_RECAP_CHECK");
-      setCurrentTitle(`Resume Checkpoint: ${resumeTopicTitle}`);
+      setCurrentTitle(`Pre-Lesson Warm-up • Before Starting: ${resumeTopicTitle}`);
 
       let recapText = "";
       let recapQuestion = "";
@@ -1250,8 +1266,8 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
           recapText = adapted.recapText;
           recapQuestion = adapted.question;
         } catch {
-          recapText = `Welcome back! You were learning ${resumeTopicTitle}. Let's quickly review where you left off.`;
-          recapQuestion = `What is the key takeaway from ${resumeTopicTitle}?`;
+          recapText = `Welcome back! Before we continue with ${resumeTopicTitle}, let's quickly revise the concepts you learned earlier.`;
+          recapQuestion = `What is the key takeaway from the earlier topics?`;
         }
       }
 
@@ -1878,7 +1894,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                       : state === "RETEACHING"
                       ? "Teaching with simpler analogy & intuition..."
                       : state === "QUICK_RECAP"
-                      ? "Quick Recap: Resume Checkpoint"
+                      ? "Pre-Lesson Warm-up • Prerequisite Revision"
                       : state === "CHAPTER_RECAP"
                       ? "Chapter Understanding Synthesis"
                       : state === "CHECKPOINT"
@@ -1887,7 +1903,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                   </span>
                 </div>
                 <span className="text-slate-400 font-mono text-[10px]">
-                  Topic: {displayedTopic}
+                  {state === "QUICK_RECAP" ? `Next Up: ${displayedTopic}` : `Topic: ${displayedTopic}`}
                 </span>
               </div>
 
@@ -1933,7 +1949,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
               {/* INTERACTIVE UNDERSTANDING CHECKPOINT */}
               {(state === "CHECKPOINT" || state === "QUICK_RECAP" || state === "CHAPTER_RECAP") && (
                 <div className="p-4 rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/80 to-indigo-50/40 animate-in fade-in space-y-3 shadow-xs">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold shadow-2xs">
                         🧠
@@ -1941,23 +1957,36 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                       <div>
                         <span className="text-xs font-black text-slate-900 block">
                           {state === "QUICK_RECAP"
-                            ? `Quick Recap Check • ${displayedTopic}`
+                            ? `Pre-Lesson Warm-up • Revising Before: ${displayedTopic}`
                             : state === "CHAPTER_RECAP"
                             ? `Chapter Recap Check • ${chapterTitle}`
                             : `Understanding Checkpoint • ${displayedTopic}`}
                         </span>
                         <span className="text-[10px] text-slate-500 font-medium">
-                          {understandingStep === "KNOWLEDGE_CHECK" ||
-                          understandingStep === "QUICK_RECAP_CHECK" ||
-                          understandingStep === "CHAPTER_RECAP_CHECK"
+                          {state === "QUICK_RECAP"
+                            ? "Revising concepts from previously completed topics before starting this lesson"
+                            : understandingStep === "KNOWLEDGE_CHECK" ||
+                            understandingStep === "QUICK_RECAP_CHECK" ||
+                            understandingStep === "CHAPTER_RECAP_CHECK"
                             ? "Provide your answer via voice or text to verify comprehension"
                             : "AI Evaluation & Understanding Decision"}
                         </span>
                       </div>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-100/80 text-blue-800 font-bold">
-                      {course.toUpperCase()}
-                    </span>
+                    {state === "QUICK_RECAP" ? (
+                      <button
+                        type="button"
+                        onClick={handleSkipRecap}
+                        className="px-2.5 py-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-white border border-blue-200 rounded-lg shadow-2xs hover:bg-blue-50 transition cursor-pointer flex items-center gap-1 shrink-0"
+                        title="Skip this warm-up recap and begin the lesson immediately"
+                      >
+                        Skip recap & start lesson →
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-100/80 text-blue-800 font-bold">
+                        {course.toUpperCase()}
+                      </span>
+                    )}
                   </div>
 
                   {/* CHAPTER LEARNING ANALYSIS CARD */}
@@ -2146,21 +2175,7 @@ export const LiveTeacher = forwardRef<LiveTeacherHandle, LiveTeacherProps>(
                       {state === "QUICK_RECAP" && (
                         <button
                           type="button"
-                          onClick={() => {
-                            if (typeof window !== "undefined" && userEmail && chapterId && autoResumeTopic) {
-                              try {
-                                sessionStorage.setItem(
-                                  `ksai_quick_recap_${userEmail}_${(course || "python").toLowerCase()}_${chapterId}_${autoResumeTopic}`,
-                                  "done"
-                                );
-                              } catch {}
-                            }
-                            checkpointContinueRef.current = true;
-                            setState("IDLE");
-                            setTimeout(() => {
-                              void startTeaching();
-                            }, 50);
-                          }}
+                          onClick={handleSkipRecap}
                           className="w-full py-1.5 text-center text-xs font-semibold text-slate-500 hover:text-slate-800 transition cursor-pointer"
                         >
                           Skip recap & start lesson →

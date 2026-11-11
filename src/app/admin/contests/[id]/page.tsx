@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, use } from "react";
 import Link from "next/link";
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminPageLayout } from "@/components/admin/AdminPageLayout";
 import { Trophy, Plus, ArrowLeft, Code2, Save, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 interface ChallengeItem {
@@ -164,10 +164,11 @@ export default function AdminContestDetailsPage({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      <AdminHeader />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <AdminPageLayout
+      title={contest ? `Contest: ${contest.title}` : "Contest Details"}
+      subtitle="Configure contest challenges, test cases, and publishing schedule"
+    >
+      <div className="space-y-8">
         {/* Top Header */}
         <div className="flex items-center justify-between">
           <Link
@@ -438,7 +439,7 @@ export default function AdminContestDetailsPage({
             </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AdminPageLayout>
   );
 }

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { LeftSidebar } from "@/components/dashboard/LeftSidebar";
-import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import {
   FileText,
   Upload,

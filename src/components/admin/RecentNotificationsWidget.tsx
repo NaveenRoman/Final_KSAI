@@ -77,27 +77,33 @@ export function RecentNotificationsWidget({
 
       {/* Content Area */}
       {tab === "notifications" ? (
-        <div className="space-y-2.5">
-          {notifications.map((n) => (
-            <Link
-              key={n.id}
-              href={n.link}
-              className="p-3 rounded-xl bg-slate-50 hover:bg-blue-50/60 border border-slate-100 hover:border-blue-200 flex items-start gap-3 transition-colors group block"
-            >
-              <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
-                {getIcon(n.icon)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-1">
-                  {n.message}
-                </p>
-                <span className="text-[10px] text-slate-400 mt-0.5 block">
-                  {n.timeAgo}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        notifications.length === 0 ? (
+          <div className="py-8 text-center text-xs text-slate-400">
+            No system notifications recorded.
+          </div>
+        ) : (
+          <div className="space-y-2.5">
+            {notifications.map((n) => (
+              <Link
+                key={n.id}
+                href={n.link}
+                className="p-3 rounded-xl bg-slate-50 hover:bg-blue-50/60 border border-slate-100 hover:border-blue-200 flex items-start gap-3 transition-colors group block"
+              >
+                <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-105 transition-transform">
+                  {getIcon(n.icon)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-slate-800 group-hover:text-blue-600 transition-colors line-clamp-1">
+                    {n.message}
+                  </p>
+                  <span className="text-[10px] text-slate-400 mt-0.5 block">
+                    {n.timeAgo}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )
       ) : (
         <div className="space-y-2.5">
           {liveActivity.map((act) => (

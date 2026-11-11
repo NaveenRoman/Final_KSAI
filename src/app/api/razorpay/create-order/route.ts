@@ -73,11 +73,12 @@ export async function POST(req: Request) {
     } else if (service === "resume-builder" || courseId === "codenthra-resume-builder") {
       serverAmount = 1; // ₹1 INR fixed fee for resume studio
       orderNotes.service = "resume-builder";
-    } else if (body.amount) {
-      serverAmount = Number(body.amount);
     } else {
       return NextResponse.json(
-        { error: "A valid courseId, service, or amount identifier is required." },
+        {
+          error:
+            "A valid courseId or supported service identifier is required. Client-specified amounts are not permitted.",
+        },
         { status: 400 }
       );
     }
@@ -122,14 +123,23 @@ export async function POST(req: Request) {
 
     const order = await razorpay.orders.create(options);
 
-    return NextResponse.json({
-      success: true,
-      order_id: order.id,
-      amount: order.amount,
-      currency: order.currency,
-      order,
-      key: key_id,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        order,
+        key: key_id,
+        deprecated: true,
+        message: "Legacy course order API is deprecated. Please migrate to /api/subscription/create-order",
+      },
+      {
+        headers: {
+          Warning: '299 - "Legacy course order API is deprecated. Migrate to /api/subscription/create-order"',
+        },
+      }
+    );
   } catch (error: unknown) {
     console.error("Razorpay Order Creation Error:", error);
     const err = error as { error?: { description?: string }; message?: string };

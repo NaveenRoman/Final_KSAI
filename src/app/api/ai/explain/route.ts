@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
+import { logAiTelemetry } from "@/lib/ai/gemini-client";
+import { resolveStudentIdentity } from "@/lib/ai/student-resolver";
 
 export async function POST(request: Request) {
+  let telemetryLogged = false;
+  let studentId = "anonymous";
+
   try {
+    const identity = await resolveStudentIdentity(request).catch(() => null);
+    if (identity?.studentId) {
+      studentId = identity.studentId;
+    }
+
     const body = await request.json().catch(() => ({}));
     const code = (body.code || "").trim();
     const language = body.language || "Java";
@@ -19,6 +29,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Query Django backend with timeout
+    const fetchStartTime = Date.now();
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -46,9 +57,29 @@ export async function POST(request: Request) {
       });
 
       clearTimeout(timeoutId);
+      const latencyMs = Date.now() - fetchStartTime;
 
       if (response.ok) {
         const result = await response.json();
+
+        if (!telemetryLogged) {
+          telemetryLogged = true;
+          const promptTokens = typeof result?.usage?.prompt_tokens === "number" ? result.usage.prompt_tokens : null;
+          const completionTokens = typeof result?.usage?.completion_tokens === "number" ? result.usage.completion_tokens : null;
+          logAiTelemetry({
+            timestamp: new Date().toISOString(),
+            service: "explain",
+            studentId,
+            provider: result?.provider || (result?.data?.provider) || "django",
+            model: result?.model || (result?.data?.model) || "django-explain-engine",
+            attempt: 1,
+            latencyMs,
+            status: response.status,
+            inputTokens: promptTokens,
+            outputTokens: completionTokens,
+          });
+        }
+
         const explainText =
           result?.data?.response ??
           result?.response ??
@@ -75,9 +106,43 @@ export async function POST(request: Request) {
             },
           });
         }
+      } else {
+        if (!telemetryLogged) {
+          telemetryLogged = true;
+          logAiTelemetry({
+            timestamp: new Date().toISOString(),
+            service: "explain",
+            studentId,
+            provider: "django",
+            model: "django-explain-engine",
+            attempt: 1,
+            latencyMs,
+            status: response.status,
+            inputTokens: null,
+            outputTokens: null,
+            error: `HTTP ${response.status}`,
+          });
+        }
       }
-    } catch (fetchError) {
+    } catch (fetchError: any) {
+      const latencyMs = Date.now() - fetchStartTime;
       console.warn("Django Explain endpoint unavailable or timed out:", fetchError);
+      if (!telemetryLogged) {
+        telemetryLogged = true;
+        logAiTelemetry({
+          timestamp: new Date().toISOString(),
+          service: "explain",
+          studentId,
+          provider: "django",
+          model: "django-explain-engine",
+          attempt: 1,
+          latencyMs,
+          status: 502,
+          inputTokens: null,
+          outputTokens: null,
+          error: fetchError?.message || "Explain backend unavailable",
+        });
+      }
     }
 
     // 3. Guaranteed Structured Fallback (Topic, What it does, Step-by-step, Concepts, I/O, Improvements)

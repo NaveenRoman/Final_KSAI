@@ -635,3 +635,34 @@ model PlacementBatch {
 
   @@unique([collegeId, batchYear])
 }
+
+model AiTelemetry {
+  id                 String   @id @default(uuid())
+  requestId          String?
+  provider           String   @default("google")
+  model              String
+  service            String
+  studentId          String?
+  status             Int
+  latencyMs          Int
+  endToEndLatencyMs  Int?
+  backoffMs          Int?     @default(0)
+  attempt            Int?     @default(1)
+  attemptRole        String?  @default("primary")
+  isFinal            Boolean? @default(false)
+  finalOutcome       String?
+  inputTokens        Int?
+  outputTokens       Int?
+  totalTokens        Int?
+  costUsd            Float?
+  error              String?
+  fallbackSelected   String?
+  createdAt          DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([service])
+  @@index([model])
+  @@index([status])
+  @@index([requestId])
+  @@index([isFinal])
+}

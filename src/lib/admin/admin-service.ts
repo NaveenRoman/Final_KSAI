@@ -1,4 +1,8 @@
 import { db } from "@/lib/db";
+import { getFinancialOverview } from "@/lib/financial-service";
+import { formatUptime, measureDatabasePing, measureDjangoPing } from "@/lib/server-monitoring";
+import { formatAiCost } from "@/lib/ai/pricing-config";
+import { GEMINI_PRIMARY_MODEL } from "@/lib/ai/gemini-config";
 
 export interface ActionableAlert {
   id: string;
@@ -24,9 +28,19 @@ export interface RevenueDetails {
   formattedMonth: string;
   total: number;
   formattedTotal: string;
+  liveTotal?: number;
+  formattedLiveTotal?: string;
+  testTotal?: number;
+  formattedTestTotal?: string;
   successfulCount: number;
   failedCount: number;
   refundsCount: number;
+  netReceipts?: number;
+  formattedNetReceipts?: string;
+  gstLiability?: number;
+  formattedGstLiability?: string;
+  recordedGatewayFees?: number;
+  formattedGatewayFees?: string;
   note: string;
 }
 
@@ -85,8 +99,12 @@ export interface SuperAdminDashboardData {
     name: string;
     score: number;
     studentsCount: number;
+    classesCount?: number;
+    rosterCapacity?: number;
     color: string;
     hasData: boolean;
+    statusLabel?: string;
+    provenance?: "VERIFIED" | "DEMO_BENCHMARK" | "AWAITING_SETUP";
   }>;
   aiActivityInsights: {
     mostAskedTopics: Array<{ topic: string; count: number }>;
@@ -105,10 +123,36 @@ export interface SuperAdminDashboardData {
     averagePackage: number;
     placementRate: number;
     hasData: boolean;
+    isVerified?: boolean;
+    verifiedOffersCount?: number;
+    statusLabel?: string;
+    targetHighestPackage?: number;
+    targetAveragePackage?: number;
+    targetPlacementRate?: number;
+    targetEligible?: number;
+    targetPlaced?: number;
+    provenance?: "VERIFIED" | "PROJECTED_TARGET_DEMO" | "PENDING";
+  };
+  pedagogicalOverview?: {
+    totalStudents: number;
+    activeStudents: number;
+    unassignedStudents: number;
+    topicsMastered: number;
+    chaptersCompleted: number;
+    aiInteractions: number;
+    activeCourses: number;
+    totalEnrollments: number;
+  };
+  departmentTrackingSummary?: {
+    totalDepartments: number;
+    activeDepartments: number;
+    coverageRate: number;
+    unassignedStudentsCount: number;
   };
   systemHealth: {
     serverStatus: { status: "Healthy" | "Degraded" | "Offline"; uptime: string };
     databaseStatus: { status: "Healthy" | "Degraded" | "Offline"; latencyMs: number };
+    executionBackendStatus?: { status: "Healthy" | "Degraded" | "Offline"; latencyMs: number };
     aiServiceStatus: { status: "Operational" | "Degraded" | "Offline"; model: string };
     authServiceStatus: { status: "Healthy" | "Degraded" | "Offline"; provider: string };
     courseServiceStatus: { status: "Healthy" | "Degraded" | "Offline"; totalCourses: number };
@@ -170,6 +214,10 @@ export async function getSuperAdminDashboardData(
     topicProgressList,
     learningMemoryList,
     learningEventList,
+    aiTelemetryAgg,
+    aiTelemetryFailedCount,
+    topicsMasteredTotalCount,
+    chaptersCompletedTotalCount,
   ] = await Promise.all([
     // User counts
     db.user.count(),
@@ -259,7 +307,10 @@ export async function getSuperAdminDashboardData(
         createdAt: { gte: startOfToday },
       },
     }),
-    db.activityLog.count(),
+    // Genuine platform activity logs (excluding automated HEARTBEAT)
+    db.activityLog.count({
+      where: { actionType: { not: "HEARTBEAT" } },
+    }),
 
     // Submissions
     db.submission.count(),
@@ -288,8 +339,9 @@ export async function getSuperAdminDashboardData(
       take: 6,
     }),
 
-    // Recent activity logs for live feed
+    // Recent activity logs for live feed (excluding automated HEARTBEAT)
     db.activityLog.findMany({
+      where: { actionType: { not: "HEARTBEAT" } },
       take: 8,
       orderBy: { createdAt: "desc" },
       include: {
@@ -297,11 +349,13 @@ export async function getSuperAdminDashboardData(
       },
     }),
 
-    // User college mappings for real distribution
+    // User college and department mappings for real distribution
     db.user.findMany({
       select: {
         collegeId: true,
         college: true,
+        departmentId: true,
+        department: true,
         role: true,
         lastActiveDate: true,
       },
@@ -311,7 +365,9 @@ export async function getSuperAdminDashboardData(
     db.user.findMany({
       select: { createdAt: true },
     }),
+    // Real timestamps for genuine platform activity (excluding automated HEARTBEAT)
     db.activityLog.findMany({
+      where: { actionType: { not: "HEARTBEAT" } },
       select: { createdAt: true },
     }),
 
@@ -328,38 +384,61 @@ export async function getSuperAdminDashboardData(
       select: { eventType: true, topic: true },
       take: 50,
     }),
+
+    // AI Telemetry aggregation for real latency, counts, and costs
+    db.aiTelemetry.aggregate({
+      _avg: { latencyMs: true },
+      _count: { id: true },
+      _sum: { totalTokens: true, costUsd: true },
+      where: { status: 200 },
+    }),
+    db.aiTelemetry.count({
+      where: { status: { not: 200 } },
+    }),
+
+    // Real pedagogical totals (mastered topics and completed chapters)
+    db.topicProgress.count({
+      where: { status: "MASTERED" },
+    }),
+    db.chapterProgress.count({
+      where: { isCompleted: true },
+    }),
   ]);
 
-  const dbLatencyMs = Math.max(1, Date.now() - startTime);
+  // Measure isolated SELECT 1 ping roundtrip and Django backend health concurrently
+  const [dbPing, djangoPing] = await Promise.all([
+    measureDatabasePing(),
+    measureDjangoPing(),
+  ]);
 
-  // Revenue calculation from actual successful paid enrollments only
-  const paidEnrollments = enrollments.filter((e) => (e.paidAmount || 0) > 0);
-  const totalPaidRevenue = paidEnrollments.reduce((sum, e) => sum + (e.paidAmount || 0), 0);
-  const todayRevenue = paidEnrollments
-    .filter((e) => new Date(e.createdAt) >= startOfToday)
-    .reduce((sum, e) => sum + (e.paidAmount || 0), 0);
-  const monthRevenue = paidEnrollments
-    .filter((e) => new Date(e.createdAt) >= startOfMonth)
-    .reduce((sum, e) => sum + (e.paidAmount || 0), 0);
-
-  const formatRevenue = (amount: number): string => {
-    if (amount >= 100000) {
-      return `₹${(amount / 100000).toFixed(2)} L`;
-    }
-    return `₹${amount.toLocaleString("en-IN")}`;
-  };
+  // Centralized Financial Reconciliation across modern orders, subscriptions, and legacy enrollments
+  const [financialOverview, todayFinancial, monthFinancial] = await Promise.all([
+    getFinancialOverview(timeframe),
+    getFinancialOverview("today"),
+    getFinancialOverview("30d"),
+  ]);
 
   const revenueDetails: RevenueDetails = {
-    today: todayRevenue,
-    formattedToday: formatRevenue(todayRevenue),
-    thisMonth: monthRevenue,
-    formattedMonth: formatRevenue(monthRevenue),
-    total: totalPaidRevenue,
-    formattedTotal: formatRevenue(totalPaidRevenue),
-    successfulCount: paidEnrollments.length,
-    failedCount: 0,
-    refundsCount: 0,
-    note: `${paidEnrollments.length} paid enrollments (₹${totalPaidRevenue.toLocaleString("en-IN")}) verified via Razorpay · ${enrollments.length - paidEnrollments.length} free previews excluded`,
+    today: todayFinancial.liveGrossCollections,
+    formattedToday: todayFinancial.formattedLiveGrossCollections,
+    thisMonth: monthFinancial.liveGrossCollections,
+    formattedMonth: monthFinancial.formattedLiveGrossCollections,
+    total: financialOverview.liveGrossCollections,
+    formattedTotal: financialOverview.formattedLiveGrossCollections,
+    liveTotal: financialOverview.liveGrossCollections,
+    formattedLiveTotal: financialOverview.formattedLiveGrossCollections,
+    testTotal: financialOverview.testGrossCollections,
+    formattedTestTotal: financialOverview.formattedTestGrossCollections,
+    successfulCount: financialOverview.livePaidCount,
+    failedCount: financialOverview.failedOrdersCount,
+    refundsCount: financialOverview.refundsCount,
+    netReceipts: financialOverview.netLiveReceipts,
+    formattedNetReceipts: financialOverview.formattedNetLiveReceipts,
+    gstLiability: financialOverview.gstLiability,
+    formattedGstLiability: financialOverview.formattedGstLiability,
+    recordedGatewayFees: financialOverview.recordedGatewayFees,
+    formattedGatewayFees: financialOverview.formattedGatewayFees,
+    note: `${financialOverview.livePaidCount} live payments · ${financialOverview.testPaidCount} sandbox test transactions (${financialOverview.formattedTestGrossCollections}) segregated from revenue`,
   };
 
   // Today at KnowledgeStream AI KPI package (100% actual tracked data)
@@ -548,67 +627,119 @@ export async function getSuperAdminDashboardData(
     };
   });
 
-  // 5. Top Performing Branches / Departments (100% actual class scores)
+  // 5. Genuine Student Distribution by Department & Active Branch Scores
   const colors = ["#10B981", "#06B6D4", "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899", "#F59E0B"];
+
+  // Real student user accounts (excluding faculty/admin roles)
+  const studentUsers = allCollegeUsers.filter(
+    (u) => u.role?.toUpperCase().includes("STUDENT") || u.role === "User"
+  );
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const activeStudentUsers = studentUsers.filter(
+    (u) => u.lastActiveDate && new Date(u.lastActiveDate) >= thirtyDaysAgo
+  );
+
   const branchScores = allDepartments.map((dept, idx) => {
     const deptClasses = academicClasses.filter((c) => c.departmentId === dept.id);
     const hasData = deptClasses.length > 0;
+    // Real student users mapped to this department by foreign key
+    const realStudentCount = studentUsers.filter((u) => u.departmentId === dept.id).length;
+    // Class benchmark score (from seeded classes if available, otherwise 0/empty)
     const avg = hasData
       ? Math.round(deptClasses.reduce((sum, c) => sum + c.avgScore, 0) / deptClasses.length)
       : 0;
+    const rosterCapacity = deptClasses.reduce((sum, c) => sum + c.totalStudents, 0);
+
     return {
       code: dept.code,
       name: dept.name,
       score: avg,
-      studentsCount: deptClasses.reduce((sum, c) => sum + c.totalStudents, 0),
+      studentsCount: realStudentCount, // REAL verified user count from User table!
+      classesCount: deptClasses.length,
+      rosterCapacity,
       color: colors[idx % colors.length],
       hasData,
+      statusLabel: hasData ? "Class Benchmark (Demo)" : "Awaiting Curriculum Setup",
+      provenance: hasData ? ("DEMO_BENCHMARK" as const) : ("AWAITING_SETUP" as const),
     };
   });
 
-  // 6. Placement Statistics from actual database batch
-  const latestPlacement = placementBatches[0];
-  const placementOverview = latestPlacement
-    ? {
-        batchYear: latestPlacement.batchYear,
-        totalEligible: latestPlacement.totalEligible,
-        placedCount: latestPlacement.placedCount,
-        inProcessCount: latestPlacement.inProcessCount,
-        preparingCount: latestPlacement.preparingCount,
-        notEligibleCount: latestPlacement.notEligibleCount,
-        highestPackage: latestPlacement.highestPackage,
-        averagePackage: latestPlacement.averagePackage,
-        placementRate: latestPlacement.totalEligible > 0
-          ? Math.round((latestPlacement.placedCount / latestPlacement.totalEligible) * 100)
-          : 0,
-        hasData: true,
-      }
-    : {
-        batchYear: "No batch",
-        totalEligible: 0,
-        placedCount: 0,
-        inProcessCount: 0,
-        preparingCount: 0,
-        notEligibleCount: 0,
-        highestPackage: 0,
-        averagePackage: 0,
-        placementRate: 0,
-        hasData: false,
-      };
+  const activeDepartmentsCount = branchScores.filter((b) => b.hasData).length;
+  const totalDepartmentsCount = allDepartments.length;
+  const coverageRate = totalDepartmentsCount > 0
+    ? Math.round((activeDepartmentsCount / totalDepartmentsCount) * 100)
+    : 0;
+  const unassignedStudentsCount = studentUsers.filter((u) => !u.departmentId).length;
 
-  // 7. Honest AI Performance Metrics
+  const departmentTrackingSummary = {
+    totalDepartments: totalDepartmentsCount,
+    activeDepartments: activeDepartmentsCount,
+    coverageRate,
+    unassignedStudentsCount,
+  };
+
+  // 6. Placement Statistics (Transparent Separation of Verified vs. Projected Batch Targets)
+  // STRICT: There are 0 verified individual student job offer records in the database.
+  const latestPlacement = placementBatches[0];
+  const placementOverview = {
+    batchYear: latestPlacement?.batchYear || "Batch 2025",
+    totalEligible: latestPlacement?.totalEligible || 0,
+    placedCount: 0, // STRICT: 0 verified offers in DB
+    inProcessCount: 0,
+    preparingCount: latestPlacement?.preparingCount || 0,
+    notEligibleCount: latestPlacement?.notEligibleCount || 0,
+    highestPackage: 0, // STRICT: 0 verified student offer
+    averagePackage: 0, // STRICT: 0 verified student offer
+    placementRate: 0, // STRICT: 0% verified placement rate
+    hasData: false, // Flag false because no individual student offer records exist
+    isVerified: false,
+    verifiedOffersCount: 0,
+    statusLabel: "Placement Data Pending",
+    // Retain seeded drive parameters explicitly tagged as projected demo targets
+    targetHighestPackage: latestPlacement?.highestPackage || 12.5,
+    targetAveragePackage: latestPlacement?.averagePackage || 4.6,
+    targetPlacementRate: latestPlacement?.totalEligible > 0
+      ? Math.round((latestPlacement.placedCount / latestPlacement.totalEligible) * 100)
+      : 50,
+    targetEligible: latestPlacement?.totalEligible || 320,
+    targetPlaced: latestPlacement?.placedCount || 160,
+    provenance: "PROJECTED_TARGET_DEMO" as const,
+  };
+
+  // Genuine Pedagogical Learning Analytics (100% database backed)
+  const pedagogicalOverview = {
+    totalStudents: studentsCount,
+    activeStudents: activeStudentUsers.length,
+    unassignedStudents: unassignedStudentsCount,
+    topicsMastered: topicsMasteredTotalCount,
+    chaptersCompleted: chaptersCompletedTotalCount,
+    aiInteractions: (aiTelemetryAgg._count?.id || 0) + aiTelemetryFailedCount > 0
+      ? (aiTelemetryAgg._count?.id || 0) + aiTelemetryFailedCount
+      : aiActivityLogsCount,
+    activeCourses: courses.length,
+    totalEnrollments: enrollments.length,
+  };
+
+  // 7. Honest AI Performance Metrics with Real Telemetry Integration
   const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 10);
+  const trackedTelemetryCount = (aiTelemetryAgg._count?.id || 0) + aiTelemetryFailedCount;
+  const avgLatency = aiTelemetryAgg._avg?.latencyMs ? Math.round(aiTelemetryAgg._avg.latencyMs) : null;
+  const totalTokens = aiTelemetryAgg._sum?.totalTokens || 0;
+  const totalAiCost = aiTelemetryAgg._sum?.costUsd || 0;
+
   const aiPerformance = {
-    avgResponseTime: "~1.8s (Est.)",
-    gatewayStatus: "Gateway Active",
-    totalRequests: aiActivityLogsCount,
-    errorRate: "—",
+    avgResponseTime: avgLatency !== null ? `${(avgLatency / 1000).toFixed(2)}s` : "Telemetry standing by",
+    gatewayStatus: trackedTelemetryCount > 0 ? "Telemetry Active" : "Gateway Active",
+    totalRequests: trackedTelemetryCount > 0 ? trackedTelemetryCount : aiActivityLogsCount,
+    errorRate: trackedTelemetryCount > 0 ? `${((aiTelemetryFailedCount / trackedTelemetryCount) * 100).toFixed(1)}%` : "0.0%",
     geminiStatus: hasGeminiKey ? "Active & Configured" : "API Key Required",
     isGeminiActive: hasGeminiKey,
-    primaryModel: "Gemini 2.5 Flash / Pro",
+    primaryModel: GEMINI_PRIMARY_MODEL,
     mostUsedFeature: "AI Checkpoint & Dictation",
     aiSessionsToday: todayAiLogsCount,
-    tokenUsageMessage: "Live per-request latency telemetry will be tracked as learning sessions scale.",
+    tokenUsageMessage: trackedTelemetryCount > 0
+      ? `${totalTokens.toLocaleString("en-IN")} tokens tracked (${formatAiCost(totalAiCost)})`
+      : "Live telemetry recording active for newly initiated sessions.",
   };
 
   // 8. AI Activity Insights from actual topicProgress and learningMemory tables
@@ -663,15 +794,19 @@ export async function getSuperAdminDashboardData(
   const systemHealth = {
     serverStatus: {
       status: "Healthy" as const,
-      uptime: "99.98%",
+      uptime: formatUptime(process.uptime()),
     },
     databaseStatus: {
-      status: "Healthy" as const,
-      latencyMs: dbLatencyMs,
+      status: dbPing.status,
+      latencyMs: dbPing.latencyMs,
+    },
+    executionBackendStatus: {
+      status: djangoPing.status,
+      latencyMs: djangoPing.latencyMs,
     },
     aiServiceStatus: {
       status: (hasGeminiKey ? "Operational" : "Degraded") as "Operational" | "Degraded",
-      model: process.env.GUIDE_MODEL || "Gemini 2.5 Flash / Pro",
+      model: process.env.GUIDE_MODEL || GEMINI_PRIMARY_MODEL,
     },
     authServiceStatus: {
       status: "Healthy" as const,
@@ -697,12 +832,12 @@ export async function getSuperAdminDashboardData(
     });
   }
 
-  if (dbLatencyMs > 150) {
+  if (dbPing.latencyMs > 150) {
     actionableAlerts.push({
       id: "alert-latency",
       level: "warning",
       title: "Database Latency Notice",
-      description: `SQLite roundtrip response is ${dbLatencyMs}ms. Monitor database load and consider vacuum optimization.`,
+      description: `SQLite roundtrip response is ${dbPing.latencyMs}ms. Monitor database load and consider vacuum optimization.`,
       actionText: "Inspect Health",
       actionHref: "/admin/settings",
     });
@@ -728,63 +863,34 @@ export async function getSuperAdminDashboardData(
     actionHref: "/admin/courses",
   });
 
-  // 11. Notifications Formatting
-  const defaultRecentNotifications: SuperAdminDashboardData["recentNotifications"] = [
-    {
-      id: "notif-1",
-      icon: "course",
-      message: `${courses.length} learning tracks active and accepting enrollments`,
-      timeAgo: "Today",
-      link: "/admin/courses",
-    },
-    {
-      id: "notif-2",
-      icon: "college",
-      message: `${colleges.length} affiliated engineering colleges connected`,
-      timeAgo: "Today",
-      link: "/admin/colleges",
-    },
-    {
-      id: "notif-3",
-      icon: "placement",
-      message: "Campus Placement readiness metrics synchronized",
-      timeAgo: "Yesterday",
-      link: "/interview",
-    },
-    {
-      id: "notif-4",
-      icon: "system",
-      message: "Razorpay webhook payment pipeline verified operational",
-      timeAgo: "2 days ago",
-      link: "/admin/subscriptions",
-    },
-  ];
+  // 11. Notifications Formatting (100% genuine database notifications)
+  const recentNotifications = recentDbNotifications.map((n, i) => ({
+    id: n.id,
+    icon: i % 3 === 0 ? ("course" as const) : i % 3 === 1 ? ("college" as const) : ("placement" as const),
+    message: n.message || n.title,
+    timeAgo: new Date(n.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    link: "/admin/notifications",
+  }));
 
-  const recentNotifications = recentDbNotifications.length > 0
-    ? recentDbNotifications.map((n, i) => ({
-        id: n.id,
-        icon: i % 3 === 0 ? ("course" as const) : i % 3 === 1 ? ("college" as const) : ("placement" as const),
-        message: n.message || n.title,
-        timeAgo: new Date(n.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-        link: "/admin/notifications",
-      }))
-    : defaultRecentNotifications;
-
-  // 12. Live Activity Feed
-  const liveActivity = (recentActivityLogs.length > 0
-    ? recentActivityLogs.map((log) => ({
-        id: log.id,
-        user: log.user?.name || "Student",
-        action: log.actionType.replace(/_/g, " ").toLowerCase(),
-        target: log.user?.college || "KnowledgeStream AI",
-        timeAgo: "Just now",
-      }))
-    : [
-        { id: "act-1", user: "Vasundhara P.", action: "completed", target: "C Programming Chapter 1: Variables", timeAgo: "10m ago" },
-        { id: "act-2", user: "KG Reddy College", action: "verified", target: "Institutional Accreditation", timeAgo: "35m ago" },
-        { id: "act-3", user: "Rohith Kumar", action: "executed", target: "C++ Memory Allocation Exercise", timeAgo: "1h ago" },
-        { id: "act-4", user: "Dr. Priya Sharma", action: "reviewed", target: "CSM Student Progress Metrics", timeAgo: "2h ago" },
-      ]);
+  // 12. Live Activity Feed (Genuine student activity only)
+  const liveActivity =
+    recentActivityLogs.length > 0
+      ? recentActivityLogs.map((log) => ({
+          id: log.id,
+          user: log.user?.name || "Student",
+          action: log.actionType.replace(/_/g, " ").toLowerCase(),
+          target: log.user?.college || "KnowledgeStream AI",
+          timeAgo: "Recently",
+        }))
+      : [
+          {
+            id: "act-standby",
+            user: "Platform Monitor",
+            action: "listening",
+            target: "Zero background heartbeat clutter · Waiting for student learning session",
+            timeAgo: "Active",
+          },
+        ];
 
   // Actual course titles list
   const coursesSubInfo = courses.map((c) => c.title.replace(/ (Mastery|Programming|Enterprise|AI)/g, "")).join(", ");
@@ -829,11 +935,11 @@ export async function getSuperAdminDashboardData(
         href: "/admin/ai",
       },
       totalRevenue: {
-        value: totalPaidRevenue,
-        formatted: formatRevenue(totalPaidRevenue),
-        label: "Total Revenue",
-        subInfo: `${paidEnrollments.length} paid enrollments (₹${totalPaidRevenue.toLocaleString("en-IN")})`,
-        trend: "Real-time DB",
+        value: financialOverview.liveGrossCollections,
+        formatted: financialOverview.formattedLiveGrossCollections,
+        label: "Verified Live Revenue",
+        subInfo: `${financialOverview.livePaidCount} live payments · ${financialOverview.formattedTestGrossCollections} test sandbox lifetime`,
+        trend: financialOverview.hasTestTransactions ? "Sandbox / Test Mode" : "Reconciled Ledger",
         href: "/admin/subscriptions",
       },
     },
@@ -850,6 +956,8 @@ export async function getSuperAdminDashboardData(
     topPerformingBranches: branchScores,
     aiActivityInsights,
     placementOverview,
+    pedagogicalOverview,
+    departmentTrackingSummary,
     systemHealth,
     recentNotifications,
     liveActivity,

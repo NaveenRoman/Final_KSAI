@@ -79,8 +79,8 @@ async function runTestSuite() {
     "Global concurrency ceiling is 12"
   );
   assert(
-    AI_TIMEOUTS.TEACH === 6000 && AI_TIMEOUTS.INTERVIEW === 8000,
-    "Timeouts are explicitly defined for teach (6s) and interview (8s)"
+    AI_TIMEOUTS.TEACH === 15000 && AI_TIMEOUTS.INTERVIEW === 10000,
+    "Timeouts are explicitly defined for teach (15s) and interview (10s)"
   );
   assert(
     RETRYABLE_STATUS_CODES.has(429) && RETRYABLE_STATUS_CODES.has(503),

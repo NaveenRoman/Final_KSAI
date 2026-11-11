@@ -31,8 +31,39 @@ export async function POST(req: Request) {
 
     const cleanEmail = email.toLowerCase().trim();
 
+    // Check if user already exists
+    const existingUser = await db.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    // Check whether the caller has an active authenticated session
+    let sessionUserEmail: string | null = null;
+    try {
+      const sessionData = await auth.api.getSession({ headers: req.headers });
+      sessionUserEmail = sessionData?.user?.email?.toLowerCase().trim() || null;
+    } catch (e) {
+      // Session resolution optional
+    }
+
+    // Verify Google identity server-side; NEVER trust client-supplied googleId
+    let isVerifiedGoogleAccount = false;
+    let serverVerifiedGoogleId: string | null = null;
+
+    if (existingUser) {
+      const googleAccount = await db.account.findFirst({
+        where: { userId: existingUser.id, providerId: "google" },
+      });
+      if (googleAccount) {
+        isVerifiedGoogleAccount = true;
+        serverVerifiedGoogleId = googleAccount.accountId;
+      } else if (existingUser.googleId && sessionUserEmail === cleanEmail) {
+        isVerifiedGoogleAccount = true;
+        serverVerifiedGoogleId = existingUser.googleId;
+      }
+    }
+
     // Enforce email verification for non-Google signups
-    if (!googleId) {
+    if (!isVerifiedGoogleAccount) {
       const verifiedRecord = await db.verification.findFirst({
         where: { identifier: `verified:${cleanEmail}` },
       });
@@ -45,24 +76,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // Check if user already exists
-    const existingUser = await db.user.findUnique({
-      where: { email: cleanEmail },
-    });
-
     const passwordHash = await bcrypt.hash(password, 10);
     let user: any;
 
     if (existingUser) {
-      // If user exists and already has a password, reject duplicate registration
-      if (existingUser.passwordHash && !googleId) {
+      // If user exists and already has a password, reject duplicate registration unless verified Google profile completion
+      if (existingUser.passwordHash && !isVerifiedGoogleAccount) {
         return NextResponse.json(
           { error: "An account with this email already exists. Please log in." },
           { status: 409 }
         );
       }
 
-      // Complete profile for existing Google user without password
+      // Complete profile for existing user
+      // SECURITY: Preserve existing role strictly; never trust client-supplied role
       user = await db.user.update({
         where: { id: existingUser.id },
         data: {
@@ -72,11 +99,18 @@ export async function POST(req: Request) {
           college: targetCollege || (existingUser as any).college,
           department: department || (existingUser as any).department,
           currentYear: currentYear || (existingUser as any).currentYear,
-          role: role || existingUser.role,
-          googleId: googleId || (existingUser as any).googleId,
+          role: existingUser.role, // PRESERVE existing user role
+          googleId: serverVerifiedGoogleId || (existingUser as any).googleId || null,
           emailVerified: true,
         } as any,
       });
+
+      // Clean up email verification record if one was used
+      if (!isVerifiedGoogleAccount) {
+        await db.verification.deleteMany({
+          where: { identifier: `verified:${cleanEmail}` },
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -93,7 +127,8 @@ export async function POST(req: Request) {
         },
       });
     } else {
-      // Create new user via Better Auth signUpEmail API to handle hashing, user record, account, and session!
+      // Create new user via Better Auth:
+      // SECURITY: Force role to STUDENT; ignore client-supplied role; ignore client-supplied googleId
       const sessionResponse = await auth.api.signUpEmail({
         body: {
           email: cleanEmail,
@@ -103,10 +138,10 @@ export async function POST(req: Request) {
           college: targetCollege || "",
           department: department || "",
           currentYear: currentYear || "",
-          role: role || "Student",
+          role: "STUDENT", // Forced to STUDENT for all public signups
           country: country || "United States",
-          provider: googleId ? "GOOGLE" : "CREDENTIALS",
-          googleId: googleId || "",
+          provider: isVerifiedGoogleAccount ? "GOOGLE" : "CREDENTIALS",
+          googleId: serverVerifiedGoogleId || "",
           passwordHash, // Store custom passwordHash field on the User table as well, to support legacy logins!
         },
         asResponse: true,
@@ -114,9 +149,11 @@ export async function POST(req: Request) {
       });
 
       // Clean up email verification record after successful registration
-      await db.verification.deleteMany({
-        where: { identifier: `verified:${cleanEmail}` },
-      });
+      if (!isVerifiedGoogleAccount) {
+        await db.verification.deleteMany({
+          where: { identifier: `verified:${cleanEmail}` },
+        });
+      }
 
       const response = NextResponse.json({
         success: true,

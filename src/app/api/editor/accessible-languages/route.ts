@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { LANGUAGES, LanguageConfig } from "@/lib/editor-languages";
+import { normalizeUserRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
     }
 
     // Admin role has access to all languages
-    if (user.role === "Admin") {
+    if (normalizeUserRole(user.role) === "SUPER_ADMIN") {
       return NextResponse.json({
         success: true,
         userEmail: user.email,

@@ -12,7 +12,7 @@ export async function GET(req: Request) {
     }
 
     const totalStudents = await db.user.count({
-      where: { role: { in: ["Student", "User"] } },
+      where: { role: { in: ["Student", "STUDENT", "User"] } },
     });
     const totalUsersCount = await db.user.count();
     const activeContests = await db.contest.count({
@@ -25,7 +25,8 @@ export async function GET(req: Request) {
     return NextResponse.json({
       success: true,
       stats: {
-        totalStudents: totalStudents || totalUsersCount,
+        totalStudents,
+        totalUsersCount,
         activeContests,
         totalContests,
         totalChallenges,

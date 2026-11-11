@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import {
   GEMINI_PRIMARY_MODEL,
   GEMINI_FALLBACK_MODELS,
@@ -22,6 +23,8 @@ import {
   acquireDistributedConcurrency,
   releaseDistributedConcurrency,
 } from "./distributed-limiter";
+import { db } from "@/lib/db";
+import { calculateAiCostUsd, BillingMode } from "./pricing-config";
 
 
 // ============================================================================
@@ -41,7 +44,7 @@ export interface GeminiContent {
 }
 
 export interface GeminiCallOptions {
-  service: "teach" | "chat" | "guide" | "interview" | "resume" | "dictate" | "general";
+  service: "teach" | "chat" | "guide" | "interview" | "resume" | "dictate" | "guided-debug" | "general";
   studentId?: string | null;
   isGuest?: boolean;
   limitRpm?: number;
@@ -54,6 +57,8 @@ export interface GeminiCallOptions {
   temperature?: number;
   maxOutputTokens?: number;
   responseMimeType?: string;
+  billingTier?: "paid" | "free" | "unknown";
+  billingMode?: BillingMode;
 }
 
 export interface GeminiCallResult {
@@ -67,18 +72,31 @@ export interface GeminiCallResult {
   error?: string;
   retryAfterSeconds?: number;
   fallbackSelected?: string | null;
+  requestId?: string;
+  endToEndLatencyMs?: number;
+  primaryLatencyMs?: number;
+  fallbackLatencyMs?: number;
 }
 
 export interface AiTelemetryLog {
   timestamp: string;
+  requestId?: string | null;
   service: string;
   studentId: string;
+  provider?: string;
   model: string;
   attempt: number;
+  attemptRole?: "primary" | "retry" | "fallback";
+  isFinal?: boolean;
+  finalOutcome?: "SUCCESS" | "FAILED" | null;
   latencyMs: number;
+  endToEndLatencyMs?: number | null;
+  backoffMs?: number | null;
   status: number;
-  inputTokens?: number;
-  outputTokens?: number;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  billingTier?: "paid" | "free" | "unknown";
+  billingMode?: BillingMode;
   error?: string;
   fallbackSelected?: string | null;
 }
@@ -243,23 +261,104 @@ export function sanitizeLogContent(str: string): string {
 
 export function logAiTelemetry(log: AiTelemetryLog): void {
   const sanitizedStudent = log.studentId ? `usr_${log.studentId.slice(-6)}` : "anonymous";
+  const hasInputTokens = typeof log.inputTokens === "number" && log.inputTokens >= 0;
+  const hasOutputTokens = typeof log.outputTokens === "number" && log.outputTokens >= 0;
+
+  const detectedProvider =
+    log.provider ||
+    (log.model.toLowerCase().includes("gemini")
+      ? "google"
+      : log.model.toLowerCase().includes("django")
+      ? "django"
+      : log.model.toLowerCase().includes("deepseek") || log.model.toLowerCase().includes("ollama")
+      ? "local"
+      : "unknown");
+
   const entry = {
     timestamp: log.timestamp,
     event: "GEMINI_TELEMETRY",
+    requestId: log.requestId || null,
     service: log.service,
     studentId: sanitizedStudent,
+    provider: detectedProvider,
     model: log.model,
     attempt: log.attempt,
+    attemptRole: log.attemptRole || "primary",
+    isFinal: Boolean(log.isFinal),
+    finalOutcome: log.finalOutcome || null,
     latencyMs: log.latencyMs,
+    endToEndLatencyMs: log.endToEndLatencyMs ?? log.latencyMs,
+    backoffMs: log.backoffMs || 0,
     status: log.status,
-    inputTokens: log.inputTokens || 0,
-    outputTokens: log.outputTokens || 0,
+    inputTokens: hasInputTokens ? log.inputTokens : "UNKNOWN",
+    outputTokens: hasOutputTokens ? log.outputTokens : "UNKNOWN",
     ...(log.error ? { error: sanitizeLogContent(log.error) } : {}),
     ...(log.fallbackSelected ? { fallbackSelected: log.fallbackSelected } : {}),
   };
 
   // Structured single-line JSON log for cloud log ingestion (Vercel / Datadog)
   console.log(JSON.stringify(entry));
+
+  // Asynchronous non-blocking persistence - NEVER blocks or breaks student AI response
+  try {
+    const costUsd =
+      hasInputTokens && hasOutputTokens
+        ? calculateAiCostUsd(
+            log.model,
+            log.inputTokens,
+            log.outputTokens,
+            log.billingTier,
+            log.billingMode || "standard"
+          )
+        : null;
+    const totalTokens =
+      hasInputTokens && hasOutputTokens
+        ? (log.inputTokens as number) + (log.outputTokens as number)
+        : null;
+
+    db.aiTelemetry
+      .create({
+        data: {
+          requestId: log.requestId || null,
+          attempt: log.attempt,
+          attemptRole: log.attemptRole || "primary",
+          isFinal: log.isFinal ?? false,
+          finalOutcome: log.finalOutcome || null,
+          endToEndLatencyMs:
+            log.endToEndLatencyMs !== undefined && log.endToEndLatencyMs !== null
+              ? Math.max(0, Math.round(log.endToEndLatencyMs))
+              : null,
+          backoffMs:
+            log.backoffMs !== undefined && log.backoffMs !== null
+              ? Math.max(0, Math.round(log.backoffMs))
+              : 0,
+          provider: detectedProvider,
+          model: log.model,
+          service: log.service,
+          studentId: sanitizedStudent,
+          status: log.status,
+          latencyMs: Math.max(0, Math.round(log.latencyMs)),
+          inputTokens: hasInputTokens ? log.inputTokens : null,
+          outputTokens: hasOutputTokens ? log.outputTokens : null,
+          totalTokens: totalTokens,
+          costUsd: costUsd,
+          error: log.error ? sanitizeLogContent(log.error).slice(0, 500) : null,
+          fallbackSelected: log.fallbackSelected || null,
+        },
+      })
+      .catch((persistErr: any) => {
+        // Isolated telemetry catch: NEVER breaks student AI interaction
+        console.error(
+          "[AiTelemetryPersistence] Non-fatal error persisting telemetry record:",
+          persistErr?.message
+        );
+      });
+  } catch (outerErr: any) {
+    console.error(
+      "[AiTelemetryPersistence] Non-fatal error scheduling telemetry record:",
+      outerErr?.message
+    );
+  }
 }
 
 // ============================================================================
@@ -281,6 +380,14 @@ export async function callGeminiWithResilience(
     maxOutputTokens,
     responseMimeType,
   } = options;
+
+  const requestId = `req_${crypto.randomUUID()}`;
+  const overallStartTime = Date.now();
+  let primaryLatencyMs: number | null = null;
+  let fallbackLatencyMs: number | null = null;
+  let fallbackStartTime: number | null = null;
+  let totalBackoffMs = 0;
+  let requestAttemptCounter = 0;
 
   const resolvedTimeout =
     timeoutMs ||
@@ -316,19 +423,30 @@ export async function callGeminiWithResilience(
     if (!rateAllowed) {
       logAiTelemetry({
         timestamp: new Date().toISOString(),
+        requestId,
         service,
         studentId,
         model: requestedModel || GEMINI_PRIMARY_MODEL,
         attempt: 0,
+        attemptRole: "primary",
+        isFinal: true,
+        finalOutcome: "FAILED",
         latencyMs: 0,
+        endToEndLatencyMs: Date.now() - overallStartTime,
+        backoffMs: 0,
         status: 429,
         error: "RATE_LIMIT_EXCEEDED",
+        billingTier: options.billingTier,
+        billingMode: options.billingMode,
       });
       return {
         success: false,
         status: 429,
         error: "RATE_LIMIT_EXCEEDED",
         retryAfterSeconds,
+        requestId,
+        latencyMs: Date.now() - overallStartTime,
+        endToEndLatencyMs: Date.now() - overallStartTime,
       };
     }
   }
@@ -340,6 +458,9 @@ export async function callGeminiWithResilience(
       success: false,
       status: 503,
       error: "GEMINI_API_KEY_UNCONFIGURED",
+      requestId,
+      latencyMs: Date.now() - overallStartTime,
+      endToEndLatencyMs: Date.now() - overallStartTime,
     };
   }
 
@@ -351,18 +472,29 @@ export async function callGeminiWithResilience(
       if (!distConcur.acquired) {
         logAiTelemetry({
           timestamp: new Date().toISOString(),
+          requestId,
           service,
           studentId: studentId || "anonymous",
           model: requestedModel || GEMINI_PRIMARY_MODEL,
           attempt: 0,
+          attemptRole: "primary",
+          isFinal: true,
+          finalOutcome: "FAILED",
           latencyMs: 0,
+          endToEndLatencyMs: Date.now() - overallStartTime,
+          backoffMs: 0,
           status: 503,
           error: "CONCURRENCY_LIMIT_EXCEEDED",
+          billingTier: options.billingTier,
+          billingMode: options.billingMode,
         });
         return {
           success: false,
           status: 503,
           error: "CONCURRENCY_LIMIT_EXCEEDED",
+          requestId,
+          latencyMs: Date.now() - overallStartTime,
+          endToEndLatencyMs: Date.now() - overallStartTime,
         };
       }
       distributedLeaseId = distConcur.leaseId;
@@ -381,18 +513,29 @@ export async function callGeminiWithResilience(
     }
     logAiTelemetry({
       timestamp: new Date().toISOString(),
+      requestId,
       service,
       studentId: studentId || "anonymous",
       model: requestedModel || GEMINI_PRIMARY_MODEL,
       attempt: 0,
+      attemptRole: "primary",
+      isFinal: true,
+      finalOutcome: "FAILED",
       latencyMs: 0,
+      endToEndLatencyMs: Date.now() - overallStartTime,
+      backoffMs: 0,
       status: 503,
       error: "CONCURRENCY_LIMIT_EXCEEDED",
+      billingTier: options.billingTier,
+      billingMode: options.billingMode,
     });
     return {
       success: false,
       status: 503,
       error: "CONCURRENCY_LIMIT_EXCEEDED",
+      requestId,
+      latencyMs: Date.now() - overallStartTime,
+      endToEndLatencyMs: Date.now() - overallStartTime,
     };
   }
 
@@ -404,13 +547,24 @@ export async function callGeminiWithResilience(
 
   let lastStatus = 500;
   let lastError = "All Gemini candidate models failed.";
-  const overallStartTime = Date.now();
 
   try {
     for (let modelIndex = 0; modelIndex < candidateChain.length; modelIndex++) {
       const currentModel = candidateChain[modelIndex];
 
+      if (modelIndex > 0 && fallbackStartTime === null) {
+        fallbackStartTime = Date.now();
+      }
+
       for (let attempt = 0; attempt <= MAX_RETRIES_PER_MODEL; attempt++) {
+        requestAttemptCounter++;
+        const attemptRole: "primary" | "retry" | "fallback" =
+          modelIndex === 0
+            ? attempt === 0
+              ? "primary"
+              : "retry"
+            : "fallback";
+
         const attemptStartTime = Date.now();
         const controller = new AbortController();
         const timerId = setTimeout(() => controller.abort(), resolvedTimeout);
@@ -460,17 +614,33 @@ export async function callGeminiWithResilience(
 
             const inputTokens = data?.usageMetadata?.promptTokenCount;
             const outputTokens = data?.usageMetadata?.candidatesTokenCount;
+            const now = Date.now();
+            const endToEndLatencyMs = now - overallStartTime;
+
+            if (modelIndex === 0) {
+              primaryLatencyMs = endToEndLatencyMs;
+            } else if (fallbackStartTime) {
+              fallbackLatencyMs = now - fallbackStartTime;
+            }
 
             logAiTelemetry({
               timestamp: new Date().toISOString(),
+              requestId,
               service,
               studentId: studentId || "anonymous",
               model: currentModel,
-              attempt: attempt + 1,
+              attempt: requestAttemptCounter,
+              attemptRole,
+              isFinal: true,
+              finalOutcome: "SUCCESS",
               latencyMs,
+              endToEndLatencyMs,
+              backoffMs: totalBackoffMs,
               status: response.status,
               inputTokens,
               outputTokens,
+              billingTier: options.billingTier,
+              billingMode: options.billingMode,
               fallbackSelected: modelIndex > 0 ? currentModel : null,
             });
 
@@ -478,11 +648,15 @@ export async function callGeminiWithResilience(
               success: true,
               text: textOutput,
               model: currentModel,
-              latencyMs: Date.now() - overallStartTime,
+              latencyMs: endToEndLatencyMs,
+              endToEndLatencyMs,
+              primaryLatencyMs: primaryLatencyMs ?? undefined,
+              fallbackLatencyMs: fallbackLatencyMs ?? undefined,
               inputTokens,
               outputTokens,
               status: 200,
               fallbackSelected: modelIndex > 0 ? currentModel : null,
+              requestId,
             };
           }
 
@@ -492,20 +666,34 @@ export async function callGeminiWithResilience(
 
           // 401/403: Key is invalid / unauthorized; abort entire chain immediately
           if (response.status === 401 || response.status === 403) {
+            const endToEndLatencyMs = Date.now() - overallStartTime;
             logAiTelemetry({
               timestamp: new Date().toISOString(),
+              requestId,
               service,
               studentId: studentId || "anonymous",
               model: currentModel,
-              attempt: attempt + 1,
+              attempt: requestAttemptCounter,
+              attemptRole,
+              isFinal: true,
+              finalOutcome: "FAILED",
               latencyMs,
+              endToEndLatencyMs,
+              backoffMs: totalBackoffMs,
               status: response.status,
               error: "UNAUTHORIZED_KEY",
+              billingTier: options.billingTier,
+              billingMode: options.billingMode,
             });
             return {
               success: false,
               status: response.status,
               error: "UNAUTHORIZED_KEY",
+              requestId,
+              latencyMs: endToEndLatencyMs,
+              endToEndLatencyMs,
+              primaryLatencyMs: primaryLatencyMs ?? undefined,
+              fallbackLatencyMs: fallbackLatencyMs ?? undefined,
             };
           }
 
@@ -515,35 +703,68 @@ export async function callGeminiWithResilience(
               response.headers.get("Retry-After")
             );
             const backoffMs = calculateBackoffWithJitter(attempt, explicitRetryMs);
+            const endToEndLatencyMs = Date.now() - overallStartTime;
+
+            const hasNextRetry = attempt < MAX_RETRIES_PER_MODEL;
+            const hasNextModel = modelIndex < candidateChain.length - 1;
+            const isChainTerminal = !hasNextRetry && !hasNextModel;
 
             logAiTelemetry({
               timestamp: new Date().toISOString(),
+              requestId,
               service,
               studentId: studentId || "anonymous",
               model: currentModel,
-              attempt: attempt + 1,
+              attempt: requestAttemptCounter,
+              attemptRole,
+              isFinal: isChainTerminal,
+              finalOutcome: isChainTerminal ? "FAILED" : null,
               latencyMs,
+              endToEndLatencyMs,
+              backoffMs: backoffMs,
               status: response.status,
               error: `RETRYABLE_${response.status}_BACKOFF_${backoffMs}ms`,
+              billingTier: options.billingTier,
+              billingMode: options.billingMode,
             });
 
-            // If we have retries remaining for this model, wait and retry
-            if (attempt < MAX_RETRIES_PER_MODEL) {
+            if (hasNextRetry) {
+              totalBackoffMs += backoffMs;
               await sleep(backoffMs);
               continue;
+            } else {
+              if (modelIndex === 0) {
+                primaryLatencyMs = Date.now() - overallStartTime;
+              }
+              break;
             }
           } else {
             // Non-retryable error (e.g. 404, 400); do not retry this model
+            const endToEndLatencyMs = Date.now() - overallStartTime;
+            const isChainTerminal = modelIndex >= candidateChain.length - 1;
+
             logAiTelemetry({
               timestamp: new Date().toISOString(),
+              requestId,
               service,
               studentId: studentId || "anonymous",
               model: currentModel,
-              attempt: attempt + 1,
+              attempt: requestAttemptCounter,
+              attemptRole,
+              isFinal: isChainTerminal,
+              finalOutcome: isChainTerminal ? "FAILED" : null,
               latencyMs,
+              endToEndLatencyMs,
+              backoffMs: 0,
               status: response.status,
               error: `NON_RETRYABLE_${response.status}`,
+              billingTier: options.billingTier,
+              billingMode: options.billingMode,
             });
+
+            if (modelIndex === 0) {
+              primaryLatencyMs = Date.now() - overallStartTime;
+            }
             break;
           }
         } catch (fetchErr: unknown) {
@@ -556,35 +777,67 @@ export async function callGeminiWithResilience(
             ? `Request timed out after ${resolvedTimeout}ms`
             : String(fetchErr);
 
+          const hasNextRetry = !isAbort && attempt < MAX_RETRIES_PER_MODEL;
+          const hasNextModel = modelIndex < candidateChain.length - 1;
+          const isChainTerminal = !hasNextRetry && !hasNextModel;
+          const endToEndLatencyMs = Date.now() - overallStartTime;
+
           logAiTelemetry({
             timestamp: new Date().toISOString(),
+            requestId,
             service,
             studentId: studentId || "anonymous",
             model: currentModel,
-            attempt: attempt + 1,
+            attempt: requestAttemptCounter,
+            attemptRole,
+            isFinal: isChainTerminal,
+            finalOutcome: isChainTerminal ? "FAILED" : null,
             latencyMs,
+            endToEndLatencyMs,
+            backoffMs: 0,
             status: isAbort ? 408 : 500,
             error: errName,
+            billingTier: options.billingTier,
+            billingMode: options.billingMode,
           });
 
           // If timeout, don't retry same model immediately; move to fallback
           if (isAbort) {
+            if (modelIndex === 0) {
+              primaryLatencyMs = Date.now() - overallStartTime;
+            }
             break;
           }
 
-          if (attempt < MAX_RETRIES_PER_MODEL) {
-            await sleep(calculateBackoffWithJitter(attempt));
+          if (hasNextRetry) {
+            const backoffMs = calculateBackoffWithJitter(attempt);
+            totalBackoffMs += backoffMs;
+            await sleep(backoffMs);
             continue;
+          } else {
+            if (modelIndex === 0) {
+              primaryLatencyMs = Date.now() - overallStartTime;
+            }
+            break;
           }
         }
       }
+    }
+
+    const endToEndLatencyMs = Date.now() - overallStartTime;
+    if (fallbackStartTime) {
+      fallbackLatencyMs = Date.now() - fallbackStartTime;
     }
 
     return {
       success: false,
       status: lastStatus,
       error: lastError,
-      latencyMs: Date.now() - overallStartTime,
+      latencyMs: endToEndLatencyMs,
+      endToEndLatencyMs,
+      primaryLatencyMs: primaryLatencyMs ?? undefined,
+      fallbackLatencyMs: fallbackLatencyMs ?? undefined,
+      requestId,
     };
   } finally {
     releaseConcurrencySlot();

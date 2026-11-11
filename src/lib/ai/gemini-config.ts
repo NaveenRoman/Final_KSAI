@@ -37,14 +37,14 @@ export const CONCURRENCY_QUEUE_TIMEOUT_MS = 1500;
 // 3. Timeouts (Per-Request Ceilings)
 // ============================================================================
 export const AI_TIMEOUTS = {
-  TEACH: 6000,          // 6.0s for lesson generation / evaluation
-  CHAT: 8000,           // 8.0s for interactive mentor chat
-  GUIDE: 8000,          // 8.0s for compiler diagnostics & debugging
-  INTERVIEW: 8000,      // 8.0s for interview answer evaluation
-  RESUME_JD: 10000,     // 10.0s for PDF & ATS JD alignment analysis
+  TEACH: 15000,         // 15.0s for lesson generation / evaluation / chat
+  CHAT: 12000,          // 12.0s for interactive mentor chat
+  GUIDE: 12000,         // 12.0s for compiler diagnostics & debugging
+  INTERVIEW: 10000,     // 10.0s for interview answer evaluation
+  RESUME_JD: 12000,     // 12.0s for PDF & ATS JD alignment analysis
   RESUME_BULLET: 6000,  // 6.0s for single bullet / summary enhancement
-  DICTATE_CHECK: 4000,  // 4.0s for code syntax verification
-  DEFAULT: 8000,        // 8.0s fallback default
+  DICTATE_CHECK: 5000,  // 5.0s for code syntax verification
+  DEFAULT: 12000,       // 12.0s fallback default
 } as const;
 
 // ============================================================================

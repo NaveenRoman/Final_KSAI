@@ -9,6 +9,7 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Terminal,
 } from "lucide-react";
 import { SuperAdminDashboardData } from "@/lib/admin/admin-service";
 
@@ -27,8 +28,19 @@ export function SystemHealthWidget({ initialHealth }: SystemHealthWidgetProps) {
       const data = await res.json();
       if (data.success && data.health) {
         setHealth({
-          serverStatus: { status: data.health.server.status, uptime: "99.98%" },
+          serverStatus: {
+            status: data.health.server.status,
+            uptime:
+              data.health.server.formattedUptime ||
+              `${Math.floor(data.health.server.uptimeSeconds / 60)}m uptime`,
+          },
           databaseStatus: { status: data.health.database.status, latencyMs: data.health.database.latencyMs },
+          executionBackendStatus: data.health.executionBackend
+            ? {
+                status: data.health.executionBackend.status,
+                latencyMs: data.health.executionBackend.latencyMs,
+              }
+            : undefined,
           aiServiceStatus: { status: data.health.aiService.status, model: data.health.aiService.gateway },
           authServiceStatus: { status: data.health.authService.status, provider: data.health.authService.provider },
           courseServiceStatus: { status: data.health.courseService.status, totalCourses: 4 },
@@ -55,6 +67,12 @@ export function SystemHealthWidget({ initialHealth }: SystemHealthWidgetProps) {
       icon: Database,
     },
     {
+      label: "Code Execution Backend",
+      status: health.executionBackendStatus?.status || "Standing By",
+      detail: `${health.executionBackendStatus?.latencyMs ?? 0}ms Latency (Django)`,
+      icon: Terminal,
+    },
+    {
       label: "Authentication Gateway",
       status: health.authServiceStatus.status,
       detail: "Better-Auth Session Security",
@@ -63,7 +81,7 @@ export function SystemHealthWidget({ initialHealth }: SystemHealthWidgetProps) {
     {
       label: "AI Model Status",
       status: health.aiServiceStatus.status,
-      detail: "Gemini 2.5 Flash / DeepSeek",
+      detail: health.aiServiceStatus.model || "Gemini Flash / DeepSeek",
       icon: Cpu,
     },
   ];

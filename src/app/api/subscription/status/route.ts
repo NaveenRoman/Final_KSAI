@@ -1,16 +1,36 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseSessionToken } from "@/lib/auth-cookie";
 import { getUserActiveSubscription } from "@/lib/subscription-service";
 import { OFFICIAL_PLANS, PlanTier } from "@/lib/subscription-config";
+import { normalizeUserRole } from "@/lib/roles";
 
 export async function GET(req: Request) {
   try {
     const session = await auth.api.getSession({
       headers: await headers().catch(() => req.headers),
     });
-    const user = session?.user;
+    let user = session?.user as any;
+
+    if (!user) {
+      const cookieStore = await cookies();
+      const sessionTokenRaw =
+        cookieStore.get("better-auth.session_token")?.value ||
+        cookieStore.get("sessionToken")?.value;
+
+      if (sessionTokenRaw) {
+        const rawToken = parseSessionToken(sessionTokenRaw);
+        const dbSession = await db.session.findUnique({
+          where: { token: rawToken },
+          include: { user: true },
+        });
+        if (dbSession && new Date() < dbSession.expiresAt) {
+          user = dbSession.user;
+        }
+      }
+    }
 
     if (!user) {
       return NextResponse.json(
@@ -24,7 +44,7 @@ export async function GET(req: Request) {
       select: { id: true, role: true },
     });
 
-    const isAdmin = dbUser?.role === "Admin";
+    const isAdmin = normalizeUserRole(dbUser?.role) === "SUPER_ADMIN";
     const activeSub = await getUserActiveSubscription(user.id);
 
     if (isAdmin) {

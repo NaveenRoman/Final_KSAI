@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminPageLayout } from "@/components/admin/AdminPageLayout";
 import { Trophy, Plus, Edit, ToggleLeft, ToggleRight, Calendar, Code2, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 interface ContestItem {
@@ -108,20 +108,13 @@ export default function AdminContestsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      <AdminHeader />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <AdminPageLayout
+      title="Contest Management"
+      subtitle="Create and publish competitive coding challenges for students to test XP, streaks, and leaderboard progression"
+    >
+      <div className="space-y-6">
         {/* Top Action Bar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <Trophy className="text-amber-500" /> Contest Management
-            </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Create and publish competitive coding challenges for students to test XP, streaks, and leaderboard progression.
-            </p>
-          </div>
+        <div className="flex items-center justify-end">
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2 cursor-pointer"
@@ -326,7 +319,7 @@ export default function AdminContestsPage() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AdminPageLayout>
   );
 }

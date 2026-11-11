@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getCollegeAnalytics } from "@/lib/college/college-service";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
+import { normalizeUserRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -55,10 +56,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const isAdmin =
-      user.role === "Admin" ||
-      user.role === "SUPER_ADMIN" ||
-      user.role === "SuperAdmin";
+    const isAdmin = normalizeUserRole(user.role) === "SUPER_ADMIN";
 
     // 3. Multi-tenant access controls:
     // Non-admin users cannot query for a college different from their assigned college

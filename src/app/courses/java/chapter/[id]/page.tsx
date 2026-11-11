@@ -43,7 +43,6 @@ import {
 } from "lucide-react";
 import { ChapterLearningAnalysis } from "@/lib/adaptive/types";
 import { LockedChapterCard } from "@/components/learning/LockedChapterCard";
-import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 
 interface ChapterItem {
@@ -463,10 +462,12 @@ ${answer}
 const generateResumeRecap = async (
   resumeTitle: string
 ): Promise<{ recap: string; questions: string[] }> => {
+  const friendlyIntro = `Welcome back! Before we continue with ${resumeTitle}, let's quickly revise the concepts you learned earlier.`;
+
   if (!currentChapter) {
     return {
-      recap: `Welcome back! You stopped at ${resumeTitle}.`,
-      questions: [`What do you remember about ${resumeTitle}?`],
+      recap: friendlyIntro,
+      questions: [`What do you remember about earlier Java concepts?`],
     };
   }
 
@@ -477,7 +478,7 @@ const generateResumeRecap = async (
   const prompt = `
 You are the KnowledgeStream AI Live Teacher.
 
-A student has returned to a C chapter after leaving a previous live teaching session.
+A student has returned to a Java chapter after leaving a previous live teaching session.
 Do NOT restart the chapter.
 Do NOT teach the resume section yet.
 
@@ -485,7 +486,7 @@ CHAPTER:
 ${currentChapter.title}
 
 TOPICS THE STUDENT ALREADY COMPLETED:
-${completed.length ? completed.join("\\n") : "No fully completed topic was recorded."}
+${completed.length ? completed.join("\n") : "No fully completed topic was recorded."}
 
 THE STUDENT'S SAVED RESUME POINT:
 ${resumeTitle}
@@ -494,7 +495,7 @@ Create a short return-to-learning checkpoint.
 
 Return ONLY valid JSON in this exact shape:
 {
-  "recap": "2-4 short sentences summarizing what the student already learned.",
+  "recap": "${friendlyIntro} <1-2 short sentences summarizing key ideas from previously completed topics>.",
   "questions": [
     "Short question 1",
     "Short question 2"
@@ -502,6 +503,7 @@ Return ONLY valid JSON in this exact shape:
 }
 
 Rules:
+- Start the recap with: "${friendlyIntro}"
 - Ask 2 questions maximum.
 - Questions must test previously learned material, not future material.
 - Keep the recap concise and student-friendly.
@@ -536,28 +538,78 @@ Rules:
       .replace(/\s*```$/i, "")
       .trim();
 
-    const parsed = JSON.parse(cleaned);
+    let parsed: any = null;
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    if (parsed && typeof parsed === "object") {
+      let recap =
+        typeof parsed.recap === "string" && parsed.recap.trim()
+          ? parsed.recap.trim()
+          : "";
+      if (!recap) {
+        recap = friendlyIntro;
+      } else if (
+        !recap.toLowerCase().includes("before we continue") &&
+        !recap.toLowerCase().includes("quickly revise")
+      ) {
+        recap = `${friendlyIntro} ${recap}`;
+      }
+
+      const questions = Array.isArray(parsed.questions)
+        ? parsed.questions.filter((q: unknown): q is string => typeof q === "string" && q.trim().length > 0)
+        : [];
+
+      return {
+        recap,
+        questions:
+          questions.length > 0
+            ? questions
+            : completed.length
+            ? [`What is one key takeaway you remember from ${completed[completed.length - 1]}?`]
+            : [`What do you remember about earlier Java concepts?`],
+      };
+    }
+
+    // If the model or fallback returned plain text, safely use it without crashing
+    if (cleaned.length > 15 && !cleaned.startsWith("{")) {
+      const recap = cleaned.toLowerCase().includes("before we continue")
+        ? cleaned
+        : `${friendlyIntro} ${cleaned}`;
+      return {
+        recap,
+        questions: [
+          completed.length
+            ? `What is one important idea you remember from ${completed[completed.length - 1]}?`
+            : `What do you remember about earlier Java concepts?`,
+          `Why is ${resumeTitle} useful?`,
+        ],
+      };
+    }
 
     return {
-      recap:
-        typeof parsed.recap === "string"
-          ? parsed.recap
-          : `Welcome back! You were learning ${resumeTitle}.`,
-      questions: Array.isArray(parsed.questions)
-        ? parsed.questions.filter((q: unknown) => typeof q === "string")
-        : [],
+      recap: friendlyIntro,
+      questions: completed.length
+        ? [`What do you remember about ${completed[completed.length - 1]}?`]
+        : [`What do you remember about earlier Java concepts?`],
     };
   } catch (error) {
-    console.error("Resume recap generation error:", error);
+    console.warn("Resume recap using safe fallback:", error);
 
     return {
       recap: completed.length
-        ? `Welcome back! You previously worked through ${completed.slice(-3).join(", ")}. You stopped at ${resumeTitle}. Let's quickly check what you remember before we continue.`
-        : `Welcome back! You stopped at ${resumeTitle}. Let's quickly check what you remember before we continue.`,
+        ? `${friendlyIntro} You previously completed ${completed.slice(-3).join(", ")}.`
+        : friendlyIntro,
       questions: [
         completed.length
           ? `What is one important idea you remember from ${completed[completed.length - 1]}?`
-          : `What do you remember about ${resumeTitle}?`,
+          : `What do you remember about earlier Java concepts?`,
         `Why is ${completed.length ? completed[completed.length - 1] : resumeTitle} useful?`,
       ],
     };
@@ -674,33 +726,13 @@ if (currentLesson) {
           course: "Java",
           chapter: currentChapter.title,
           topic: currentLesson || currentChapter.title,
-content: getLessonContent(),
-
-          question: `
-Student request:
-${question}
-
-Learning progress:
-Completed lessons:
-${
-  completedLessons.length > 0
-    ? completedLessons.join("\n")
-    : "None"
-}
-
-Current lesson:
-${currentLesson || "Not selected"}
-
-Remaining lessons:
-${getLessons()
-  .filter(
-    (lesson) => !completedLessons.includes(lesson)
-  )
-  .join("\n")}
-`,
-
+          content: getLessonContent(),
+          question: question.trim(),
           mode: mode,
-          history: chatMessages,
+          history: chatMessages.slice(-6).map((m) => ({
+            role: m.sender === "user" ? "user" : "model",
+            content: m.text,
+          })),
         }),
       }
     );
@@ -743,8 +775,6 @@ ${getLessons()
       answer: aiResponse,
     });
 
-
-
   } catch (error) {
 
     console.error(
@@ -752,12 +782,19 @@ ${getLessons()
       error
     );
 
+    const errorMsg =
+      error instanceof Error &&
+      (error.message.includes("timeout") ||
+        error.message.includes("longer than expected") ||
+        error.message.includes("AI_TEMPORARILY_UNAVAILABLE"))
+        ? "⚠️ Codexa AI took longer than expected to respond. Please try asking your question again."
+        : "⚠️ I couldn't reach the teaching service right now. Please check your connection and try again.";
+
     setChatMessages((prev) => [
       ...prev,
       {
         sender: "ai",
-        text:
-          "⚠️ I couldn't connect to the teaching engine right now. Please try again.",
+        text: errorMsg,
       },
     ]);
 
@@ -1423,31 +1460,9 @@ const startMentorListening = () => {
   recognition.start();
 };
 
-  const handleBuyCourse = async () => {
-    if (!courseId) return;
-    const email = user?.email || userEmail || "student@gmail.com";
-    const name = user?.name || "Student";
-    setBuying(true);
-    try {
-      await openRazorpayCheckout({
-        courseId,
-        courseTitle: courseTitle || "Java Enterprise Architecture Mastery",
-        userEmail: email,
-        userName: name,
-        onSuccess: async () => {
-          alert("🎉 Course purchased successfully! All chapters are now unlocked.");
-          await loadPageData();
-        },
-        onError: (err) => {
-          alert(err);
-        },
-      });
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "Failed to initiate payment.");
-    } finally {
-      setBuying(false);
-    }
+  // Purchase enrollment navigation to shared subscription flow
+  const handleBuyCourse = () => {
+    router.push("/plans/duration?plan=basic&subject=java");
   };
 
   const handleMarkChapterComplete = async () => {

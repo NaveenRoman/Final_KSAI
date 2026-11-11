@@ -5,6 +5,8 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtectedRoute =
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/courses") ||
     pathname.startsWith("/leaderboard") ||
@@ -36,6 +38,8 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/admin",
+    "/admin/:path*",
     "/dashboard/:path*",
     "/courses/:path*",
     "/leaderboard/:path*",

@@ -24,6 +24,63 @@ interface TeachRequestBody {
 function buildGeminiTeachPrompt(body: TeachRequestBody): string {
   const { course, chapter, topic, content, question, mode, askedQuestion } = body;
 
+  const isChatMode =
+    mode === "chat" ||
+    mode === "explain" ||
+    mode === "example" ||
+    mode === "visual" ||
+    mode === "question" ||
+    mode === "confused";
+
+  if (isChatMode) {
+    const studentQuestion = (question || "").trim() || "Can you explain this concept?";
+    const lessonSnippet = (content || "").slice(0, 3000).trim();
+
+    return `You are Codenthra AI, an expert programming teacher and mentor inside KnowledgeStream AI.
+A student is currently studying ${course || "Programming"} and has asked you a question.
+
+STUDENT QUESTION:
+${studentQuestion}
+
+CONTEXT:
+Course: ${course || "Programming"}
+Chapter: ${chapter || "General"}
+Current Topic: ${topic || "General"}
+${lessonSnippet ? `\nRELEVANT LESSON MATERIAL (for reference context only):\n${lessonSnippet}` : ""}
+
+TEACHING INSTRUCTIONS:
+1. Address the student's question directly, accurately, and pedagogically as your top priority.
+2. If the student asks for an example, provide a clean, concise, runnable code example with clear comments.
+3. If the student asks about a concept (such as class vs. object, syntax, or keywords), explain the intuition clearly with a simple real-world analogy.
+4. Do NOT dump the entire lesson material, table of contents, or syllabus.
+5. Sound warm, patient, and conversational like a senior engineer mentor guiding a junior student.
+6. Keep the response focused and concise (2-4 clear paragraphs).`;
+  }
+
+  if (mode === "resume-check") {
+    return `You are the KnowledgeStream AI Live Teacher.
+A student has returned to resume their ${course || "Programming"} course.
+Create a short return-to-learning checkpoint.
+
+CHAPTER: ${chapter || ""}
+RESUME POINT: ${topic || ""}
+${content ? `\nLESSON CONTEXT:\n${content.slice(0, 2000)}` : ""}
+
+Respond ONLY with a JSON object in this exact schema:
+{
+  "recap": "2-3 short sentences summarizing what the student learned before reaching this resume topic.",
+  "questions": [
+    "Short question 1 testing previously learned material",
+    "Short question 2 testing previously learned material"
+  ]
+}
+
+Rules:
+- Exactly 2 short questions.
+- Test previously learned fundamentals, not future unreached topics.
+- Do not include markdown code fences or conversational text outside the JSON object.`;
+  }
+
   if (mode === "evaluate" || mode === "evaluate-checkpoint") {
     return `You are Codenthra AI Teacher inside KnowledgeStream AI.
 Evaluate the student's answer to this checkpoint question.
@@ -339,6 +396,28 @@ function generateStructuredContentFallback(body: TeachRequestBody): string {
     });
   }
 
+  if (mode === "resume-check") {
+    return JSON.stringify({
+      recap: `Welcome back! You are resuming your study of ${normTopic}. Reviewing core principles ensures confidence as we build more complex programs.`,
+      questions: [
+        `What is the primary role of ${normTopic}?`,
+        `How does ${normTopic} fit into our ${course || "Java"} program structure?`,
+      ],
+    });
+  }
+
+  // If a student asked an interactive chat question, do NOT substitute an unrelated chapter lecture!
+  if (
+    mode === "chat" ||
+    mode === "explain" ||
+    mode === "example" ||
+    mode === "visual" ||
+    mode === "question" ||
+    mode === "confused"
+  ) {
+    return "";
+  }
+
   // 1. Check for markdown tables and generate clear row-by-row speech
   const tableSpeechParts = parseAndExplainMarkdownTables(raw);
 
@@ -432,6 +511,14 @@ async function callGeminiDirectly(
   limitRpm?: number
 ): Promise<{ text: string | null; status?: number; retryAfterSeconds?: number }> {
   const prompt = buildGeminiTeachPrompt(body);
+  const isChatMode =
+    body.mode === "chat" ||
+    body.mode === "explain" ||
+    body.mode === "example" ||
+    body.mode === "visual" ||
+    body.mode === "question" ||
+    body.mode === "confused";
+  const isResumeMode = body.mode === "resume-check";
 
   const result = await callGeminiWithResilience({
     service: "teach",
@@ -439,8 +526,9 @@ async function callGeminiDirectly(
     isGuest,
     limitRpm,
     prompt,
-    temperature: 0.3,
-    maxOutputTokens: 8192,
+    temperature: isResumeMode ? 0.1 : isChatMode ? 0.4 : 0.3,
+    maxOutputTokens: isResumeMode ? 1024 : isChatMode ? 1536 : 2500,
+    responseMimeType: isResumeMode ? "application/json" : undefined,
   });
 
   if (result.status === 429) {
@@ -449,7 +537,12 @@ async function callGeminiDirectly(
 
   if (result.success && result.text) {
     let aiText = result.text.trim();
-    if ((body.mode === "evaluate" || body.mode === "evaluate-checkpoint") && aiText.startsWith("```")) {
+    if (
+      (body.mode === "evaluate" ||
+        body.mode === "evaluate-checkpoint" ||
+        body.mode === "resume-check") &&
+      aiText.startsWith("```")
+    ) {
       aiText = aiText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
     }
     console.log(`[TEACH API] Successfully answered via direct Gemini (${result.model})`);
@@ -460,13 +553,21 @@ async function callGeminiDirectly(
 }
 
 export async function POST(request: Request) {
+  let body: TeachRequestBody = {};
   try {
-    let body: TeachRequestBody = {};
     try {
       body = await request.json();
     } catch {
       body = {};
     }
+
+    const isChatMode =
+      body.mode === "chat" ||
+      body.mode === "explain" ||
+      body.mode === "example" ||
+      body.mode === "visual" ||
+      body.mode === "question" ||
+      body.mode === "confused";
 
     console.log("========== NEXT.JS TEACHING API ==========");
     console.log("Course   :", body.course);
@@ -561,6 +662,20 @@ export async function POST(request: Request) {
     // -------------------------------------------------------------
     // Tier 3: Content-Driven Structured Fallback
     // -------------------------------------------------------------
+    // If an interactive student chat question failed external AI, return honest error
+    if (isChatMode) {
+      console.warn("[TEACH API] Gemini and Django unavailable for student chat question");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AI_TEMPORARILY_UNAVAILABLE",
+          message:
+            "Codexa AI is taking longer than expected to respond. Please try asking your question again in a moment.",
+        },
+        { status: 504 }
+      );
+    }
+
     console.log("[TEACH API] Falling back to content-driven structured generator");
     const fallbackResponse = generateStructuredContentFallback(body);
 
@@ -576,6 +691,25 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Next.js Teaching API Error:", error);
+
+    const isChatMode =
+      body?.mode === "chat" ||
+      body?.mode === "explain" ||
+      body?.mode === "example" ||
+      body?.mode === "visual" ||
+      body?.mode === "question" ||
+      body?.mode === "confused";
+
+    if (isChatMode) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "INTERNAL_ERROR",
+          message: "Unable to process question right now. Please try asking again.",
+        },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,

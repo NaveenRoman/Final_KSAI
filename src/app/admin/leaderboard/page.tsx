@@ -1,8 +1,9 @@
 import React from "react";
 import { requireAdminPage } from "@/lib/admin-auth";
 import { getLeaderboardData, LeaderboardScope, LeaderboardWindow } from "@/lib/leaderboard-service";
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminPageLayout } from "@/components/admin/AdminPageLayout";
 import { Layers, Trophy, Zap, Award, Flame, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +12,7 @@ export default async function AdminLeaderboardPage({
 }: {
   searchParams: Promise<{ scope?: string; window?: string }>;
 }) {
-  await requireAdminPage();
+  const admin = await requireAdminPage();
 
   const { scope: rawScope, window: rawWindow } = await searchParams;
   const scope: LeaderboardScope = (rawScope as LeaderboardScope) || "global";
@@ -23,48 +24,20 @@ export default async function AdminLeaderboardPage({
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      <AdminHeader />
-
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-              <Layers className="text-purple-600" /> Leaderboard Monitor
-            </h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Read-only view into live student rankings, XP distributions, and locked weekly snapshot statistics.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-xs">
-            <a
-              href="/admin/leaderboard?scope=global&window=alltime"
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                window === "alltime" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              All-Time Ranks
-            </a>
-            <a
-              href="/admin/leaderboard?scope=global&window=weekly"
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                window === "weekly" ? "bg-blue-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              Weekly Rankings
-            </a>
-          </div>
-        </div>
-
-        {/* Overview Banner */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xs">
+    <AdminPageLayout
+      title="Leaderboard Monitor"
+      subtitle="Read-only view into live student rankings, XP distributions, and locked weekly snapshot statistics"
+      adminUser={admin}
+    >
+      <div className="space-y-6">
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center font-black">
-              <Trophy size={24} />
+            <div className="w-10 h-10 rounded-2xl bg-purple-50 border border-purple-100 text-purple-600 flex items-center justify-center font-black">
+              <Trophy size={20} />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-slate-900">
+              <h3 className="text-sm font-extrabold text-slate-900">
                 {window === "alltime" ? "Global All-Time Leaderboard" : "Current Weekly Leaderboard"}
               </h3>
               <p className="text-xs text-slate-500">
@@ -73,10 +46,29 @@ export default async function AdminLeaderboardPage({
               </p>
             </div>
           </div>
+
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <Link
+              href="/admin/leaderboard?scope=global&window=alltime"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                window === "alltime" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              All-Time Ranks
+            </Link>
+            <Link
+              href="/admin/leaderboard?scope=global&window=weekly"
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                window === "weekly" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Weekly Rankings
+            </Link>
+          </div>
         </div>
 
         {/* Ranks Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -139,7 +131,7 @@ export default async function AdminLeaderboardPage({
             </table>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminPageLayout>
   );
 }

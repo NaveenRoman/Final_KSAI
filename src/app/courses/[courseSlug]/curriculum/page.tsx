@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@/lib/auth-client";
 import { safeParseResponse } from "@/lib/safe-json";
-import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 import { OFFICIAL_PLANS } from "@/lib/subscription-config";
 import {
   Lock,

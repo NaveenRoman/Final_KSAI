@@ -49,7 +49,6 @@ import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
 import { CheckpointEvaluation, parseCheckpointEvaluation } from "@/types/teaching-types";
 import { ChapterLearningAnalysis } from "@/lib/adaptive/types";
 import { LockedChapterCard } from "@/components/learning/LockedChapterCard";
-import { openRazorpayCheckout } from "@/lib/razorpay-checkout";
 
 interface ChapterItem {
   id: string;
@@ -693,19 +692,53 @@ Rules:
       .replace(/\s*```$/i, "")
       .trim();
 
-    const parsed = JSON.parse(cleaned);
+    let parsed: any = null;
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        parsed = JSON.parse(jsonMatch[0]);
+      } catch {
+        parsed = null;
+      }
+    }
+
+    if (parsed && typeof parsed === "object") {
+      const recap =
+        typeof parsed.recap === "string" && parsed.recap.trim()
+          ? parsed.recap.trim()
+          : `Welcome back! You were learning ${resumeTitle}.`;
+      const questions = Array.isArray(parsed.questions)
+        ? parsed.questions.filter((q: unknown): q is string => typeof q === "string" && q.trim().length > 0)
+        : [];
+
+      return {
+        recap,
+        questions:
+          questions.length > 0
+            ? questions
+            : [`What do you remember about ${resumeTitle}?`],
+      };
+    }
+
+    // If the model or fallback returned plain text, safely use it without crashing
+    if (cleaned.length > 15 && !cleaned.startsWith("{")) {
+      return {
+        recap: cleaned,
+        questions: [
+          completed.length
+            ? `What is one important idea you remember from ${completed[completed.length - 1]}?`
+            : `What do you remember about ${resumeTitle}?`,
+          `Why is ${resumeTitle} useful in Python?`,
+        ],
+      };
+    }
 
     return {
-      recap:
-        typeof parsed.recap === "string"
-          ? parsed.recap
-          : `Welcome back! You were learning ${resumeTitle}.`,
-      questions: Array.isArray(parsed.questions)
-        ? parsed.questions.filter((q: unknown) => typeof q === "string")
-        : [],
+      recap: `Welcome back! You were learning ${resumeTitle}.`,
+      questions: [`What do you remember about ${resumeTitle}?`],
     };
   } catch (error) {
-    console.error("Resume recap generation error:", error);
+    console.warn("Resume recap using safe fallback:", error);
 
     return {
       recap: completed.length
@@ -833,22 +866,7 @@ const handleTeachingRequest = async (
         chapter: currentChapter.title,
         topic: currentLesson || currentChapter.title,
         content: getLessonContent(),
-        question: `
-Student request:
-${promptText}
-
-Learning progress:
-Completed lessons:
-${completedLessons.length > 0 ? completedLessons.join("\n") : "None"}
-
-Current lesson:
-${currentLesson || "Not selected"}
-
-Remaining lessons:
-${getLessons()
-  .filter((lesson) => !completedLessons.includes(lesson))
-  .join("\n")}
-`,
+        question: promptText.trim(),
         mode: effectiveMode,
         image: activeImage?.base64,
         imageMimeType: activeImage?.mime,
@@ -914,12 +932,19 @@ ${getLessons()
       error
     );
 
+    const errorMsg =
+      error instanceof Error &&
+      (error.message.includes("timeout") ||
+        error.message.includes("longer than expected") ||
+        error.message.includes("AI_TEMPORARILY_UNAVAILABLE"))
+        ? "⚠️ Codexa AI took longer than expected to respond. Please try asking your question again."
+        : "⚠️ I couldn't reach the teaching service right now. Please check your connection and try again.";
+
     setChatMessages((prev) => [
       ...prev,
       {
         sender: "ai",
-        text:
-          "⚠️ I couldn't connect to the teaching engine right now. Please try again.",
+        text: errorMsg,
       },
     ]);
 
@@ -1573,31 +1598,9 @@ const startMentorListening = () => {
   recognition.start();
 };
 
-  const handleBuyCourse = async () => {
-    if (!courseId) return;
-    const email = user?.email || userEmail || "student@gmail.com";
-    const name = user?.name || "Student";
-    setBuying(true);
-    try {
-      await openRazorpayCheckout({
-        courseId,
-        courseTitle: courseTitle || "Python Mastery",
-        userEmail: email,
-        userName: name,
-        onSuccess: async () => {
-          alert("🎉 Course purchased successfully! All chapters are now unlocked.");
-          await loadPageData();
-        },
-        onError: (err) => {
-          alert(err);
-        },
-      });
-    } catch (err: any) {
-      console.error(err);
-      alert(err?.message || "Failed to initiate payment.");
-    } finally {
-      setBuying(false);
-    }
+  // Purchase enrollment navigation to shared subscription flow
+  const handleBuyCourse = () => {
+    router.push("/plans/duration?plan=basic&subject=python");
   };
 
   const handleMarkChapterComplete = async () => {

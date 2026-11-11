@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { Prisma } from "@/generated/client";
 import { PlanTier, PlanDurationMonths } from "./subscription-config";
 import { FREE_COURSE_TEST_MODE } from "@/lib/course-config";
+import { normalizeUserRole } from "@/lib/roles";
 
 export interface ActiveSubscriptionInfo {
   id: string;
@@ -94,7 +95,7 @@ export async function checkFeatureAccess(
     select: { id: true, role: true },
   });
 
-  if (user?.role === "Admin") {
+  if (normalizeUserRole(user?.role) === "SUPER_ADMIN") {
     return { hasAccess: true, plan: "PRO", isAdmin: true };
   }
 
@@ -140,6 +141,7 @@ export interface CourseAccessResult {
   daysRemaining?: number;
   expiresAt?: Date | null;
   isAdmin?: boolean;
+  isLegacyPaid?: boolean;
 }
 
 function normalizeCourseSlugInternal(slugOrId: string): string {
@@ -177,7 +179,7 @@ export async function checkCourseAccess(
     select: { id: true, role: true },
   });
 
-  if (user?.role === "Admin") {
+  if (normalizeUserRole(user?.role) === "SUPER_ADMIN") {
     return { hasAccess: true, plan: "PRO", isAdmin: true };
   }
 
@@ -199,17 +201,7 @@ export async function checkCourseAccess(
     return { hasAccess: false, reason: "NOT_ENROLLED" };
   }
 
-  // 4. Resolve active subscription
-  const activeSub = await getUserActiveSubscription(userId);
-  if (!activeSub) {
-    return {
-      hasAccess: false,
-      reason: "SUBSCRIPTION_EXPIRED",
-      plan: null,
-    };
-  }
-
-  // 5. Check enrollment for this course
+  // 4. Check enrollment for this course
   const enrollment = await db.enrollment.findFirst({
     where: { userId, courseId: course.id },
   });
@@ -218,9 +210,31 @@ export async function checkCourseAccess(
     return {
       hasAccess: false,
       reason: "NOT_ENROLLED",
-      plan: activeSub.plan,
-      daysRemaining: activeSub.daysRemaining,
-      expiresAt: activeSub.endDate,
+      plan: null,
+    };
+  }
+
+  // 5. Backward-Compatible Legacy Course Access:
+  // Legitimate legacy paid students who purchased this specific course directly
+  // (recorded in Enrollment with paidAmount > 0) retain perpetual access to this course.
+  if (enrollment.paidAmount > 0) {
+    const activeSub = await getUserActiveSubscription(userId);
+    return {
+      hasAccess: true,
+      plan: activeSub?.plan ?? "BASIC",
+      daysRemaining: activeSub?.daysRemaining ?? 9999,
+      expiresAt: activeSub?.endDate ?? null,
+      isLegacyPaid: true,
+    };
+  }
+
+  // 6. Resolve active subscription for non-legacy enrollments
+  const activeSub = await getUserActiveSubscription(userId);
+  if (!activeSub) {
+    return {
+      hasAccess: false,
+      reason: "SUBSCRIPTION_EXPIRED",
+      plan: null,
     };
   }
 

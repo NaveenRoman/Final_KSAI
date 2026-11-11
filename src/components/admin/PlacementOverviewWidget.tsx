@@ -81,19 +81,26 @@ export function PlacementOverviewWidget({ placement }: PlacementOverviewWidgetPr
             <Briefcase size={16} />
           </div>
           <div>
-            <h3 className="text-sm sm:text-base font-bold text-slate-900">
-              Placement Readiness
-            </h3>
+            <div className="flex items-center gap-1.5">
+              <h3 className="text-sm sm:text-base font-bold text-slate-900">
+                Placement Readiness
+              </h3>
+              {placement.isVerified === false && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                  Data Pending
+                </span>
+              )}
+            </div>
             <p className="text-[11px] text-slate-500">
-              {placement.batchYear} · {placement.totalEligible} Eligible Candidates
+              {placement.batchYear} · {placement.isVerified === false ? "0 Verified Offers (Records Pending)" : `${placement.totalEligible} Eligible Candidates`}
             </p>
           </div>
         </div>
         <Link
-          href="/interview"
+          href="/admin/analytics"
           className="text-xs font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
         >
-          <span>View All</span>
+          <span>Deep Dive</span>
           <ArrowRight size={13} />
         </Link>
       </div>
@@ -115,21 +122,25 @@ export function PlacementOverviewWidget({ placement }: PlacementOverviewWidgetPr
               cx="50"
               cy="50"
               r={radius}
-              stroke="#10B981"
+              stroke={placement.isVerified === false ? "#CBD5E1" : "#10B981"}
               strokeWidth="9"
               strokeDasharray={circumference}
-              strokeDashoffset={strokeDashoffset}
+              strokeDashoffset={placement.isVerified === false ? circumference : strokeDashoffset}
               strokeLinecap="round"
               fill="transparent"
               className="transition-all duration-1000"
             />
           </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-2xl sm:text-3xl font-black text-slate-900 leading-tight">
-              {placement.placementRate}%
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
+            <span className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+              {placement.isVerified === false ? (
+                <span className="text-amber-600 text-lg sm:text-xl font-bold">0 Offers</span>
+              ) : (
+                `${placement.placementRate}%`
+              )}
             </span>
             <span className="text-[9px] uppercase font-bold text-slate-400 tracking-wider">
-              Placed Ratio
+              {placement.isVerified === false ? "Data Pending" : "Placed Ratio"}
             </span>
           </div>
         </div>
@@ -158,12 +169,30 @@ export function PlacementOverviewWidget({ placement }: PlacementOverviewWidgetPr
       {/* Package Stats */}
       <div className="pt-2 border-t border-slate-100 grid grid-cols-2 gap-2 text-xs">
         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Highest Package</span>
-          <div className="text-sm font-black text-emerald-600 mt-0.5">₹{placement.highestPackage} LPA</div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+              {placement.isVerified === false ? "Projected Top Offer" : "Highest Package"}
+            </span>
+            {placement.isVerified === false && (
+              <span className="text-[8px] uppercase font-bold px-1 rounded bg-amber-100 text-amber-700">Projected</span>
+            )}
+          </div>
+          <div className="text-sm font-black text-emerald-600 mt-0.5">
+            ₹{placement.isVerified === false ? (placement.targetHighestPackage ?? 12.5) : placement.highestPackage} LPA
+          </div>
         </div>
         <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block">Average Package</span>
-          <div className="text-sm font-black text-slate-800 mt-0.5">₹{placement.averagePackage} LPA</div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase font-bold text-slate-400 block">
+              {placement.isVerified === false ? "Projected Avg Offer" : "Average Package"}
+            </span>
+            {placement.isVerified === false && (
+              <span className="text-[8px] uppercase font-bold px-1 rounded bg-amber-100 text-amber-700">Projected</span>
+            )}
+          </div>
+          <div className="text-sm font-black text-slate-800 mt-0.5">
+            ₹{placement.isVerified === false ? (placement.targetAveragePackage ?? 4.6) : placement.averagePackage} LPA
+          </div>
         </div>
       </div>
     </div>

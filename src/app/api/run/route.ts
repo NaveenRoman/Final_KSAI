@@ -7,6 +7,7 @@ import { executeCode } from "@/lib/code-execution";
 import { validateCodeBeforeRun } from "@/lib/code-validator";
 import { getChallengeById } from "@/lib/challenges/challenge-bank";
 import { buildSignedExecutionEnvelope } from "@/lib/broker-signer";
+import { normalizeUserRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 25;
@@ -129,7 +130,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Authorize course or challenge access for non-admin users
-    if (user.role !== "Admin") {
+    if (normalizeUserRole(user.role) !== "SUPER_ADMIN") {
       const enrollment = await db.enrollment.findFirst({
         where: {
           userId: user.id,

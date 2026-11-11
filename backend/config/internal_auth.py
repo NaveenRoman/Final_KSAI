@@ -16,48 +16,34 @@ IS_PRODUCTION = (
 def verify_internal_auth(request) -> tuple[bool, JsonResponse | None]:
     """
     Validates X-Internal-Secret header using constant-time string comparison.
-    Fails closed in production if secret is missing (500) or token is invalid (401).
+    Fails closed in ALL environments (production and development) if secret is missing (500)
+    or token is missing/invalid (401). Zero predictable fallbacks.
     """
     secret = os.getenv("INTERNAL_API_SECRET", "")
 
-    if IS_PRODUCTION:
-        if not secret:
-            logger.error("CRITICAL: INTERNAL_API_SECRET is not configured in production mode.")
-            return False, JsonResponse(
-                {
-                    "success": False,
-                    "output": "Configuration Error: INTERNAL_API_SECRET is mandatory in production environment.",
-                    "message": "Configuration Error: INTERNAL_API_SECRET is mandatory in production environment.",
-                    "exitCode": 500,
-                },
-                status=500,
-            )
-        token = request.headers.get("X-Internal-Secret", "")
-        if not token or not hmac.compare_digest(token, secret):
-            return False, JsonResponse(
-                {
-                    "success": False,
-                    "output": "Unauthorized: Access requires internal authentication.",
-                    "message": "Unauthorized: Access requires internal authentication.",
-                    "exitCode": 401,
-                },
-                status=401,
-            )
-        return True, None
+    if not secret:
+        logger.error("CRITICAL: INTERNAL_API_SECRET is not configured in environment.")
+        return False, JsonResponse(
+            {
+                "success": False,
+                "output": "Configuration Error: INTERNAL_API_SECRET is mandatory. Configure INTERNAL_API_SECRET in the environment.",
+                "message": "Configuration Error: INTERNAL_API_SECRET is mandatory. Configure INTERNAL_API_SECRET in the environment.",
+                "exitCode": 500,
+            },
+            status=500,
+        )
 
-    # In development: enforce if secret is configured
-    if secret:
-        token = request.headers.get("X-Internal-Secret", "")
-        if not token or not hmac.compare_digest(token, secret):
-            return False, JsonResponse(
-                {
-                    "success": False,
-                    "output": "Unauthorized: Access requires internal authentication.",
-                    "message": "Unauthorized: Access requires internal authentication.",
-                    "exitCode": 401,
-                },
-                status=401,
-            )
+    token = request.headers.get("X-Internal-Secret", "")
+    if not token or not hmac.compare_digest(token, secret):
+        return False, JsonResponse(
+            {
+                "success": False,
+                "output": "Unauthorized: Access requires valid internal authentication.",
+                "message": "Unauthorized: Access requires valid internal authentication.",
+                "exitCode": 401,
+            },
+            status=401,
+        )
 
     return True, None
 

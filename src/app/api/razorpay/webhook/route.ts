@@ -34,6 +34,18 @@ interface RazorpayWebhookPayload {
     order?: {
       entity: Record<string, unknown>;
     };
+    refund?: {
+      entity: {
+        id: string;
+        entity: string;
+        amount: number;
+        currency: string;
+        payment_id: string;
+        notes?: Record<string, string>;
+        status: string;
+        created_at?: number;
+      };
+    };
   };
   created_at?: number;
 }
@@ -98,6 +110,34 @@ export async function POST(req: Request) {
 
     const eventType = body.event;
     const payment = body.payload?.payment?.entity;
+
+    // 5.1 Anti-Replay Webhook Guard: Idempotency based on x-razorpay-event-id
+    const canonicalEventId = eventId || (body as any).id || (body as any).event_id || "";
+    if (canonicalEventId) {
+      const existingEvent = await db.webhookEvent.findUnique({
+        where: { eventId: canonicalEventId },
+      });
+      if (existingEvent) {
+        return NextResponse.json(
+          { status: "already_processed", eventId: canonicalEventId },
+          { status: 200 }
+        );
+      }
+    }
+
+    const recordProcessedEvent = async (evId: string, evType: string) => {
+      if (!evId) return;
+      try {
+        await db.webhookEvent.create({
+          data: {
+            eventId: evId,
+            eventType: evType,
+          },
+        });
+      } catch (err: any) {
+        console.warn(`[Webhook] Event ${evId} already recorded:`, err.message);
+      }
+    };
 
     // 6. Handle payment.captured
     if (eventType === "payment.captured") {
@@ -221,6 +261,8 @@ export async function POST(req: Request) {
           courseIds: metaCourseIds,
         });
 
+        await recordProcessedEvent(canonicalEventId, eventType);
+
         return NextResponse.json(
           { status: "ok", processed: true, paymentId, subscriptionId: subscription.id, plan: planTier },
           { status: 200 }
@@ -321,6 +363,8 @@ export async function POST(req: Request) {
           }
         });
 
+        await recordProcessedEvent(canonicalEventId, eventType);
+
         return NextResponse.json(
           { status: "ok", processed: true, paymentId, courseId: course.id },
           { status: 200 }
@@ -365,6 +409,8 @@ export async function POST(req: Request) {
             });
           }
         });
+
+        await recordProcessedEvent(canonicalEventId, eventType);
 
         return NextResponse.json(
           { status: "ok", processed: true, paymentId, service: "resume-builder" },
@@ -441,19 +487,368 @@ export async function POST(req: Request) {
         }
       }
 
+      await recordProcessedEvent(canonicalEventId, eventType);
+
       return NextResponse.json(
         { status: "ok", event: "payment.failed", recorded: !!targetUser },
         { status: 200 }
       );
     }
 
-    // 8. Safely handle unexpected or other lifecycle event types
-    // Returning 200 prevents Razorpay from retrying endlessly for events like order.paid, refund.processed, etc.
+    // 8. Handle Refund Lifecycle: refund.created
+    if (eventType === "refund.created") {
+      const refund = body.payload?.refund?.entity;
+      if (!refund) {
+        return NextResponse.json({ error: "Missing refund entity in payload." }, { status: 400 });
+      }
+
+      const refundId = refund.id?.trim();
+      const paymentId = refund.payment_id?.trim();
+      const amountPaise = Number(refund.amount);
+      const currency = refund.currency || "INR";
+      const notes = refund.notes || {};
+
+      if (!refundId || !paymentId || isNaN(amountPaise) || amountPaise <= 0) {
+        return NextResponse.json({ error: "Invalid refund payload parameters." }, { status: 400 });
+      }
+
+      const refundAmount = amountPaise / 100;
+
+      await db.$transaction(async (tx) => {
+        const existingRefund = await tx.paymentRefund.findUnique({
+          where: { refundId },
+        });
+
+        // If already exists, do not downgrade if already PROCESSED or FAILED
+        if (existingRefund) {
+          return;
+        }
+
+        let targetUserId: string | null = null;
+        if (notes.userId) {
+          const user = await tx.user.findUnique({ where: { id: notes.userId }, select: { id: true } });
+          if (user) targetUserId = user.id;
+        }
+
+        const paymentOrder = await tx.paymentOrder.findFirst({
+          where: { paymentId },
+        });
+        if (!targetUserId && paymentOrder) targetUserId = paymentOrder.userId;
+
+        const subscription = await tx.subscription.findFirst({
+          where: { paymentId },
+        });
+        if (!targetUserId && subscription) targetUserId = subscription.userId;
+
+        // Record strictly as PENDING:
+        // - Do NOT increase PaymentOrder.amountRefunded
+        // - Do NOT mark PaymentOrder as REFUNDED or PARTIALLY_REFUNDED
+        // - Do NOT cancel subscription or revoke student access
+        await tx.paymentRefund.create({
+          data: {
+            refundId,
+            paymentId,
+            orderId: paymentOrder?.orderId || subscription?.orderId || null,
+            userId: targetUserId,
+            amountPaise,
+            amount: refundAmount,
+            currency,
+            status: "PENDING",
+            isPartial: false,
+          },
+        });
+
+        if (targetUserId) {
+          await tx.activityLog.create({
+            data: {
+              userId: targetUserId,
+              actionType: "PAYMENT_REFUND_CREATED",
+              metadata: JSON.stringify({
+                eventId: canonicalEventId,
+                refundId,
+                paymentId,
+                refundAmount,
+                status: "PENDING",
+              }),
+            },
+          });
+        }
+      });
+
+      await recordProcessedEvent(canonicalEventId, eventType);
+
+      return NextResponse.json(
+        { status: "ok", recorded: true, refundStatus: "PENDING", refundId, paymentId },
+        { status: 200 }
+      );
+    }
+
+    // 8.1 Handle Refund Lifecycle: refund.processed
+    if (eventType === "refund.processed") {
+      const refund = body.payload?.refund?.entity;
+      if (!refund) {
+        return NextResponse.json({ error: "Missing refund entity in payload." }, { status: 400 });
+      }
+
+      const refundId = refund.id?.trim();
+      const paymentId = refund.payment_id?.trim();
+      const amountPaise = Number(refund.amount);
+      const currency = refund.currency || "INR";
+      const notes = refund.notes || {};
+
+      if (!refundId || !paymentId || isNaN(amountPaise) || amountPaise <= 0) {
+        return NextResponse.json({ error: "Invalid refund payload parameters." }, { status: 400 });
+      }
+
+      const refundAmount = amountPaise / 100;
+
+      await db.$transaction(async (tx) => {
+        const existingRefund = await tx.paymentRefund.findUnique({
+          where: { refundId },
+        });
+
+        // If already marked PROCESSED, exit idempotently to prevent duplicate accounting
+        if (existingRefund && existingRefund.status === "PROCESSED") {
+          return;
+        }
+
+        let targetUserId: string | null = null;
+        if (notes.userId) {
+          const user = await tx.user.findUnique({ where: { id: notes.userId }, select: { id: true } });
+          if (user) targetUserId = user.id;
+        }
+
+        const paymentOrder = await tx.paymentOrder.findFirst({
+          where: { paymentId },
+        });
+        if (!targetUserId && paymentOrder) targetUserId = paymentOrder.userId;
+
+        const subscription = await tx.subscription.findFirst({
+          where: { paymentId },
+        });
+        if (!targetUserId && subscription) targetUserId = subscription.userId;
+
+        // Calculate cumulative PROCESSED refunds excluding this refundId
+        const otherProcessedRefunds = await tx.paymentRefund.findMany({
+          where: {
+            paymentId,
+            status: "PROCESSED",
+            refundId: { not: refundId },
+          },
+        });
+        const priorRefundedTotal = otherProcessedRefunds.reduce((sum, r) => sum + r.amount, 0);
+        const newTotalRefunded = priorRefundedTotal + refundAmount;
+
+        const originalTotal = paymentOrder?.totalAmount || subscription?.totalAmount || refundAmount;
+        const isFullRefund = newTotalRefunded >= originalTotal;
+
+        if (existingRefund) {
+          // Upgrade existing PENDING / FAILED to PROCESSED
+          await tx.paymentRefund.update({
+            where: { refundId },
+            data: {
+              status: "PROCESSED",
+              isPartial: !isFullRefund,
+              amount: refundAmount,
+              amountPaise,
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          // Out-of-order refund.processed delivered before refund.created
+          await tx.paymentRefund.create({
+            data: {
+              refundId,
+              paymentId,
+              orderId: paymentOrder?.orderId || subscription?.orderId || null,
+              userId: targetUserId,
+              amountPaise,
+              amount: refundAmount,
+              currency,
+              status: "PROCESSED",
+              isPartial: !isFullRefund,
+            },
+          });
+        }
+
+        // Update PaymentOrder
+        if (paymentOrder) {
+          await tx.paymentOrder.update({
+            where: { id: paymentOrder.id },
+            data: {
+              status: isFullRefund ? "REFUNDED" : "PARTIALLY_REFUNDED",
+              refundStatus: isFullRefund ? "FULL" : "PARTIAL",
+              amountRefunded: newTotalRefunded,
+              updatedAt: new Date(),
+            },
+          });
+        }
+
+        // Only cancel subscription if cumulative successfully processed refunds reach full payment amount
+        if (subscription && isFullRefund) {
+          await tx.subscription.update({
+            where: { id: subscription.id },
+            data: {
+              status: "CANCELLED",
+              updatedAt: new Date(),
+            },
+          });
+        }
+
+        if (targetUserId) {
+          await tx.activityLog.create({
+            data: {
+              userId: targetUserId,
+              actionType: "PAYMENT_REFUND_PROCESSED",
+              metadata: JSON.stringify({
+                eventId: canonicalEventId,
+                refundId,
+                paymentId,
+                refundAmount,
+                newTotalRefunded,
+                isFullRefund,
+                orderId: paymentOrder?.orderId || null,
+              }),
+            },
+          });
+        }
+      });
+
+      await recordProcessedEvent(canonicalEventId, eventType);
+
+      return NextResponse.json(
+        { status: "ok", processed: true, refundStatus: "PROCESSED", refundId, paymentId, refundAmount },
+        { status: 200 }
+      );
+    }
+
+    // 8.2 Handle Refund Lifecycle: refund.failed
+    if (eventType === "refund.failed") {
+      const refund = body.payload?.refund?.entity;
+      if (!refund) {
+        return NextResponse.json({ error: "Missing refund entity in payload." }, { status: 400 });
+      }
+
+      const refundId = refund.id?.trim();
+      const paymentId = refund.payment_id?.trim();
+      const amountPaise = Number(refund.amount);
+      const currency = refund.currency || "INR";
+      const notes = refund.notes || {};
+
+      if (!refundId || !paymentId) {
+        return NextResponse.json({ error: "Invalid refund payload parameters." }, { status: 400 });
+      }
+
+      const refundAmount = !isNaN(amountPaise) && amountPaise > 0 ? amountPaise / 100 : 0;
+
+      await db.$transaction(async (tx) => {
+        const existingRefund = await tx.paymentRefund.findUnique({
+          where: { refundId },
+        });
+
+        // CRITICAL INVARIANT: A previously PROCESSED refund must NEVER be downgraded to FAILED by a late event
+        if (existingRefund && existingRefund.status === "PROCESSED") {
+          console.warn(`[Razorpay Webhook] Ignoring refund.failed for already PROCESSED refund: ${refundId}`);
+          return;
+        }
+
+        let targetUserId: string | null = null;
+        if (notes.userId) {
+          const user = await tx.user.findUnique({ where: { id: notes.userId }, select: { id: true } });
+          if (user) targetUserId = user.id;
+        }
+
+        const paymentOrder = await tx.paymentOrder.findFirst({
+          where: { paymentId },
+        });
+        if (!targetUserId && paymentOrder) targetUserId = paymentOrder.userId;
+
+        const subscription = await tx.subscription.findFirst({
+          where: { paymentId },
+        });
+        if (!targetUserId && subscription) targetUserId = subscription.userId;
+
+        if (existingRefund) {
+          // Update PENDING to FAILED
+          await tx.paymentRefund.update({
+            where: { refundId },
+            data: {
+              status: "FAILED",
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          // Record directly as FAILED
+          await tx.paymentRefund.create({
+            data: {
+              refundId,
+              paymentId,
+              orderId: paymentOrder?.orderId || subscription?.orderId || null,
+              userId: targetUserId,
+              amountPaise,
+              amount: refundAmount,
+              currency,
+              status: "FAILED",
+              isPartial: false,
+            },
+          });
+        }
+
+        // Do NOT deduct from financial totals (status is FAILED, so filtered out)
+        // Do NOT cancel subscription
+
+        if (targetUserId) {
+          await tx.activityLog.create({
+            data: {
+              userId: targetUserId,
+              actionType: "PAYMENT_REFUND_FAILED",
+              metadata: JSON.stringify({
+                eventId: canonicalEventId,
+                refundId,
+                paymentId,
+                status: "FAILED",
+              }),
+            },
+          });
+        }
+      });
+
+      await recordProcessedEvent(canonicalEventId, eventType);
+
+      return NextResponse.json(
+        { status: "ok", recorded: true, refundStatus: "FAILED", refundId, paymentId },
+        { status: 200 }
+      );
+    }
+
+    // 9. Safely handle unexpected or other lifecycle event types
+    // Returning 200 prevents Razorpay from retrying endlessly for unhandled event types
     return NextResponse.json(
       { status: "ignored", event: eventType },
       { status: 200 }
     );
   } catch (error: unknown) {
+    // FIX 3: Safely handle Prisma unique constraint collision (P2002) for concurrent webhook requests
+    if (
+      error instanceof Error &&
+      (error as any).code === "P2002"
+    ) {
+      const target = (error as any).meta?.target;
+      const isTargetMatched =
+        (Array.isArray(target) && (target.includes("eventId") || target.includes("refundId"))) ||
+        (typeof target === "string" && (target.includes("eventId") || target.includes("refundId"))) ||
+        error.message.includes("eventId") ||
+        error.message.includes("refundId");
+
+      if (isTargetMatched) {
+        console.info(`[Razorpay Webhook] Duplicate concurrency collision safely resolved for event`);
+        return NextResponse.json(
+          { status: "already_processed", message: "Concurrent duplicate event safely acknowledged" },
+          { status: 200 }
+        );
+      }
+    }
+
     console.error("[Razorpay Webhook Error]:", error);
     return NextResponse.json(
       { error: "Internal webhook processing error." },

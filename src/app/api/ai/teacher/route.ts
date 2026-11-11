@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { logUserActivity } from "@/lib/progression";
+import { logAiTelemetry } from "@/lib/ai/gemini-client";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ function getMode(
 }
 
 export async function POST(req: Request) {
+  let telemetryLogged = false;
   try {
     const body = await req.json();
 
@@ -271,6 +273,7 @@ export async function POST(req: Request) {
     // 6. CALL DJANGO TEACHING ENGINE
     // --------------------------------------------------
 
+    const startTime = Date.now();
     const djangoResponse =
       await fetch(
         DJANGO_TEACH_URL,
@@ -313,8 +316,28 @@ export async function POST(req: Request) {
         },
       );
 
+    const latencyMs = Date.now() - startTime;
     const djangoResult =
       await djangoResponse.json();
+
+    if (!telemetryLogged) {
+      telemetryLogged = true;
+      const promptTokens = typeof djangoResult?.usage?.prompt_tokens === "number" ? djangoResult.usage.prompt_tokens : null;
+      const completionTokens = typeof djangoResult?.usage?.completion_tokens === "number" ? djangoResult.usage.completion_tokens : null;
+      logAiTelemetry({
+        timestamp: new Date().toISOString(),
+        service: "teacher",
+        studentId: user?.id || "anonymous",
+        provider: djangoResult?.provider || (djangoResult?.data?.provider) || "django",
+        model: djangoResult?.model || (djangoResult?.data?.model) || "django-teaching-engine",
+        attempt: 1,
+        latencyMs,
+        status: djangoResponse.status,
+        error: djangoResponse.ok ? undefined : (djangoResult?.message || djangoResult?.error || `HTTP ${djangoResponse.status}`),
+        inputTokens: promptTokens,
+        outputTokens: completionTokens,
+      });
+    }
 
     if (!djangoResponse.ok) {
       console.error(
@@ -400,6 +423,23 @@ export async function POST(req: Request) {
       "Teacher API error:",
       error,
     );
+
+    if (!telemetryLogged) {
+      telemetryLogged = true;
+      logAiTelemetry({
+        timestamp: new Date().toISOString(),
+        service: "teacher",
+        studentId: "anonymous",
+        provider: "django",
+        model: "django-teaching-engine",
+        attempt: 1,
+        latencyMs: 0,
+        status: 500,
+        inputTokens: null,
+        outputTokens: null,
+        error: error instanceof Error ? error.message : "AI Teaching Engine failed.",
+      });
+    }
 
     return NextResponse.json(
       {

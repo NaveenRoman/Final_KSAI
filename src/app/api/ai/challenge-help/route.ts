@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { getChallengeById, normalizeCourseSlug } from "@/lib/challenges/challenge-bank";
+import { logAiTelemetry } from "@/lib/ai/gemini-client";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +114,8 @@ PEDAGOGICAL RULES:
 4. Give a concrete 1-2 sentence hint on how to fix it without giving away the full code.
 5. Use an encouraging, constructive tone.`;
 
+    let telemetryLogged = false;
+    const fetchStartTime = Date.now();
     try {
       const teachUrl = process.env.DJANGO_TEACH_URL || "http://127.0.0.1:8000/api/ai/teach/";
       const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -133,8 +136,29 @@ PEDAGOGICAL RULES:
         signal: AbortSignal.timeout(8000),
       });
 
+      const latencyMs = Date.now() - fetchStartTime;
+
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
+
+        if (!telemetryLogged) {
+          telemetryLogged = true;
+          const promptTokens = typeof aiData?.usage?.prompt_tokens === "number" ? aiData.usage.prompt_tokens : null;
+          const completionTokens = typeof aiData?.usage?.completion_tokens === "number" ? aiData.usage.completion_tokens : null;
+          logAiTelemetry({
+            timestamp: new Date().toISOString(),
+            service: "challenge-help",
+            studentId: user?.id || "anonymous",
+            provider: aiData?.provider || (aiData?.data?.provider) || "django",
+            model: aiData?.model || (aiData?.data?.model) || "django-teaching-engine",
+            attempt: 1,
+            latencyMs,
+            status: 200,
+            inputTokens: promptTokens,
+            outputTokens: completionTokens,
+          });
+        }
+
         const advice = aiData.explanation || aiData.message || aiData.response;
         if (advice) {
           return NextResponse.json({
@@ -143,8 +167,42 @@ PEDAGOGICAL RULES:
             hints: challenge.hints,
           });
         }
+      } else {
+        if (!telemetryLogged) {
+          telemetryLogged = true;
+          logAiTelemetry({
+            timestamp: new Date().toISOString(),
+            service: "challenge-help",
+            studentId: user?.id || "anonymous",
+            provider: "django",
+            model: "django-teaching-engine",
+            attempt: 1,
+            latencyMs,
+            status: aiResponse.status,
+            inputTokens: null,
+            outputTokens: null,
+            error: `HTTP ${aiResponse.status}`,
+          });
+        }
       }
-    } catch {
+    } catch (fetchErr: any) {
+      const latencyMs = Date.now() - fetchStartTime;
+      if (!telemetryLogged) {
+        telemetryLogged = true;
+        logAiTelemetry({
+          timestamp: new Date().toISOString(),
+          service: "challenge-help",
+          studentId: user?.id || "anonymous",
+          provider: "django",
+          model: "django-teaching-engine",
+          attempt: 1,
+          latencyMs,
+          status: 502,
+          inputTokens: null,
+          outputTokens: null,
+          error: fetchErr instanceof Error ? fetchErr.message : "Teach backend timeout/unavailable",
+        });
+      }
       // Fall through to heuristic guidance
     }
 

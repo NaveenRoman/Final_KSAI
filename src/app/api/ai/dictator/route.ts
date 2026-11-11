@@ -3,8 +3,13 @@ import { cookies, headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { db } from "@/lib/db";
+import { logAiTelemetry } from "@/lib/ai/gemini-client";
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
+  let studentId = "anonymous";
+  let telemetryLogged = false;
+
   try {
     const body = await request.json();
 
@@ -33,6 +38,7 @@ export async function POST(request: Request) {
         }
 
         if (user) {
+          studentId = user.id;
           const lang = (body.language || "python").toLowerCase();
           const topicName = body.topic || body.project || "";
 
@@ -88,6 +94,7 @@ export async function POST(request: Request) {
       body: JSON.stringify(body),
     });
 
+    const latencyMs = Date.now() - startTime;
     const contentType = response.headers.get("content-type") || "";
     let result;
     if (contentType.includes("application/json")) {
@@ -95,6 +102,26 @@ export async function POST(request: Request) {
     } else {
       const text = await response.text();
       result = { success: false, message: text || "Invalid response from AI Dictator backend." };
+    }
+
+    // Telemetry capture for Django proxy execution (single-event guarantee)
+    if (!telemetryLogged) {
+      telemetryLogged = true;
+      const promptTokens = typeof result?.usage?.prompt_tokens === "number" ? result.usage.prompt_tokens : null;
+      const completionTokens = typeof result?.usage?.completion_tokens === "number" ? result.usage.completion_tokens : null;
+      logAiTelemetry({
+        timestamp: new Date().toISOString(),
+        service: "dictate",
+        studentId,
+        provider: result?.provider || (result?.data?.provider) || "django",
+        model: result?.model || (result?.data?.model) || "django-dictator",
+        attempt: 1,
+        latencyMs,
+        status: response.status,
+        error: response.ok ? undefined : (result?.message || `HTTP ${response.status}`),
+        inputTokens: promptTokens,
+        outputTokens: completionTokens,
+      });
     }
 
     if (!response.ok) {
@@ -111,7 +138,25 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result);
   } catch (error: any) {
+    const latencyMs = Date.now() - startTime;
     console.error("Next Dictator API Error:", error);
+
+    if (!telemetryLogged) {
+      telemetryLogged = true;
+      logAiTelemetry({
+        timestamp: new Date().toISOString(),
+        service: "dictate",
+        studentId,
+        provider: "django",
+        model: "django-dictator",
+        attempt: 1,
+        latencyMs,
+        status: 502,
+        inputTokens: null,
+        outputTokens: null,
+        error: error.message || "Unable to connect to Dictator backend.",
+      });
+    }
 
     return NextResponse.json(
       {

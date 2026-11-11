@@ -56,6 +56,7 @@ model User {
   notebookPages              NotebookPage[]
   subscriptions              Subscription[]
   paymentOrders              PaymentOrder[]
+  refunds                    PaymentRefund[]
 }
 
 model Contest {
@@ -248,7 +249,9 @@ model PaymentOrder {
   totalAmount     Float     // in INR
   amountPaise     Int       // in paise
   currency        String    @default("INR")
-  status          String    @default("CREATED") // "CREATED" | "PAID" | "FAILED" | "EXPIRED"
+  status          String    @default("CREATED") // "CREATED" | "PAID" | "FAILED" | "EXPIRED" | "REFUNDED" | "PARTIALLY_REFUNDED"
+  refundStatus    String?   // null | "PARTIAL" | "FULL"
+  amountRefunded  Float     @default(0) // in INR
   receipt         String
   paymentId       String?
   signature       String?
@@ -258,6 +261,36 @@ model PaymentOrder {
 
   @@index([userId, status])
   @@index([orderId])
+}
+
+model PaymentRefund {
+  id          String   @id @default(uuid())
+  refundId    String   @unique // Razorpay refund ID (rfnd_...)
+  paymentId   String   // pay_...
+  orderId     String?  // order_...
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  amountPaise Int      // e.g. 199900
+  amount      Float    // in INR, e.g. 1999.00
+  currency    String   @default("INR")
+  status      String   @default("PROCESSED") // PROCESSED | FAILED
+  reason      String?
+  isPartial   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([paymentId])
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  eventId     String   @unique // x-razorpay-event-id or payload id
+  eventType   String
+  processedAt DateTime @default(now())
+
+  @@index([eventId])
 }
 
 model XpTransaction {
@@ -633,4 +666,35 @@ model PlacementBatch {
   updatedAt        DateTime @updatedAt
 
   @@unique([collegeId, batchYear])
+}
+
+model AiTelemetry {
+  id                 String   @id @default(uuid())
+  requestId          String?
+  provider           String   @default("google")
+  model              String
+  service            String
+  studentId          String?
+  status             Int
+  latencyMs          Int
+  endToEndLatencyMs  Int?
+  backoffMs          Int?     @default(0)
+  attempt            Int?     @default(1)
+  attemptRole        String?  @default("primary")
+  isFinal            Boolean? @default(false)
+  finalOutcome       String?
+  inputTokens        Int?
+  outputTokens       Int?
+  totalTokens        Int?
+  costUsd            Float?
+  error              String?
+  fallbackSelected   String?
+  createdAt          DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([service])
+  @@index([model])
+  @@index([status])
+  @@index([requestId])
+  @@index([isFinal])
 }
