@@ -108,6 +108,54 @@ html.light .text-slate-200 {
   color: #334155 !important;
 }
 
+/* PROTECTION: Dark subscription cards must NEVER have their white/light text inverted in light mode */
+html.light .dark-subscription-card,
+html.light .dark-subscription-card * {
+  --tw-text-opacity: 1;
+}
+
+html.light .dark-subscription-card,
+html.light .dark-subscription-card h1,
+html.light .dark-subscription-card h2,
+html.light .dark-subscription-card h3,
+html.light .dark-subscription-card h4,
+html.light .dark-subscription-card h5,
+html.light .dark-subscription-card h6,
+html.light .dark-subscription-card .text-white,
+html.light .dark-subscription-card .\!text-white,
+html.light .dark-subscription-card span,
+html.light .dark-subscription-card p,
+html.light .dark-subscription-card div,
+html.light .dark-subscription-card strong,
+html.light .dark-subscription-card li {
+  color: #FFFFFF !important;
+}
+
+html.light .dark-subscription-card .text-slate-200,
+html.light .dark-subscription-card .\!text-slate-200 {
+  color: #E2E8F0 !important;
+}
+
+html.light .dark-subscription-card .text-slate-300,
+html.light .dark-subscription-card .\!text-slate-300 {
+  color: #CBD5E1 !important;
+}
+
+html.light .dark-subscription-card .text-cyan-300,
+html.light .dark-subscription-card .\!text-cyan-300 {
+  color: #67E8F9 !important;
+}
+
+html.light .dark-subscription-card .text-cyan-400,
+html.light .dark-subscription-card .\!text-cyan-400 {
+  color: #22D3EE !important;
+}
+
+html.light .dark-subscription-card .text-emerald-400,
+html.light .dark-subscription-card .\!text-emerald-400 {
+  color: #34D399 !important;
+}
+
 html.light .gradient-text-hero {
   background: linear-gradient(135deg, #0F172A 20%, #2563EB 50%, #7C3AED 80%, #0284C7 100%);
   -webkit-background-clip: text;

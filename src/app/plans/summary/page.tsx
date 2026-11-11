@@ -213,78 +213,78 @@ function OrderSummaryContent() {
       </div>
 
       {/* Main Order Card — SUBSCRIPTION SUMMARY CARD */}
-      <div className="rounded-3xl border-2 border-cyan-500/30 bg-[#0F172A] p-6 sm:p-8 md:p-9 shadow-2xl space-y-6">
+      <div className="rounded-3xl border-2 border-cyan-500/30 bg-[#0F172A] p-6 sm:p-8 md:p-9 shadow-2xl space-y-6 dark-subscription-card">
         {/* Plan Header Pill */}
         <div className="flex items-center justify-between pb-6 border-b border-slate-800">
           <div>
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider !text-white">
               Subscription Plan
             </span>
-            <div className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5 mt-1">
+            <div className="text-xl sm:text-2xl font-black !text-white flex items-center gap-2.5 mt-1">
               <span>{summary.planName}</span>
-              <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/30 !text-white font-bold border border-cyan-500/40">
                 {summary.durationMonths} {summary.durationMonths === 1 ? "Month" : "Months"}
               </span>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-xs font-bold text-slate-400 block">Monthly Rate</span>
-            <div className="text-lg sm:text-xl font-black text-white font-mono mt-0.5">
+            <span className="text-xs font-bold !text-white block">Monthly Rate</span>
+            <div className="text-lg sm:text-xl font-black !text-white font-mono mt-0.5">
               ₹{summary.monthlyRate}/mo
             </div>
           </div>
         </div>
 
         {/* Course / Bundle Access Banner */}
-        <div className="p-4 rounded-2xl bg-[#141E33] border border-cyan-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm">
+        <div className="p-4 rounded-2xl bg-[#141E33] border border-cyan-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm">
           <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-1 rounded-md bg-cyan-500/20 text-cyan-400 font-black text-[11px] uppercase tracking-wide">
+            <span className="px-2.5 py-1 rounded-md bg-cyan-500/30 !text-white font-black text-[11px] uppercase tracking-wide">
               Access Scope
             </span>
-            <span className="font-bold text-white">
+            <span className="font-bold !text-white">
               {summary.accessDescription}
             </span>
           </div>
           {summary.selectedSubject && (
-            <span className="text-xs text-slate-300 font-medium self-start sm:self-auto">
-              Selected: <strong className="text-cyan-300 font-bold">{summary.selectedSubject}</strong>
+            <span className="text-xs !text-white font-medium self-start sm:self-auto">
+              Selected: <strong className="!text-white font-bold underline">{summary.selectedSubject}</strong>
             </span>
           )}
         </div>
 
         {/* Transparent Itemized Fee Breakdown */}
         <div className="space-y-3.5 text-xs sm:text-sm">
-          <div className="flex justify-between items-center text-slate-300">
-            <span className="font-medium">Base Subscription Amount ({summary.durationMonths} mo)</span>
-            <span className="font-mono font-bold text-white">₹{summary.basePrice.toFixed(2)}</span>
+          <div className="flex justify-between items-center">
+            <span className="font-medium !text-white">Base Subscription Amount ({summary.durationMonths} mo)</span>
+            <span className="font-mono font-bold !text-white">₹{summary.basePrice.toFixed(2)}</span>
           </div>
 
-          <div className="flex justify-between items-center text-slate-300">
+          <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <span className="font-medium">Applicable GST ({summary.gstPercentage}%)</span>
-              <span className="text-[11px] text-slate-400 font-normal">(Government tax)</span>
+              <span className="font-medium !text-white">Applicable GST ({summary.gstPercentage}%)</span>
+              <span className="text-[11px] !text-white font-normal">(Government tax)</span>
             </div>
-            <span className="font-mono font-bold text-white">₹{summary.gstAmount.toFixed(2)}</span>
+            <span className="font-mono font-bold !text-white">₹{summary.gstAmount.toFixed(2)}</span>
           </div>
 
-          <div className="flex justify-between items-center text-slate-300">
+          <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
-              <span className="font-medium">Payment Gateway Charges</span>
-              <span className="text-[11px] text-emerald-400 font-bold bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              <span className="font-medium !text-white">Payment Gateway Charges</span>
+              <span className="text-[11px] !text-white font-bold bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/40">
                 (0% Waived)
               </span>
             </div>
-            <span className="font-mono font-bold text-emerald-400">₹{summary.feeAmount.toFixed(2)}</span>
+            <span className="font-mono font-bold !text-white">₹{summary.feeAmount.toFixed(2)}</span>
           </div>
 
           <div className="pt-4 border-t border-slate-800 flex justify-between items-baseline">
             <div>
-              <span className="text-base sm:text-lg font-black text-white uppercase tracking-wider">
+              <span className="text-base sm:text-lg font-black !text-white uppercase tracking-wider">
                 Total Amount Payable
               </span>
-              <p className="text-xs text-slate-400 mt-0.5">One-time payment · No recurring charge</p>
+              <p className="text-xs !text-white mt-0.5">One-time payment · No recurring charge</p>
             </div>
-            <div className="text-3xl sm:text-4xl font-black text-cyan-400 font-mono tracking-tight">
+            <div className="text-3xl sm:text-4xl font-black !text-white font-mono tracking-tight">
               ₹{summary.totalAmount.toFixed(2)}
             </div>
           </div>
@@ -292,14 +292,14 @@ function OrderSummaryContent() {
 
         {/* Included Features Snapshot */}
         <div className="pt-5 border-t border-slate-800">
-          <span className="text-xs font-black text-white uppercase tracking-wider block mb-3">
+          <span className="text-xs font-black !text-white uppercase tracking-wider block mb-3">
             What You Get:
           </span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs sm:text-sm">
             {summary.features.map((feat, i) => (
               <div key={i} className="flex items-center gap-2.5">
                 <CheckCircle2 size={15} className="text-cyan-400 shrink-0" />
-                <span className="text-slate-200 font-medium">{feat}</span>
+                <span className="!text-white font-medium">{feat}</span>
               </div>
             ))}
           </div>
@@ -309,7 +309,7 @@ function OrderSummaryContent() {
         {errorMessage && (
           <div className="p-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 text-xs sm:text-sm flex items-center gap-2.5 font-medium">
             <AlertCircle size={16} className="shrink-0 text-red-400" />
-            <span>{errorMessage}</span>
+            <span className="!text-white">{errorMessage}</span>
           </div>
         )}
 
@@ -318,7 +318,7 @@ function OrderSummaryContent() {
           <button
             onClick={handlePayNow}
             disabled={isProcessing}
-            className={`w-full py-4.5 px-6 rounded-2xl text-base font-black text-white flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xl min-h-[54px] active:scale-[0.99] ${
+            className={`w-full py-4.5 px-6 rounded-2xl text-base font-black !text-white flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xl min-h-[54px] active:scale-[0.99] ${
               isProcessing
                 ? "bg-slate-800 cursor-not-allowed text-slate-400 border border-slate-700"
                 : "bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-400 shadow-cyan-500/20 hover:shadow-cyan-500/30"
@@ -327,26 +327,26 @@ function OrderSummaryContent() {
             {isProcessing ? (
               <>
                 <RefreshCw size={18} className="animate-spin text-cyan-300" />
-                <span>{processingStatus || "Processing Gateway Request..."}</span>
+                <span className="!text-white">{processingStatus || "Processing Gateway Request..."}</span>
               </>
             ) : (
               <>
                 <Lock size={18} className="text-white" />
-                <span>Pay ₹{summary.totalAmount.toFixed(2)} via Razorpay</span>
+                <span className="!text-white">Pay ₹{summary.totalAmount.toFixed(2)} via Razorpay</span>
               </>
             )}
           </button>
         </div>
 
         {/* Trust Badges */}
-        <div className="pt-2 flex flex-wrap items-center justify-center gap-5 text-xs text-slate-300 font-medium">
-          <span className="flex items-center gap-1.5">
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-5 text-xs !text-white font-medium">
+          <span className="flex items-center gap-1.5 !text-white font-medium">
             <ShieldCheck size={15} className="text-emerald-400" /> 256-Bit SSL Encrypted
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 !text-white font-medium">
             <CheckCircle2 size={15} className="text-cyan-400" /> Official Razorpay Gateway
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="flex items-center gap-1.5 !text-white font-medium">
             <Sparkles size={15} className="text-purple-400" /> Instant Activation
           </span>
         </div>
