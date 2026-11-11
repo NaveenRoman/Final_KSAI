@@ -9,6 +9,8 @@ import {
   TransactionStatus,
   TransactionProvenance,
 } from "@/lib/financial-service";
+import { getAdminSubscriptionsData } from "@/lib/admin/subscription-admin-service";
+import { SubscriptionManagementClient } from "@/components/admin/SubscriptionManagementClient";
 import {
   CreditCard,
   Download,
@@ -24,6 +26,7 @@ import {
   Clock,
   ArrowRight,
   TrendingUp,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -33,21 +36,33 @@ export default async function AdminSubscriptionsPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    tab?: string;
     timeframe?: string;
     status?: string;
     provenance?: string;
     search?: string;
     page?: string;
+    subPlan?: string;
+    subStatus?: string;
+    subTimeframe?: string;
+    subPage?: string;
   }>;
 }) {
   const admin = await requireAdminPage();
   const {
+    tab = "subscriptions",
     timeframe = "all",
     status = "ALL",
     provenance = "ALL",
     search = "",
     page = "1",
+    subPlan = "ALL",
+    subStatus = "ALL",
+    subTimeframe = "all",
+    subPage = "1",
   } = await searchParams;
+
+  const activeTab = tab === "ledger" ? "ledger" : "subscriptions";
 
   const validTimeframes = ["today", "7d", "30d", "3m", "1y", "all"] as const;
   const safeTimeframe = validTimeframes.includes(timeframe as any)
@@ -65,8 +80,9 @@ export default async function AdminSubscriptionsPage({
     : "ALL";
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const subPageNum = Math.max(1, parseInt(subPage, 10) || 1);
 
-  const [overview, transactionsData] = await Promise.all([
+  const [overview, transactionsData, subscriptionsData] = await Promise.all([
     getFinancialOverview(safeTimeframe),
     getReconciledTransactions({
       timeframe: safeTimeframe,
@@ -74,6 +90,14 @@ export default async function AdminSubscriptionsPage({
       provenance: safeProvenance,
       search,
       page: pageNum,
+      pageSize: 20,
+    }),
+    getAdminSubscriptionsData({
+      search,
+      plan: subPlan,
+      status: subStatus,
+      timeframe: subTimeframe,
+      page: subPageNum,
       pageSize: 20,
     }),
   ]);
@@ -182,8 +206,49 @@ export default async function AdminSubscriptionsPage({
         </div>
       )}
 
-      {/* 1. FOUR RECONCILED FINANCIAL CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* NAVIGATION TAB CONTROLLER */}
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-3 mb-6">
+        <Link
+          href="/admin/subscriptions?tab=subscriptions"
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+            activeTab === "subscriptions"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200"
+          }`}
+        >
+          <CreditCard size={15} />
+          <span>Student Subscriptions ({subscriptionsData.totalCount})</span>
+        </Link>
+
+        <Link
+          href="/admin/subscriptions?tab=ledger"
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold transition-all ${
+            activeTab === "ledger"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-50 border border-slate-200"
+          }`}
+        >
+          <Receipt size={15} />
+          <span>Financial Overview &amp; Reconciled Receipts</span>
+        </Link>
+      </div>
+
+      {activeTab === "subscriptions" ? (
+        <SubscriptionManagementClient
+          initialSubscriptions={subscriptionsData.subscriptions}
+          summaryStats={subscriptionsData.summaryStats}
+          totalCount={subscriptionsData.totalCount}
+          currentPage={subscriptionsData.page}
+          pageSize={subscriptionsData.pageSize}
+          currentSearch={search}
+          currentPlanFilter={subPlan}
+          currentStatusFilter={subStatus}
+          currentTimeframe={subTimeframe}
+        />
+      ) : (
+        <>
+          {/* 1. FOUR RECONCILED FINANCIAL CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Verified Live Revenue */}
         <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-2xs flex flex-col justify-between">
           <div>
@@ -519,6 +584,8 @@ export default async function AdminSubscriptionsPage({
           </div>
         )}
       </div>
+        </>
+      )}
     </AdminPageLayout>
   );
 }

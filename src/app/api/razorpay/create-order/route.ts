@@ -92,8 +92,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const key_id = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
-    const key_secret = process.env.RAZORPAY_KEY_SECRET;
+    const rawKeyId = process.env.RAZORPAY_KEY_ID || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "";
+    const rawKeySecret = process.env.RAZORPAY_KEY_SECRET || "";
+
+    const key_id = rawKeyId.trim().replace(/^["']|["']$/g, "");
+    const key_secret = rawKeySecret.trim().replace(/^["']|["']$/g, "");
 
     // 4. Strict fail-closed credentials check — never bypass or create mock orders
     if (!key_id || !key_secret) {

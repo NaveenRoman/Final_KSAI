@@ -3,8 +3,8 @@ import { headers, cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { parseSessionToken } from "@/lib/auth-cookie";
-import { getUserActiveSubscription } from "@/lib/subscription-service";
-import { OFFICIAL_PLANS, PlanTier } from "@/lib/subscription-config";
+import { getUserActiveSubscription, getStudentCourseProgress } from "@/lib/subscription-service";
+import { OFFICIAL_PLANS, PlanTier, calculateUpgradeSummary } from "@/lib/subscription-config";
 import { normalizeUserRole } from "@/lib/roles";
 
 export async function GET(req: Request) {
@@ -46,6 +46,7 @@ export async function GET(req: Request) {
 
     const isAdmin = normalizeUserRole(dbUser?.role) === "SUPER_ADMIN";
     const activeSub = await getUserActiveSubscription(user.id);
+    const courseProgress = await getStudentCourseProgress(user.id).catch(() => null);
 
     if (isAdmin) {
       return NextResponse.json({
@@ -60,6 +61,8 @@ export async function GET(req: Request) {
           endDate: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
         },
         features: OFFICIAL_PLANS.PRO.features,
+        courseProgress,
+        upgradeEligibility: false,
       });
     }
 
@@ -70,10 +73,24 @@ export async function GET(req: Request) {
         isAdmin: false,
         subscription: null,
         features: [],
+        courseProgress,
+        upgradeEligibility: false,
       });
     }
 
     const planConfig = OFFICIAL_PLANS[activeSub.plan as PlanTier] || OFFICIAL_PLANS.BASIC;
+
+    let upgradePreview = null;
+    let upgradeEligibility = false;
+    if (activeSub.plan === "BASIC") {
+      upgradeEligibility = true;
+      try {
+        upgradePreview = calculateUpgradeSummary({
+          activeSub,
+          targetDurationMonths: 1,
+        });
+      } catch {}
+    }
 
     return NextResponse.json({
       hasActiveSubscription: true,
@@ -81,6 +98,9 @@ export async function GET(req: Request) {
       isAdmin: false,
       subscription: activeSub,
       features: planConfig.features,
+      courseProgress,
+      upgradeEligibility,
+      upgradePreview,
     });
   } catch (error: unknown) {
     console.error("Subscription Status Fetch Error:", error);

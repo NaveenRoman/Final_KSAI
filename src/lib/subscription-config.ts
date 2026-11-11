@@ -239,3 +239,139 @@ export function calculateOrderSummary(
     selectedSubject,
   };
 }
+
+/**
+ * Accurately adds calendar months to a given date, preserving exact hours/minutes/seconds/ms
+ * and clamping month-overflow to the final day of the target month.
+ * e.g., Jan 31 + 1 month -> Feb 28 (or 29 in leap years), not March 2/3.
+ */
+export function addCalendarMonths(date: Date, months: number): Date {
+  const result = new Date(date.getTime());
+  const originalDay = result.getDate();
+  result.setMonth(result.getMonth() + months);
+  if (result.getDate() !== originalDay) {
+    // Overflow occurred (e.g. 31st of Jan -> March)
+    result.setDate(0); // Sets to last day of target month, preserving timestamp
+  }
+  return result;
+}
+
+export interface UpgradeSummary {
+  isUpgrade: true;
+  previousSubscriptionId: string;
+  currentPlan: PlanTier;
+  targetPlan: "PRO";
+  targetDurationMonths: PlanDurationMonths;
+  targetPlanName: string;
+  targetProBasePrice: number;
+  originalBasicBasePrice: number;
+  originalBasicTotal: number;
+  totalDurationMs: number;
+  remainingDurationMs: number;
+  unusedFraction: number;
+  unusedFractionPercent: number;
+  unusedBaseCredit: number;
+  netUpgradeBase: number;
+  gstPercentage: number;
+  upgradeGst: number;
+  feePercentage: number;
+  feeAmount: number;
+  totalUpgradeAmount: number;
+  amountPaise: number;
+  currency: "INR";
+  explanation: string;
+  features: string[];
+}
+
+export interface CalculateUpgradeParams {
+  activeSub: {
+    id: string;
+    plan: string;
+    durationMonths: number;
+    startDate: Date;
+    endDate: Date;
+    baseAmount?: number;
+    totalAmount: number;
+  };
+  targetDurationMonths?: unknown;
+}
+
+/**
+ * Calculates prorated upgrade from BASIC to PRO.
+ *
+ * Requirements:
+ * 1. For a same-duration, same-subject one-month example:
+ *    Basic ₹50 + 18% GST = ₹59; Pro ₹70 + 18% GST = ₹82.60; upgrade difference = ₹23.60.
+ * 2. For upgrades partway through a subscription:
+ *    Calculates unused entitlement credit proportional to the remaining duration.
+ *    Applies 18% GST consistently.
+ */
+export function calculateUpgradeSummary(params: CalculateUpgradeParams): UpgradeSummary {
+  const { activeSub } = params;
+  if (!activeSub || activeSub.plan.toUpperCase() !== "BASIC") {
+    throw new Error("Upgrade credit is only applicable for an active BASIC subscription.");
+  }
+
+  const targetDuration: PlanDurationMonths = isValidDuration(params.targetDurationMonths)
+    ? (Number(params.targetDurationMonths) as PlanDurationMonths)
+    : 1;
+
+  const proPlan = OFFICIAL_PLANS["PRO"];
+  const proPricing = proPlan.durations[targetDuration];
+  const targetProBasePrice = proPricing.basePrice; // e.g. 70 for 1 month, 200 for 4 months
+
+  const now = Date.now();
+  const startMs = new Date(activeSub.startDate).getTime();
+  const endMs = new Date(activeSub.endDate).getTime();
+  const totalDurationMs = Math.max(1, endMs - startMs);
+  const remainingDurationMs = Math.max(0, endMs - now);
+
+  const unusedFraction = Math.min(1, Math.max(0, remainingDurationMs / totalDurationMs));
+  const unusedFractionPercent = Math.round(unusedFraction * 100);
+
+  // Derive unused base credit from student's active Basic base amount
+  const basicBase = activeSub.baseAmount || 50;
+  const unusedBaseCredit = Number((basicBase * unusedFraction).toFixed(2));
+
+  // Net upgrade base price after crediting unused Basic entitlement
+  const netUpgradeBase = Number(Math.max(0, targetProBasePrice - unusedBaseCredit).toFixed(2));
+
+  const { gstPercentage, paymentFeePercentage } = getTaxConfiguration();
+  const upgradeGst = Number(((netUpgradeBase * gstPercentage) / 100).toFixed(2));
+  const feeAmount = Number(((netUpgradeBase * paymentFeePercentage) / 100).toFixed(2));
+  const totalUpgradeAmount = Number((netUpgradeBase + upgradeGst + feeAmount).toFixed(2));
+  const amountPaise = Math.round(totalUpgradeAmount * 100);
+
+  const explanation =
+    unusedFraction >= 0.99
+      ? `Full Basic entitlement credited (₹${unusedBaseCredit.toFixed(2)}). Upgrade difference: ₹${totalUpgradeAmount.toFixed(2)}.`
+      : `${unusedFractionPercent}% unused Basic entitlement credited (₹${unusedBaseCredit.toFixed(2)}). Net upgrade payable: ₹${totalUpgradeAmount.toFixed(2)}.`;
+
+  return {
+    isUpgrade: true,
+    previousSubscriptionId: activeSub.id,
+    currentPlan: "BASIC",
+    targetPlan: "PRO",
+    targetDurationMonths: targetDuration,
+    targetPlanName: proPlan.name,
+    targetProBasePrice,
+    originalBasicBasePrice: basicBase,
+    originalBasicTotal: activeSub.totalAmount,
+    totalDurationMs,
+    remainingDurationMs,
+    unusedFraction,
+    unusedFractionPercent,
+    unusedBaseCredit,
+    netUpgradeBase,
+    gstPercentage,
+    upgradeGst,
+    feePercentage: paymentFeePercentage,
+    feeAmount,
+    totalUpgradeAmount,
+    amountPaise,
+    currency: "INR",
+    explanation,
+    features: proPlan.features,
+  };
+}
+

@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       "./content/**/*.md",
     ],
   },
+  serverExternalPackages: ["nodemailer"],
   async rewrites() {
     return [
       {

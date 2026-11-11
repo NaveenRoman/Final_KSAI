@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
-import { sendOtpEmail } from "@/lib/email-template";
+import { sendOtpEmail, getEmailDiagnostics } from "@/lib/email-template";
+
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  const diagnostics = getEmailDiagnostics();
+  return NextResponse.json({
+    status: "ok",
+    service: "KnowledgeStream AI Authentication Mailer",
+    diagnostics,
+  });
+}
 
 export async function POST(req: Request) {
   try {
@@ -76,22 +87,49 @@ export async function POST(req: Request) {
     });
 
     if (!emailResult.ok) {
+      // Clean up the unsent verification record so a delivery failure does not block the user with a 60s cooldown
+      try {
+        await db.verification.deleteMany({
+          where: { identifier },
+        });
+      } catch (cleanupErr) {
+        console.error("[OTP SEND] Error cleaning up unsent verification record:", cleanupErr);
+      }
+
+      const diag = getEmailDiagnostics();
+      console.error("[OTP SEND] Delivery failure:", {
+        recipientDomain: cleanEmail.split("@")[1] || "unknown",
+        reason: emailResult.reason,
+        activeProvider: diag.activeProvider,
+        smtpConfigured: diag.smtp.configured,
+        resendConfigured: diag.resend.configured,
+        errorDetail: emailResult.errorDetail,
+      });
+
       if (emailResult.reason === "missing-provider") {
         return NextResponse.json(
-          { error: "Email delivery service is currently not configured. Please contact support." },
+          {
+            error:
+              "Email delivery service is currently not configured on the server. Please configure SMTP_USER/SMTP_PASS or RESEND_API_KEY.",
+          },
           { status: 503 }
         );
       }
+
       return NextResponse.json(
-        { error: "Failed to deliver verification email. Please check your email address or try again shortly." },
+        {
+          error:
+            "Failed to deliver verification email. Please check your email address or try again shortly.",
+        },
         { status: 502 }
       );
     }
 
-    console.log(`[OTP SENT] ${cleanEmail} | purpose=${purpose}`);
+    console.log(`[OTP SENT] ${cleanEmail} | purpose=${purpose} | provider=${emailResult.provider}`);
 
     return NextResponse.json({
       success: true,
+      provider: emailResult.provider,
       message: "Verification code sent successfully. We have sent a verification code to your email. Please check your inbox.",
     });
   } catch (error) {

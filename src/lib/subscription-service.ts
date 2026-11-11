@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { Prisma } from "@/generated/client";
-import { PlanTier, PlanDurationMonths } from "./subscription-config";
+import { PlanTier, PlanDurationMonths, addCalendarMonths } from "./subscription-config";
 import { FREE_COURSE_TEST_MODE } from "@/lib/course-config";
 import { normalizeUserRole } from "@/lib/roles";
 
@@ -14,6 +14,7 @@ export interface ActiveSubscriptionInfo {
   daysRemaining: number;
   orderId: string | null;
   paymentId: string | null;
+  baseAmount?: number;
   totalAmount: number;
 }
 
@@ -56,6 +57,7 @@ export async function getUserActiveSubscription(
     daysRemaining,
     orderId: sub.orderId,
     paymentId: sub.paymentId,
+    baseAmount: sub.baseAmount,
     totalAmount: sub.totalAmount,
   };
 }
@@ -350,10 +352,13 @@ export interface ActivateSubscriptionParams {
   totalAmount: number;
   subject?: string | null;
   courseIds?: string[];
+  isUpgrade?: boolean;
+  previousSubscriptionId?: string | null;
+  isRenewal?: boolean;
 }
 
 /**
- * Atomically activates or extends a subscription within a serializable transaction,
+ * Atomically activates, renews, or upgrades a subscription within a serializable transaction,
  * and grants the corresponding course enrollments according to plan rules:
  * - BASIC 1 month: selected subject only
  * - BASIC 4 months: all 4 subjects (Python, Java, C, C++)
@@ -373,6 +378,8 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
     totalAmount,
     subject,
     courseIds,
+    isUpgrade: paramIsUpgrade,
+    previousSubscriptionId: paramPrevSubId,
   } = params;
 
   return await db.$transaction(
@@ -393,30 +400,74 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
         data: { updatedAt: new Date() },
       });
 
-      // 3. Calculate start & end dates
-      const now = new Date();
-      let startDate = now;
+      // 3. Inspect PaymentOrder metadata for upgrade flags if not passed directly
+      let isUpgrade = paramIsUpgrade || false;
+      let previousSubscriptionId = paramPrevSubId || null;
 
-      // Check if user currently has an active subscription for the same plan
-      const currentActive = await tx.subscription.findFirst({
-        where: {
-          userId,
-          plan,
-          status: "ACTIVE",
-          endDate: { gte: now },
-        },
-        orderBy: { endDate: "desc" },
-      });
-
-      if (currentActive && currentActive.endDate > now) {
-        // Extend seamlessly from current expiration
-        startDate = currentActive.endDate;
+      if (!isUpgrade && orderId) {
+        const po = await tx.paymentOrder.findUnique({ where: { orderId } });
+        if (po?.metadata) {
+          try {
+            const meta = JSON.parse(po.metadata);
+            if (meta.isUpgrade) {
+              isUpgrade = true;
+              previousSubscriptionId = meta.previousSubscriptionId || null;
+            }
+          } catch {}
+        }
       }
 
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + durationMonths);
+      // 4. Calculate start & end dates
+      const now = new Date();
+      let startDate = now;
+      let isRenewal = false;
 
-      // 4. Create new Subscription record
+      if (isUpgrade) {
+        // Upgrade flow:
+        // Transition previous active Basic subscription status to "UPGRADED"
+        const prevSub = previousSubscriptionId
+          ? await tx.subscription.findUnique({ where: { id: previousSubscriptionId } })
+          : await tx.subscription.findFirst({
+              where: {
+                userId,
+                plan: "BASIC",
+                status: "ACTIVE",
+                endDate: { gte: now },
+              },
+              orderBy: { endDate: "desc" },
+            });
+
+        if (prevSub && prevSub.userId === userId && prevSub.status === "ACTIVE") {
+          await tx.subscription.update({
+            where: { id: prevSub.id },
+            data: { status: "UPGRADED", updatedAt: now },
+          });
+        }
+        startDate = now;
+      } else {
+        // Renewal / Extension flow:
+        // Check if user currently has an active subscription for the same plan
+        const currentActive = await tx.subscription.findFirst({
+          where: {
+            userId,
+            plan,
+            status: "ACTIVE",
+            endDate: { gte: now },
+          },
+          orderBy: { endDate: "desc" },
+        });
+
+        if (currentActive && currentActive.endDate > now) {
+          // Extend seamlessly from current expiration
+          startDate = currentActive.endDate;
+          isRenewal = true;
+        }
+      }
+
+      // Robust calendar-month expiry semantics (prevents month-overflow bugs)
+      const endDate = addCalendarMonths(startDate, durationMonths);
+
+      // 5. Create new Subscription record
       const newSubscription = await tx.subscription.create({
         data: {
           userId,
@@ -435,7 +486,7 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
         },
       });
 
-      // 5. Resolve Courses to Enroll Based on Plan Rules
+      // 6. Resolve Courses to Enroll Based on Plan Rules
       let targetCourses: Array<{ id: string; title: string; price: number }> = [];
 
       if (courseIds && courseIds.length > 0) {
@@ -466,7 +517,7 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
         }
       }
 
-      // 6. Grant Enrollments Idempotently
+      // 7. Grant Enrollments Idempotently
       const enrolledCourseIds: string[] = [];
       const splitAmount = targetCourses.length > 0 ? totalAmount / targetCourses.length : totalAmount;
 
@@ -494,7 +545,7 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
         }
       }
 
-      // 7. Update PaymentOrder status to PAID if it exists
+      // 8. Update PaymentOrder status to PAID if it exists
       await tx.paymentOrder.updateMany({
         where: { orderId },
         data: {
@@ -504,11 +555,17 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
         },
       });
 
-      // 8. Record persistent audit log
+      // 9. Record persistent audit log
+      const actionType = isUpgrade
+        ? "SUBSCRIPTION_UPGRADED"
+        : isRenewal
+        ? "SUBSCRIPTION_RENEWED"
+        : "SUBSCRIPTION_ACTIVATED";
+
       await tx.activityLog.create({
         data: {
           userId,
-          actionType: "SUBSCRIPTION_ACTIVATED",
+          actionType,
           metadata: JSON.stringify({
             subscriptionId: newSubscription.id,
             plan,
@@ -520,6 +577,9 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
             endDate: endDate.toISOString(),
             enrolledCourseIds,
             subject: subject || null,
+            isUpgrade,
+            previousSubscriptionId,
+            isRenewal,
           }),
         },
       });
@@ -530,4 +590,90 @@ export async function activateSubscriptionRecord(params: ActivateSubscriptionPar
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     }
   );
+}
+
+export interface CourseProgressDetail {
+  courseId: string;
+  title: string;
+  language: string;
+  progressPercentage: number;
+  completedChapters: number;
+  totalChapters: number;
+}
+
+export interface StudentProgressSummary {
+  overallPercentage: number;
+  completedChaptersCount: number;
+  totalChaptersCount: number;
+  courses: CourseProgressDetail[];
+}
+
+/**
+ * Computes live course completion percentage and chapter counts for a student.
+ */
+export async function getStudentCourseProgress(
+  userId: string,
+  targetCourseIds?: string[]
+): Promise<StudentProgressSummary> {
+  const whereCourses =
+    targetCourseIds && targetCourseIds.length > 0
+      ? { id: { in: targetCourseIds } }
+      : undefined;
+
+  const courses = await db.course.findMany({
+    where: whereCourses,
+    include: {
+      chapters: {
+        select: { id: true, orderNumber: true, title: true },
+        orderBy: { orderNumber: "asc" },
+      },
+      enrollments: {
+        where: { userId },
+        select: { id: true, progress: true },
+      },
+    },
+  });
+
+  const allChapterIds = courses.flatMap((c) => c.chapters.map((ch) => ch.id));
+  const chapterProgresses = await db.chapterProgress.findMany({
+    where: {
+      userId,
+      chapterId: { in: allChapterIds },
+      isCompleted: true,
+    },
+    select: { chapterId: true, quizScore: true, codeSolved: true },
+  });
+
+  const completedSet = new Set(chapterProgresses.map((cp) => cp.chapterId));
+
+  let totalChapters = 0;
+  let totalCompleted = 0;
+
+  const courseDetails: CourseProgressDetail[] = courses.map((course) => {
+    const courseChapters = course.chapters.length;
+    const completedInCourse = course.chapters.filter((ch) => completedSet.has(ch.id)).length;
+    const pct = courseChapters > 0 ? Math.round((completedInCourse / courseChapters) * 100) : 0;
+
+    totalChapters += courseChapters;
+    totalCompleted += completedInCourse;
+
+    return {
+      courseId: course.id,
+      title: course.title,
+      language: course.language,
+      progressPercentage: pct,
+      completedChapters: completedInCourse,
+      totalChapters: courseChapters,
+    };
+  });
+
+  const overallPercentage =
+    totalChapters > 0 ? Math.round((totalCompleted / totalChapters) * 100) : 0;
+
+  return {
+    overallPercentage,
+    completedChaptersCount: totalCompleted,
+    totalChaptersCount: totalChapters,
+    courses: courseDetails,
+  };
 }
