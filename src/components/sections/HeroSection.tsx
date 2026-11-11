@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { motion } from "framer-motion";
 import { HeroCoreCanvas } from "../canvas/HeroCoreCanvas";
-import { Sparkles, Play, ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { Sparkles, Play, ArrowRight, ShieldCheck } from "lucide-react";
 
 export function HeroSection() {
   return (
@@ -23,22 +22,19 @@ export function HeroSection() {
           className="lg:col-span-6 space-y-8 text-left z-20"
         >
           {/* Top Pill Badge */}
-          <Link
-            href="/showcase"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-cyan-500/30 shadow-lg shadow-cyan-500/10 hover:border-cyan-400/50 transition cursor-pointer group"
-          >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel border border-cyan-500/30 shadow-lg shadow-cyan-500/10">
             <span className="flex h-2 w-2 relative">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
             </span>
             <span className="text-xs font-semibold tracking-wider text-cyan-300 uppercase">
-              Codexa Showcase Edition
+              Next-Gen Learning Platform
             </span>
             <span className="text-slate-500">|</span>
-            <span className="text-xs text-slate-300 flex items-center gap-1 group-hover:text-cyan-200 transition-colors">
-              <Sparkles size={12} className="text-yellow-400" /> Click to Launch &rarr;
+            <span className="text-xs text-slate-300 flex items-center gap-1">
+              <Sparkles size={12} className="text-cyan-400" /> Powered by AI
             </span>
-          </Link>
+          </div>
 
           {/* Headline */}
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1]">
@@ -56,20 +52,12 @@ export function HeroSection() {
 
           {/* Buttons */}
           <div className="flex flex-wrap items-center gap-3.5 pt-2">
-            <Link
-              href="/showcase"
-              className="px-7 py-4 rounded-full text-base font-bold text-white bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 glow-btn flex items-center gap-2.5 group shadow-xl shadow-cyan-500/25 border border-cyan-400/40 hover:scale-105 transition-all"
-            >
-              <Sparkles size={18} className="text-cyan-300 animate-pulse" />
-              <span>Launch Showcase</span>
-              <ArrowRight size={17} className="group-hover:translate-x-1.5 transition-transform" />
-            </Link>
-
             <a
-              href="#pricing"
-              className="px-6 py-4 rounded-full text-base font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 flex items-center gap-2.5 group shadow-lg shadow-blue-500/15 transition-all"
+              href="/auth"
+              className="px-7 py-4 rounded-full text-base font-bold text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 glow-btn flex items-center gap-2.5 group shadow-xl shadow-cyan-500/25 border border-cyan-400/40 hover:scale-105 transition-all"
             >
-              Start Free
+              <span>Get Started Free</span>
+              <ArrowRight size={17} className="group-hover:translate-x-1.5 transition-transform" />
             </a>
 
             <a
@@ -80,6 +68,13 @@ export function HeroSection() {
                 <Play size={13} className="fill-cyan-400 ml-0.5" />
               </div>
               Watch Demo
+            </a>
+
+            <a
+              href="#pricing"
+              className="px-6 py-4 rounded-full text-base font-medium text-slate-300 hover:text-white hover:bg-white/5 border border-white/10 transition-all flex items-center gap-2"
+            >
+              View Plans
             </a>
           </div>
 

@@ -22,8 +22,8 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: (process.env.GOOGLE_CLIENT_ID || "").trim().replace(/^["']|["']$/g, ""),
+      clientSecret: (process.env.GOOGLE_CLIENT_SECRET || "").trim().replace(/^["']|["']$/g, ""),
     },
   },
   user: {
@@ -47,20 +47,21 @@ export const auth = betterAuth({
   },
   account: {
     storeStateStrategy: "database",
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google"],
+    },
   },
   baseURL:
-    process.env.BETTER_AUTH_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}`
-      : "https://www.knowledgestreamai.com"),
+    (process.env.NODE_ENV === "production" || process.env.VERCEL === "1")
+      ? "https://www.knowledgestreamai.com"
+      : process.env.BETTER_AUTH_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   trustedOrigins: [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://knowledgestreamai.com",
     "https://www.knowledgestreamai.com",
+    "https://final-ksai.vercel.app",
     ...(process.env.NEXT_PUBLIC_APP_URL ? [process.env.NEXT_PUBLIC_APP_URL] : []),
     ...(process.env.BETTER_AUTH_URL ? [process.env.BETTER_AUTH_URL] : []),
     ...(process.env.VERCEL_URL ? [`https://${process.env.VERCEL_URL}`] : []),
