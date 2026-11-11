@@ -196,49 +196,49 @@ function OrderSummaryContent() {
             }`
           )
         }
-        className="inline-flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-white transition-colors mb-8 cursor-pointer"
+        className="inline-flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-300 hover:text-white transition-colors mb-8 cursor-pointer"
       >
-        <ArrowLeft size={14} /> Back to Duration Selection
+        <ArrowLeft size={15} /> Back to Duration Selection
       </button>
 
       {/* Header */}
       <div className="text-center max-w-xl mx-auto mb-10 space-y-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-cyan-400 text-xs font-bold uppercase tracking-wider">
+        <div className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-500/15 border border-cyan-500/30 text-cyan-400 text-xs font-bold uppercase tracking-wider">
           <CreditCard size={13} /> Step 3 of 3: Order Summary
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-white">Review Your Subscription</h1>
-        <p className="text-slate-400 text-xs">
+        <p className="text-slate-300 text-xs sm:text-sm font-medium">
           Transparent pricing breakdown before gateway checkout. No hidden fees.
         </p>
       </div>
 
-      {/* Main Order Card */}
-      <div className="rounded-3xl border border-white/10 bg-[#0E0E14]/90 p-6 sm:p-8 shadow-2xl space-y-6">
+      {/* Main Order Card — SUBSCRIPTION SUMMARY CARD */}
+      <div className="rounded-3xl border-2 border-cyan-500/30 bg-[#0F172A] p-6 sm:p-8 md:p-9 shadow-2xl space-y-6">
         {/* Plan Header Pill */}
-        <div className="flex items-center justify-between pb-6 border-b border-white/10">
+        <div className="flex items-center justify-between pb-6 border-b border-slate-800">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
               Subscription Plan
             </span>
-            <div className="text-xl font-black text-white flex items-center gap-2 mt-0.5">
+            <div className="text-xl sm:text-2xl font-black text-white flex items-center gap-2.5 mt-1">
               <span>{summary.planName}</span>
-              <span className="text-xs px-2 py-0.5 rounded-md bg-blue-500/20 text-cyan-300 font-bold border border-cyan-500/30">
+              <span className="text-xs px-2.5 py-1 rounded-lg bg-blue-500/20 text-cyan-300 font-bold border border-cyan-500/30">
                 {summary.durationMonths} {summary.durationMonths === 1 ? "Month" : "Months"}
               </span>
             </div>
           </div>
           <div className="text-right">
-            <span className="text-[10px] font-bold text-slate-400">Monthly Rate</span>
-            <div className="text-base font-black text-slate-300 font-mono">
+            <span className="text-xs font-bold text-slate-400 block">Monthly Rate</span>
+            <div className="text-lg sm:text-xl font-black text-white font-mono mt-0.5">
               ₹{summary.monthlyRate}/mo
             </div>
           </div>
         </div>
 
         {/* Course / Bundle Access Banner */}
-        <div className="p-3.5 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-cyan-300 font-black text-[10px] uppercase">
+        <div className="p-4 rounded-2xl bg-[#141E33] border border-cyan-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm">
+          <div className="flex items-center gap-2.5">
+            <span className="px-2.5 py-1 rounded-md bg-cyan-500/20 text-cyan-400 font-black text-[11px] uppercase tracking-wide">
               Access Scope
             </span>
             <span className="font-bold text-white">
@@ -246,58 +246,60 @@ function OrderSummaryContent() {
             </span>
           </div>
           {summary.selectedSubject && (
-            <span className="text-[11px] text-slate-300 font-semibold self-start sm:self-auto">
-              Selected: <strong className="text-cyan-300">{summary.selectedSubject}</strong>
+            <span className="text-xs text-slate-300 font-medium self-start sm:self-auto">
+              Selected: <strong className="text-cyan-300 font-bold">{summary.selectedSubject}</strong>
             </span>
           )}
         </div>
 
         {/* Transparent Itemized Fee Breakdown */}
-        <div className="space-y-3 text-xs">
+        <div className="space-y-3.5 text-xs sm:text-sm">
           <div className="flex justify-between items-center text-slate-300">
-            <span>Base Subscription Amount ({summary.durationMonths} mo)</span>
+            <span className="font-medium">Base Subscription Amount ({summary.durationMonths} mo)</span>
             <span className="font-mono font-bold text-white">₹{summary.basePrice.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-between items-center text-slate-300">
-            <span className="flex items-center gap-1.5">
-              <span>Applicable GST ({summary.gstPercentage}%)</span>
-              <span className="text-[10px] text-slate-500">(Government tax)</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Applicable GST ({summary.gstPercentage}%)</span>
+              <span className="text-[11px] text-slate-400 font-normal">(Government tax)</span>
+            </div>
             <span className="font-mono font-bold text-white">₹{summary.gstAmount.toFixed(2)}</span>
           </div>
 
           <div className="flex justify-between items-center text-slate-300">
-            <span className="flex items-center gap-1.5">
-              <span>Payment Gateway Charges</span>
-              <span className="text-[10px] text-emerald-400 font-bold">(0% Waived)</span>
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Payment Gateway Charges</span>
+              <span className="text-[11px] text-emerald-400 font-bold bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                (0% Waived)
+              </span>
+            </div>
             <span className="font-mono font-bold text-emerald-400">₹{summary.feeAmount.toFixed(2)}</span>
           </div>
 
-          <div className="pt-3 border-t border-white/10 flex justify-between items-baseline">
+          <div className="pt-4 border-t border-slate-800 flex justify-between items-baseline">
             <div>
-              <span className="text-sm font-black text-white uppercase tracking-wider">
+              <span className="text-base sm:text-lg font-black text-white uppercase tracking-wider">
                 Total Amount Payable
               </span>
-              <p className="text-[10px] text-slate-400">One-time payment · No recurring charge</p>
+              <p className="text-xs text-slate-400 mt-0.5">One-time payment · No recurring charge</p>
             </div>
-            <div className="text-2xl sm:text-3xl font-black text-cyan-400 font-mono">
+            <div className="text-3xl sm:text-4xl font-black text-cyan-400 font-mono tracking-tight">
               ₹{summary.totalAmount.toFixed(2)}
             </div>
           </div>
         </div>
 
         {/* Included Features Snapshot */}
-        <div className="pt-4 border-t border-white/10">
-          <span className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider block mb-2.5">
+        <div className="pt-5 border-t border-slate-800">
+          <span className="text-xs font-black text-white uppercase tracking-wider block mb-3">
             What You Get:
           </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-slate-300">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs sm:text-sm">
             {summary.features.map((feat, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <CheckCircle2 size={13} className="text-cyan-400 shrink-0" />
-                <span className="truncate">{feat}</span>
+              <div key={i} className="flex items-center gap-2.5">
+                <CheckCircle2 size={15} className="text-cyan-400 shrink-0" />
+                <span className="text-slate-200 font-medium">{feat}</span>
               </div>
             ))}
           </div>
@@ -305,31 +307,31 @@ function OrderSummaryContent() {
 
         {/* Error Banner */}
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs flex items-center gap-2">
-            <AlertCircle size={15} className="shrink-0 text-red-400" />
+          <div className="p-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-200 text-xs sm:text-sm flex items-center gap-2.5 font-medium">
+            <AlertCircle size={16} className="shrink-0 text-red-400" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {/* Pay Now Button */}
-        <div className="pt-2">
+        <div className="pt-3">
           <button
             onClick={handlePayNow}
             disabled={isProcessing}
-            className={`w-full py-4 rounded-2xl text-sm font-black text-white flex items-center justify-center gap-2 transition-all cursor-pointer ${
+            className={`w-full py-4.5 px-6 rounded-2xl text-base font-black text-white flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xl min-h-[54px] active:scale-[0.99] ${
               isProcessing
-                ? "bg-slate-700 cursor-not-allowed text-slate-400"
-                : "bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 shadow-xl shadow-blue-500/25"
+                ? "bg-slate-800 cursor-not-allowed text-slate-400 border border-slate-700"
+                : "bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-400 shadow-cyan-500/20 hover:shadow-cyan-500/30"
             }`}
           >
             {isProcessing ? (
               <>
-                <RefreshCw size={16} className="animate-spin text-cyan-300" />
+                <RefreshCw size={18} className="animate-spin text-cyan-300" />
                 <span>{processingStatus || "Processing Gateway Request..."}</span>
               </>
             ) : (
               <>
-                <Lock size={15} className="text-cyan-300" />
+                <Lock size={18} className="text-white" />
                 <span>Pay ₹{summary.totalAmount.toFixed(2)} via Razorpay</span>
               </>
             )}
@@ -337,15 +339,15 @@ function OrderSummaryContent() {
         </div>
 
         {/* Trust Badges */}
-        <div className="pt-2 flex flex-wrap items-center justify-center gap-4 text-[10px] text-slate-500 font-semibold">
-          <span className="flex items-center gap-1">
-            <ShieldCheck size={13} className="text-emerald-500" /> 256-Bit SSL Encrypted
+        <div className="pt-2 flex flex-wrap items-center justify-center gap-5 text-xs text-slate-300 font-medium">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck size={15} className="text-emerald-400" /> 256-Bit SSL Encrypted
           </span>
-          <span className="flex items-center gap-1">
-            <CheckCircle2 size={13} className="text-blue-500" /> Official Razorpay Gateway
+          <span className="flex items-center gap-1.5">
+            <CheckCircle2 size={15} className="text-cyan-400" /> Official Razorpay Gateway
           </span>
-          <span className="flex items-center gap-1">
-            <Sparkles size={13} className="text-purple-400" /> Instant Activation
+          <span className="flex items-center gap-1.5">
+            <Sparkles size={15} className="text-purple-400" /> Instant Activation
           </span>
         </div>
       </div>

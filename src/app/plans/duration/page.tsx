@@ -123,7 +123,7 @@ function DurationContent() {
         </div>
       </div>
 
-      {/* DURATION CARDS GRID - LIGHT, CLEAN, HIGH-CONTRAST */}
+      {/* DURATION CARDS GRID - CLEAN DARK NAVY, HIGH-CONTRAST */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6 mb-8 max-w-3xl mx-auto items-stretch">
         {durationsList.map((dur) => {
           const pricing = planConfig.durations[dur];
@@ -134,15 +134,15 @@ function DurationContent() {
             <div
               key={dur}
               onClick={() => setUserDuration(dur)}
-              className={`rounded-3xl p-6 sm:p-7 border-2 cursor-pointer transition-all duration-200 relative flex flex-col justify-between text-slate-900 ${
+              className={`rounded-3xl p-6 sm:p-7 border-2 cursor-pointer transition-all duration-200 relative flex flex-col justify-between ${
                 isSelected
-                  ? "bg-white border-indigo-600 ring-4 ring-indigo-500/20 shadow-2xl scale-[1.01]"
-                  : "bg-white/95 border-slate-200 hover:border-indigo-300 hover:shadow-lg shadow-sm"
+                  ? "bg-[#0F172A] border-cyan-400 ring-4 ring-cyan-500/20 shadow-2xl scale-[1.01]"
+                  : "bg-[#0B1120]/95 border-slate-800 hover:border-slate-700 hover:bg-[#0F172A]/80 shadow-lg"
               }`}
             >
-              {/* Tasteful Best Value Ribbon on 4-Month Option */}
+              {/* Best Value Ribbon on 4-Month Option */}
               {isFourMonth && (
-                <div className="absolute -top-3.5 right-6 px-3.5 py-1 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-[10px] font-black uppercase text-white shadow-md flex items-center gap-1">
+                <div className="absolute -top-3.5 right-6 px-3.5 py-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-[10px] font-black uppercase text-white shadow-md flex items-center gap-1">
                   <Sparkles size={12} /> Best Value
                 </div>
               )}
@@ -151,10 +151,10 @@ function DurationContent() {
                 {/* Header Row: Duration Title & Radio Checkmark */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <span className="text-xs font-black uppercase tracking-wider text-indigo-700">
+                    <span className="text-xs font-black uppercase tracking-wider text-cyan-400">
                       Duration Option
                     </span>
-                    <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                    <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                       {pricing.label}
                     </h3>
                   </div>
@@ -162,8 +162,8 @@ function DurationContent() {
                   <div
                     className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all ${
                       isSelected
-                        ? "border-indigo-600 bg-indigo-600 text-white shadow-xs"
-                        : "border-slate-300 bg-slate-50 text-transparent"
+                        ? "border-cyan-400 bg-cyan-400 text-slate-950 font-black shadow-md"
+                        : "border-slate-700 bg-slate-900/80 text-transparent"
                     }`}
                   >
                     <Check size={14} strokeWidth={3} />
@@ -171,21 +171,21 @@ function DurationContent() {
                 </div>
 
                 {/* Price Display */}
-                <div className="py-1 border-y border-slate-100 space-y-1">
+                <div className="py-2 border-y border-slate-800/80 space-y-1">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl sm:text-5xl font-black text-slate-900 font-mono tracking-tight">
+                    <span className="text-4xl sm:text-5xl font-black text-white font-mono tracking-tight">
                       ₹{pricing.basePrice}
                     </span>
-                    <span className="text-xs sm:text-sm font-bold text-slate-700">
+                    <span className="text-xs sm:text-sm font-bold text-slate-300">
                       one-time
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-xs">
-                    <span className="text-slate-700 font-extrabold">
+                    <span className="text-slate-300 font-extrabold">
                       (₹{pricing.monthlyRate}/month)
                     </span>
                     {pricing.savingsLabel && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-[10px]">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-black text-[10px]">
                         {pricing.savingsLabel}
                       </span>
                     )}
@@ -197,22 +197,22 @@ function DurationContent() {
                   <div className="flex items-center gap-1.5">
                     {planTier === "BASIC" ? (
                       dur === 1 ? (
-                        <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-black inline-flex items-center gap-1">
+                        <span className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold inline-flex items-center gap-1.5">
                           <BookOpen size={13} /> 1 Selected Subject Access
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-black inline-flex items-center gap-1">
+                        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold inline-flex items-center gap-1.5">
                           <Layers size={13} /> All 4 Subjects Bundle
                         </span>
                       )
                     ) : (
-                      <span className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-purple-900 text-xs font-black inline-flex items-center gap-1">
+                      <span className="px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs font-bold inline-flex items-center gap-1.5">
                         <Award size={13} /> Full Codexa Pro Career Suite
                       </span>
                     )}
                   </div>
 
-                  <p className="text-xs text-slate-700 font-medium leading-relaxed">
+                  <p className="text-xs sm:text-sm text-slate-200 font-normal leading-relaxed">
                     {planTier === "BASIC" && dur === 1 && (
                       <>Choose 1 programming language course to access for 1 month of structured learning.</>
                     )}
@@ -233,7 +233,7 @@ function DurationContent() {
                       {AVAILABLE_SUBJECTS.map((sub) => (
                         <span
                           key={sub.id}
-                          className="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-[11px] font-black text-slate-800"
+                          className="px-2.5 py-1 rounded-lg bg-slate-800/90 border border-slate-700 text-xs font-bold text-slate-200"
                         >
                           ✓ {sub.label}
                         </span>
@@ -243,14 +243,14 @@ function DurationContent() {
 
                   {/* Course Badges List for Pro */}
                   {planTier === "PRO" && (
-                    <div className="pt-1.5 flex flex-wrap gap-1.5 text-[10px]">
-                      <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 font-black">
+                    <div className="pt-1.5 flex flex-wrap gap-1.5 text-xs">
+                      <span className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-500/30 text-purple-200 font-bold">
                         4 Languages
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 font-black">
+                      <span className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-500/30 text-purple-200 font-bold">
                         AI Interview Prep
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-900 font-black">
+                      <span className="px-2.5 py-1 rounded-lg bg-purple-950/60 border border-purple-500/30 text-purple-200 font-bold">
                         Resume Studio
                       </span>
                     </div>
@@ -259,15 +259,15 @@ function DurationContent() {
               </div>
 
               {/* Selection Status Prompt */}
-              <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+              <div className="pt-4 mt-4 border-t border-slate-800/80 flex items-center justify-between">
                 <span
                   className={`text-xs font-black ${
-                    isSelected ? "text-indigo-600" : "text-slate-500"
+                    isSelected ? "text-cyan-400" : "text-slate-400"
                   }`}
                 >
                   {isSelected ? "Selected Option ✓" : "Click to select"}
                 </span>
-                <span className="text-[11px] font-mono font-bold text-slate-500">
+                <span className="text-xs font-mono font-bold text-slate-300">
                   Total: ₹{pricing.basePrice}
                 </span>
               </div>
@@ -278,17 +278,17 @@ function DurationContent() {
 
       {/* BASIC PLAN: SUBJECT SELECTOR WHEN 1 MONTH IS CHOSEN */}
       {planTier === "BASIC" && selectedDuration === 1 && (
-        <div className="max-w-3xl mx-auto mb-8 p-5 sm:p-6 rounded-3xl bg-white border-2 border-indigo-200 shadow-md text-slate-900 animate-in fade-in duration-200">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        <div className="max-w-3xl mx-auto mb-8 p-6 sm:p-7 rounded-3xl bg-[#0F172A] border-2 border-cyan-500/30 shadow-2xl text-white animate-in fade-in duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-800">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700">
+              <span className="text-[11px] font-black uppercase tracking-wider text-cyan-400">
                 Course Selection Required
               </span>
-              <h4 className="text-base font-black text-slate-900">
+              <h4 className="text-base sm:text-lg font-black text-white mt-0.5">
                 Choose your 1 selected subject for 1-month access:
               </h4>
             </div>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-900 self-start sm:self-auto">
+            <span className="text-xs font-bold px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 self-start sm:self-auto">
               Selected: {selectedSubjectInfo.label}
             </span>
           </div>
@@ -301,53 +301,53 @@ function DurationContent() {
                   key={sub.id}
                   type="button"
                   onClick={() => setUserSubject(sub.id)}
-                  className={`p-3 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between min-h-[72px] ${
+                  className={`p-3.5 rounded-2xl border-2 text-left transition-all cursor-pointer flex flex-col justify-between min-h-[76px] ${
                     isSubSelected
-                      ? "bg-indigo-50 border-indigo-600 ring-2 ring-indigo-500/20 shadow-xs"
-                      : "bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-slate-100"
+                      ? "bg-indigo-950/70 border-cyan-400 ring-2 ring-cyan-500/20 shadow-lg text-white"
+                      : "bg-slate-900/90 border-slate-800 hover:border-slate-700 hover:bg-slate-850 text-slate-300"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-black text-slate-900">{sub.label}</span>
+                    <span className="text-sm font-black text-white">{sub.label}</span>
                     {isSubSelected && (
-                      <div className="w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px]">
+                      <div className="w-4 h-4 rounded-full bg-cyan-400 text-slate-950 flex items-center justify-center text-[10px] font-bold">
                         ✓
                       </div>
                     )}
                   </div>
-                  <span className="text-[10px] font-bold text-slate-600 truncate">{sub.tag}</span>
+                  <span className="text-[11px] font-medium text-slate-400 truncate">{sub.tag}</span>
                 </button>
               );
             })}
           </div>
-          <p className="text-[11px] text-slate-600 font-semibold mt-3">
-            Tip: Want all 4 programming languages together? Choose the <strong>4 Months (₹150)</strong> offer above to get the complete bundle.
+          <p className="text-xs text-slate-300 font-medium mt-4">
+            Tip: Want all 4 programming languages together? Choose the <strong className="text-white">4 Months (₹150)</strong> offer above to get the complete bundle.
           </p>
         </div>
       )}
 
-      {/* SELECTED ORDER PREVIEW SUMMARY BOX */}
-      <div className="max-w-xl mx-auto mb-8 p-5 rounded-3xl bg-slate-900/90 border border-white/10 text-white shadow-xl space-y-3">
-        <div className="flex items-center justify-between text-xs pb-3 border-b border-white/10">
+      {/* SELECTED ORDER PREVIEW SUMMARY BOX — ORDER SNAPSHOT CARD */}
+      <div className="max-w-xl mx-auto mb-8 p-6 sm:p-7 rounded-3xl bg-[#0F172A] border-2 border-cyan-500/30 text-white shadow-2xl space-y-4">
+        <div className="flex items-center justify-between text-xs pb-3 border-b border-slate-800">
           <div>
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
               Order Snapshot
             </span>
-            <div className="text-sm font-black text-white mt-0.5">
+            <div className="text-base sm:text-lg font-black text-white mt-1">
               {planConfig.name} · {activePricing.label}
             </div>
           </div>
           <div className="text-right">
-            <span className="text-[10px] font-bold text-slate-400">Base Price</span>
-            <div className="text-xl font-black text-cyan-400 font-mono">
+            <span className="text-xs font-bold text-slate-400 block">Base Price</span>
+            <div className="text-2xl sm:text-3xl font-black text-cyan-400 font-mono mt-0.5">
               ₹{activePricing.basePrice}
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-slate-300">
-          <span className="font-bold text-slate-400">Access Scope:</span>
-          <span className="font-extrabold text-white text-right">
+        <div className="flex items-start sm:items-center justify-between gap-2 text-xs sm:text-sm">
+          <span className="font-bold text-cyan-400 shrink-0">Access Scope:</span>
+          <span className="font-extrabold text-white text-right leading-snug">
             {planTier === "BASIC" ? (
               selectedDuration === 1 ? (
                 <>1 Subject: {resolveSubjectLabel(selectedSubject)} Programming</>
@@ -359,6 +359,17 @@ function DurationContent() {
             )}
           </span>
         </div>
+
+        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-300">
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 font-medium">Duration:</span>
+            <span className="text-white font-bold">{activePricing.label}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 font-medium">Effective Rate:</span>
+            <span className="text-white font-bold font-mono">₹{activePricing.monthlyRate}/mo</span>
+          </div>
+        </div>
       </div>
 
       {/* Continue Action */}
@@ -366,14 +377,14 @@ function DurationContent() {
         <button
           type="button"
           onClick={handleContinue}
-          className="w-full py-4 rounded-2xl text-sm font-black text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:opacity-95 shadow-xl shadow-indigo-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[48px] active:scale-[0.99]"
+          className="w-full py-4.5 px-6 rounded-2xl text-base font-black text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:via-indigo-500 hover:to-cyan-400 shadow-xl shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[54px] active:scale-[0.99]"
         >
           <span>Continue to Order Summary</span>
-          <ArrowRight size={16} />
+          <ArrowRight size={18} />
         </button>
 
-        <p className="text-[11px] text-slate-400 flex items-center justify-center gap-1.5 font-medium">
-          <ShieldCheck size={14} className="text-emerald-400" />
+        <p className="text-xs text-slate-400 flex items-center justify-center gap-1.5 font-medium">
+          <ShieldCheck size={15} className="text-emerald-400" />
           No auto-debit · Secure one-time payment · Step 2 of 3
         </p>
       </div>
