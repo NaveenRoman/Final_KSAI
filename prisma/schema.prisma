@@ -289,8 +289,6 @@ model WebhookEvent {
   eventId     String   @unique // x-razorpay-event-id or payload id
   eventType   String
   processedAt DateTime @default(now())
-
-  @@index([eventId])
 }
 
 model XpTransaction {
