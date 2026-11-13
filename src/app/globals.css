@@ -1,32 +1,89 @@
 @import "tailwindcss";
 
 :root {
-  --bg-dark: #09090B;
-  --electric-blue: #3B82F6;
-  --purple-glow: #7C3AED;
-  --cyan-glow: #06B6D4;
-  --emerald-glow: #10B981;
-  /* Safe Area Insets for notched devices & Dynamic Island */
+  /* KnowledgeStream AI — Unified Global Design System Tokens */
+  --bg-primary: #080D1A;
+  --bg-secondary: #0D1425;
+  --bg-card: #111C30;
+  --bg-elevated: #17243A;
+
+  /* Brand Accents: Blue & Cyan (Primary), Purple (Supporting Accent) */
+  --brand-blue: #3B82F6;
+  --brand-cyan: #06B6D4;
+  --accent-purple: #8B5CF6;
+
+  /* Typography Colors */
+  --text-primary: #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted: #94A3B8;
+
+  /* Borders & Surfaces */
+  --border-subtle: rgba(148, 163, 184, 0.16);
+  --border-focus: rgba(6, 182, 212, 0.5);
+
+  /* Status Colors */
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+
+  /* Safe Area Insets for notched devices */
   --safe-area-top: env(safe-area-inset-top, 0px);
   --safe-area-right: env(safe-area-inset-right, 0px);
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   --safe-area-left: env(safe-area-inset-left, 0px);
 }
 
-@theme {
-  --color-background: var(--bg-dark);
-  --color-electric-blue: var(--electric-blue);
-  --color-purple-glow: var(--purple-glow);
-  --color-cyan-glow: var(--cyan-glow);
-  --color-emerald-glow: var(--emerald-glow);
+/* Light Mode Tokens (Guaranteed WCAG AA High Contrast) */
+html.light {
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #F1F5F9;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #F8FAFC;
+
+  --brand-blue: #2563EB;
+  --brand-cyan: #0891B2;
+  --accent-purple: #7C3AED;
+
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+
+  --border-subtle: rgba(15, 23, 42, 0.12);
+  --border-focus: rgba(37, 99, 235, 0.5);
+
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-error: #DC2626;
 }
 
-/* Base typography: 118.75% (19px) baseline preserved for desktop (>=768px) */
+@theme {
+  --color-background: var(--bg-primary);
+  --color-primary-bg: var(--bg-primary);
+  --color-secondary-bg: var(--bg-secondary);
+  --color-card-bg: var(--bg-card);
+  --color-elevated-bg: var(--bg-elevated);
+
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-cyan: var(--brand-cyan);
+  --color-accent-purple: var(--accent-purple);
+
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-focus: var(--border-focus);
+
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+}
+
+/* Base typography: 118.75% (19px) baseline for desktop (>=768px) */
 html {
   font-size: 118.75%;
 }
 
-/* Responsive Mobile Typography: standard 16px (100%) root scale on screens below 768px */
 @media (max-width: 767.98px) {
   html {
     font-size: 100%;
@@ -35,140 +92,231 @@ html {
 
 html,
 body {
-  background-color: #09090B;
-  color: #F8FAFC;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   max-width: 100%;
   overflow-x: hidden;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  font-size: 1.05rem; /* Enhanced baseline text scale on desktop */
+  font-size: 1.05rem;
   line-height: 1.6;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
 @media (max-width: 767.98px) {
   body {
-    font-size: 1rem; /* Standard baseline text scale on mobile */
+    font-size: 1rem;
     line-height: 1.5;
   }
 }
 
 /* Safe Area Utility Classes */
-.pt-safe {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.pl-safe {
-  padding-left: env(safe-area-inset-left, 0px);
-}
-.pr-safe {
-  padding-right: env(safe-area-inset-right, 0px);
+.pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+.pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+.pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+
+/* ============================================================================
+   KNOWLEDGE STREAM AI — UNIFIED DESIGN SYSTEM UTILITY PRIMITIVES
+   ============================================================================ */
+
+/* 1. Cards & Surfaces */
+.ks-card {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Light Mode Overrides */
-html.light,
-body.light {
-  background-color: #F1F5F9 !important;
-  color: #0F172A !important;
+.ks-card-elevated {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  box-shadow: 0 8px 30px -4px rgba(0, 0, 0, 0.35);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-html.light div.min-h-screen,
-html.light main {
-  background-color: #F1F5F9 !important;
-  color: #0F172A !important;
+.ks-card-interactive {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-html.light .glass-panel {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 0, 0, 0.12) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08) !important;
-  color: #0F172A !important;
+.ks-card-interactive:hover {
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 12px 35px -4px rgba(6, 182, 212, 0.15), 0 0 20px -2px rgba(59, 130, 246, 0.2);
+  transform: translateY(-2px);
 }
 
-html.light header,
-html.light aside {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-}
-
-html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6 {
-  color: #0F172A !important;
-}
-
-html.light .text-white {
-  color: #0F172A !important;
-}
-
-html.light .text-slate-300,
-html.light .text-slate-400,
-html.light .text-slate-200 {
-  color: #334155 !important;
-}
-
-/* PROTECTION: Dark subscription cards must NEVER have their white/light text inverted in light mode */
-html.light .dark-subscription-card,
-html.light .dark-subscription-card * {
-  --tw-text-opacity: 1;
-}
-
-html.light .dark-subscription-card,
-html.light .dark-subscription-card h1,
-html.light .dark-subscription-card h2,
-html.light .dark-subscription-card h3,
-html.light .dark-subscription-card h4,
-html.light .dark-subscription-card h5,
-html.light .dark-subscription-card h6,
-html.light .dark-subscription-card .text-white,
-html.light .dark-subscription-card .\!text-white,
-html.light .dark-subscription-card span,
-html.light .dark-subscription-card p,
-html.light .dark-subscription-card div,
-html.light .dark-subscription-card strong,
-html.light .dark-subscription-card li {
+/* 2. Standardized Buttons */
+.ks-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  min-height: 44px;
+  border-radius: 0.75rem;
+  font-weight: 700;
+  font-size: 0.875rem;
   color: #FFFFFF !important;
+  background: linear-gradient(135deg, var(--brand-blue) 0%, var(--brand-cyan) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.35);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-html.light .dark-subscription-card .text-slate-200,
-html.light .dark-subscription-card .\!text-slate-200 {
-  color: #E2E8F0 !important;
+.ks-btn-primary:hover {
+  box-shadow: 0 0 30px rgba(6, 182, 212, 0.55), 0 0 15px rgba(59, 130, 246, 0.4);
+  transform: translateY(-1px);
+  filter: brightness(1.08);
 }
 
-html.light .dark-subscription-card .text-slate-300,
-html.light .dark-subscription-card .\!text-slate-300 {
-  color: #CBD5E1 !important;
+.ks-btn-primary:active {
+  transform: scale(0.97);
 }
 
-html.light .dark-subscription-card .text-cyan-300,
-html.light .dark-subscription-card .\!text-cyan-300 {
-  color: #67E8F9 !important;
+.ks-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  min-height: 44px;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
 }
 
-html.light .dark-subscription-card .text-cyan-400,
-html.light .dark-subscription-card .\!text-cyan-400 {
-  color: #22D3EE !important;
+.ks-btn-secondary:hover {
+  border-color: var(--brand-cyan);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  transform: translateY(-1px);
 }
 
-html.light .dark-subscription-card .text-emerald-400,
-html.light .dark-subscription-card .\!text-emerald-400 {
-  color: #34D399 !important;
+.ks-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  min-height: 40px;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-html.light .gradient-text-hero {
-  background: linear-gradient(135deg, #0F172A 20%, #2563EB 50%, #7C3AED 80%, #0284C7 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.ks-btn-ghost:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+}
+
+/* 3. Input & Form Elements */
+.ks-input {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.625rem 1rem;
+  border-radius: 0.75rem;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.ks-input::placeholder {
+  color: var(--text-muted);
+}
+
+.ks-input:focus {
+  outline: none;
+  border-color: var(--brand-cyan);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.25);
+}
+
+/* 4. Badges & Pills */
+.ks-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background-color: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  color: #38BDF8;
+}
+
+.ks-badge-cyan {
+  background-color: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.28);
+  color: #22D3EE;
+}
+
+.ks-badge-purple {
+  background-color: rgba(139, 92, 246, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.28);
+  color: #C084FC;
+}
+
+.ks-badge-success {
+  background-color: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  color: #4ADE80;
+}
+
+/* 5. Typography */
+.ks-heading-page {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.025em;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+@media (min-width: 640px) {
+  .ks-heading-page {
+    font-size: 2.25rem;
+  }
+}
+
+.ks-heading-section {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+  color: var(--text-primary);
+  line-height: 1.35;
 }
 
 /* Glassmorphism utilities */
 .glass-panel {
-  background: rgba(18, 18, 24, 0.7);
+  background: var(--bg-card);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35);
 }
 
 .glass-panel-hover {
@@ -176,20 +324,9 @@ html.light .gradient-text-hero {
 }
 
 .glass-panel-hover:hover {
-  background: rgba(26, 26, 38, 0.85);
-  border-color: rgba(59, 130, 246, 0.4);
-  box-shadow: 0 12px 40px 0 rgba(59, 130, 246, 0.25);
-  transform: translateY(-4px);
-}
-
-.glass-card-interactive {
-  background: rgba(15, 15, 22, 0.8);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
-  position: relative;
-  overflow: hidden;
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 12px 40px 0 rgba(6, 182, 212, 0.2);
+  transform: translateY(-2px);
 }
 
 /* Glowing Border Effect */
@@ -202,7 +339,7 @@ html.light .gradient-text-hero {
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(124, 58, 237, 0.4), rgba(6, 182, 212, 0.8));
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.8), rgba(139, 92, 246, 0.4), rgba(6, 182, 212, 0.8));
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -220,48 +357,61 @@ html.light .gradient-text-hero {
   transform: scale(1.02);
 }
 
-.gradient-text {
-  background: linear-gradient(135deg, #FFFFFF 0%, #94A3B8 50%, #3B82F6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
 .gradient-text-hero {
   background: linear-gradient(135deg, #FFFFFF 20%, #60A5FA 50%, #C084FC 80%, #38BDF8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.gradient-text-cyan {
-  background: linear-gradient(135deg, #38BDF8 0%, #818CF8 50%, #C084FC 100%);
+html.light .gradient-text-hero {
+  background: linear-gradient(135deg, #0F172A 20%, #2563EB 50%, #7C3AED 80%, #0284C7 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090B;
+  background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
+  background: var(--bg-elevated);
   border-radius: 6px;
+  border: 1px solid var(--border-subtle);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3B82F6;
+  background: var(--brand-blue);
+}
+
+/* Clean, predictable Light Mode rules */
+html.light .glass-panel {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+html.light header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+html.light aside:not(.dark-sidebar) {
+  background-color: #FFFFFF !important;
+  border-color: rgba(15, 23, 42, 0.1) !important;
 }
 
 /* Keyframe animations */
 @keyframes float {
   0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(1deg); }
+  50% { transform: translateY(-10px) rotate(1deg); }
 }
 
 @keyframes pulseGlow {
   0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.05); }
+  50% { opacity: 0.8; transform: scale(1.04); }
 }
 
 @keyframes rotateRing {
@@ -281,325 +431,7 @@ html.light .gradient-text-hero {
   animation: rotateRing 20s linear infinite;
 }
 
-/* Light Mode Overrides for Authenticated Pages & Elements */
-html.light,
-body.light {
-  background-color: #F8FAFC !important; /* light background slate-50 */
-  color: #0F172A !important;
-}
-
-html.light div.min-h-screen,
-html.light main {
-  background-color: #F8FAFC !important;
-  color: #0F172A !important;
-}
-
-html.light .glass-panel {
-  background: #FFFFFF !important; /* solid white */
-  backdrop-filter: none !important;
-  border: 1px solid #E2E8F0 !important; /* border slate-200 */
-  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.05) !important;
-  color: #0F172A !important;
-}
-
-html.light header {
-  background-color: #FFFFFF !important;
-  border-color: #E2E8F0 !important;
-}
-
-/* Light mode for normal sidebars except the main dashboard sidebar */
-html.light aside:not(.dark-sidebar) {
-  background-color: #FFFFFF !important;
-  border-color: #E2E8F0 !important;
-}
-
-html.light h1, html.light h2, html.light h3, html.light h4, html.light h5, html.light h6 {
-  color: #0F172A !important;
-}
-
-html.light .text-white {
-  color: #0F172A !important;
-}
-
-html.light .text-slate-300,
-html.light .text-slate-400,
-html.light .text-slate-200 {
-  color: #334155 !important;
-}
-
-html.light .text-slate-500 {
-  color: #64748B !important;
-}
-html.light .text-slate-600 {
-  color: #475569 !important;
-}
-
-html.light .bg-gradient-to-r.from-blue-950\/30 {
-  background-image: linear-gradient(to right, rgba(59, 130, 246, 0.05), rgba(147, 51, 234, 0.05)) !important;
-  background-color: #FFFFFF !important;
-}
-
-html.light .bg-gradient-to-b.from-\[\#0A0A10\] {
-  background-image: none !important;
-  background-color: #FFFFFF !important;
-}
-
-html.light .bg-gradient-to-r.from-purple-950\/20 {
-  background-image: linear-gradient(to right, rgba(168, 85, 247, 0.05), rgba(59, 130, 246, 0.05)) !important;
-  background-color: #FFFFFF !important;
-}
-
-html.light .bg-emerald-950\/5 {
-  background-color: rgba(16, 185, 129, 0.08) !important;
-}
-html.light .bg-emerald-950\/10 {
-  background-color: rgba(16, 185, 129, 0.12) !important;
-}
-
-html.light .bg-white\/5 {
-  background-color: rgba(0, 0, 0, 0.04) !important;
-}
-html.light .bg-white\/10 {
-  background-color: rgba(0, 0, 0, 0.06) !important;
-}
-html.light .hover\:bg-white\/10:hover {
-  background-color: rgba(0, 0, 0, 0.06) !important;
-}
-html.light .hover\:bg-white\/5:hover {
-  background-color: rgba(0, 0, 0, 0.04) !important;
-}
-html.light .border-white\/10 {
-  border-color: rgba(0, 0, 0, 0.08) !important;
-}
-html.light .border-white\/5 {
-  border-color: rgba(0, 0, 0, 0.04) !important;
-}
-
-html.light input,
-html.light textarea {
-  background-color: #F8FAFC !important;
-  border-color: #E2E8F0 !important;
-  color: #0F172A !important;
-}
-html.light input::placeholder,
-html.light textarea::placeholder {
-  color: #94A3B8 !important;
-}
-
-html.light .bg-gradient-to-r.from-blue-600\/30 {
-  background-image: linear-gradient(to right, rgba(59, 130, 246, 0.15), rgba(124, 58, 237, 0.1)) !important;
-  color: #2563EB !important;
-}
-
-html.light article.prose {
-  color: #334155 !important;
-}
-
-html.light article.prose h1,
-html.light article.prose h2,
-html.light article.prose h3,
-html.light article.prose h4,
-html.light article.prose h5,
-html.light article.prose h6 {
-  color: #0F172A !important;
-}
-
-html.light article.prose code {
-  color: #0F172A !important;
-  background-color: #F1F5F9 !important;
-}
-
-html.light article.prose pre {
-  background-color: #1E293B !important;
-  color: #F8FAFC !important;
-}
-
-html.light article.prose strong {
-  color: #0F172A !important;
-}
-
-html.light article.prose blockquote {
-  color: #475569 !important;
-  border-left-color: #CBD5E1 !important;
-}
-
-/* Sidebar Dark-Mode Preservation Rule */
-html.light aside.dark-sidebar {
-  background-color: #09090B !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-html.light aside.dark-sidebar button {
-  color: #94A3B8 !important; /* slate-400 */
-  background-color: transparent !important;
-  border-color: transparent !important;
-}
-
-html.light aside.dark-sidebar button:hover {
-  color: #E2E8F0 !important; /* slate-200 */
-  background-color: rgba(255, 255, 255, 0.05) !important;
-}
-
-/* Active tab override inside dark sidebar */
-html.light aside.dark-sidebar button.bg-gradient-to-r {
-  background-image: linear-gradient(to right, rgba(37, 99, 235, 0.3), rgba(124, 58, 237, 0.2)) !important;
-  border-color: rgba(59, 130, 246, 0.6) !important;
-  color: #FFFFFF !important;
-}
-
-html.light aside.dark-sidebar button.bg-gradient-to-r span {
-  color: #FFFFFF !important;
-}
-
-html.light aside.dark-sidebar button.bg-gradient-to-r svg {
-  color: #22D3EE !important; /* cyan-400 */
-}
-
-html.light aside.dark-sidebar svg {
-  color: #94A3B8 !important; /* slate-400 */
-}
-
-html.light aside.dark-sidebar button:hover svg {
-  color: #22D3EE !important; /* cyan-300 */
-}
-
-html.light aside.dark-sidebar .glass-panel {
-  background: rgba(18, 18, 24, 0.7) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
-  color: #F8FAFC !important;
-}
-
-html.light aside.dark-sidebar .p-3.border-t {
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  background-color: #060609 !important;
-}
-
-html.light aside.dark-sidebar a.text-red-400 {
-  color: #F87171 !important;
-}
-html.light aside.dark-sidebar a.text-red-400:hover {
-  background-color: rgba(239, 68, 68, 0.1) !important;
-}
-
-/* Light Mode modal backdrop overlay */
-html.light .fixed.bg-\[\#09090B\]\/95 {
-  background-color: rgba(241, 245, 249, 0.92) !important;
-}
-
-/* Mentor Sidebar Panel & Tabs Light Theme overrides */
-html.light .mentor-sidebar-panel {
-  background-color: #FFFFFF !important;
-  color: #0F172A !important;
-  border-color: #E2E8F0 !important;
-}
-
-html.light .mentor-sidebar-panel h4 {
-  color: #0F172A !important;
-}
-
-html.light .mentor-sidebar-panel button {
-  color: #64748B !important;
-}
-
-html.light .mentor-sidebar-panel button:hover {
-  background-color: #F1F5F9 !important;
-  color: #0F172A !important;
-}
-
-html.light .mentor-sidebar-tabs {
-  background-color: #F8FAFC !important;
-  border-color: #E2E8F0 !important;
-}
-
-html.light .mentor-sidebar-tabs button {
-  color: #64748B !important;
-  background-color: transparent !important;
-}
-
-html.light .mentor-sidebar-tabs button:hover {
-  background-color: #F1F5F9 !important;
-  color: #0F172A !important;
-}
-
-html.light .mentor-sidebar-tabs button.bg-cyan-500 {
-  background-color: #06B6D4 !important;
-  color: #FFFFFF !important;
-}
-
-html.light .mentor-sidebar-tabs button.bg-cyan-500 svg {
-  color: #FFFFFF !important;
-}
-
-html.light .mentor-sidebar-panel .bg-blue-50 {
-  background-color: #EFF6FF !important;
-  border-color: #BFDBFE !important;
-  color: #1E40AF !important;
-}
-
-html.light .mentor-sidebar-panel .bg-blue-50 p {
-  color: #1E40AF !important;
-}
-
-html.light .mentor-sidebar-panel .bg-slate-50 {
-  background-color: #F8FAFC !important;
-  border-color: #E2E8F0 !important;
-  color: #334155 !important;
-}
-
-html.light .mentor-sidebar-panel .bg-slate-50 p {
-  color: #334155 !important;
-}
-
-html.light .mentor-sidebar-panel input {
-  background-color: #F8FAFC !important;
-  border-color: #CBD5E1 !important;
-  color: #0F172A !important;
-}
-
-html.light .mentor-sidebar-panel button.bg-cyan-500 {
-  background-color: #06B6D4 !important;
-  color: #FFFFFF !important;
-}
-
-html.light .mentor-sidebar-panel button.bg-cyan-500 svg {
-  color: #FFFFFF !important;
-}
-
-/* Light Mode dividers and header tints */
-html.light .mentor-sidebar-panel .bg-slate-100\/50 {
-  background-color: rgba(241, 245, 249, 0.7) !important;
-  border-color: #E2E8F0 !important;
-}
-
-html.light .mentor-sidebar-panel .divide-y-4 > * + * {
-  border-color: #E2E8F0 !important;
-}
-
-html.light .mentor-sidebar-tabs button {
-  color: #64748B !important;
-  background-color: transparent !important;
-  border: 1px solid #E2E8F0 !important;
-}
-
-html.light .mentor-sidebar-tabs button:hover {
-  background-color: #E2E8F0 !important;
-  color: #0F172A !important;
-}
-
-/* Light Theme scrollbar overrides */
-html.light ::-webkit-scrollbar-track {
-  background: #F1F5F9 !important;
-}
-
-html.light ::-webkit-scrollbar-thumb {
-  background: #CBD5E1 !important;
-}
-
-html.light ::-webkit-scrollbar-thumb:hover {
-  background: #94A3B8 !important;
-}
-
-/* Responsive scaling for the hero illustration container */
+/* Hero Illustration container scaling */
 .hero-scale-wrapper {
   width: 100%;
   height: 100%;
@@ -621,50 +453,4 @@ html.light ::-webkit-scrollbar-thumb:hover {
   .hero-scale-wrapper {
     transform: scale(0.9);
   }
-}
-
-@media (max-height: 660px) {
-  .hero-scale-wrapper {
-    transform: scale(0.9);
-  }
-}
-
-/* Overrides for dark-sidebar when html has light class, preserving dark theme styles */
-html.light .dark-sidebar {
-  background-color: #09090b !important;
-  border-color: rgba(255, 255, 255, 0.1) !important;
-  color: #ffffff !important;
-}
-
-html.light .dark-sidebar .text-white {
-  color: #ffffff !important;
-}
-
-html.light .dark-sidebar .text-slate-200 {
-  color: #e2e8f0 !important;
-}
-
-html.light .dark-sidebar .text-slate-300 {
-  color: #cbd5e1 !important;
-}
-
-html.light .dark-sidebar .text-slate-400 {
-  color: #94a3b8 !important;
-}
-
-html.light .dark-sidebar .glass-panel {
-  background-image: linear-gradient(to bottom right, rgba(88, 28, 135, 0.2), rgba(30, 58, 138, 0.15)) !important;
-  background-color: rgba(9, 9, 11, 0.6) !important;
-  border-color: rgba(168, 85, 247, 0.3) !important;
-  color: #ffffff !important;
-  backdrop-filter: blur(12px) !important;
-  box-shadow: none !important;
-}
-
-html.light .dark-sidebar .border-t {
-  border-color: rgba(255, 255, 255, 0.1) !important;
-}
-
-html.light .dark-sidebar button:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
 }

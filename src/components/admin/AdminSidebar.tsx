@@ -162,10 +162,10 @@ export function AdminSidebar({
   ];
 
   const sidebarContent = (
-    <div className="h-full flex flex-col justify-between bg-[#080C16] border-r border-white/10 text-[#CBD5E1] select-none">
+    <div className="h-full flex flex-col justify-between bg-[var(--bg-secondary)] border-r border-[var(--border-subtle)] text-[var(--text-secondary)] select-none">
       {/* Top Branding */}
       <div>
-        <div className="h-18 px-4 flex items-center justify-between border-b border-white/10">
+        <div className="h-18 px-4 flex items-center justify-between border-b border-[var(--border-subtle)]">
           <Link href="/admin" className="flex items-center gap-3 group overflow-hidden">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-cyan-500 p-[1.5px] shadow-lg shadow-blue-500/20 shrink-0 group-hover:scale-105 transition-transform">
               <div className="w-full h-full bg-[#0B1120] rounded-[10px] flex items-center justify-center p-1.5 overflow-hidden">
@@ -250,8 +250,8 @@ export function AdminSidebar({
                         title={isCollapsed ? item.label : undefined}
                         className={`flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group ${
                           isActive
-                            ? "bg-blue-600 text-[#F8FAFC] font-bold shadow-md shadow-blue-600/30"
-                            : "text-[#CBD5E1] hover:text-[#F8FAFC] hover:bg-white/5"
+                            ? "bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold shadow-md shadow-blue-500/20"
+                            : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
                         } ${isCollapsed ? "justify-center px-2" : ""}`}
                       >
                         <Icon

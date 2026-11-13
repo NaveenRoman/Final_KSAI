@@ -21,6 +21,7 @@ import {
 
 import {
   AlertCircle,
+  Award,
   Clock,
   ArrowLeft,
   GraduationCap,
@@ -43,6 +44,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { QuickRecapModal } from "@/components/learning/QuickRecapModal";
+import { ChapterRecapModal } from "@/components/learning/ChapterRecapModal";
 import { VisionAttachment } from "@/components/learning/VisionAttachment";
 import { DailyRecapModal } from "@/components/learning/DailyRecapModal";
 import { CourseSwitcher } from "@/components/courses/CourseSwitcher";
@@ -339,6 +341,8 @@ export default function PythonChapterPage() {
   const [chapterAnalysis, setChapterAnalysis] = useState<ChapterLearningAnalysis | null>(null);
   const [shouldAutoChapterRecap, setShouldAutoChapterRecap] = useState(false);
   const [lockedInfo, setLockedInfo] = useState<any>(null);
+  const [chapterRecapOpen, setChapterRecapOpen] = useState(false);
+  const [chapterRecapDone, setChapterRecapDone] = useState(false);
 
 
 const explainLiveTeacherUnit = async (
@@ -1314,6 +1318,16 @@ const saveLessonProgress = async (
       setCurrentChapter(chapterData.currentChapter);
       setChapters(chapterData.chapters);
       setProgresses(chapterData.progresses);
+
+      if (chapterData.requirements?.chapterRecapCompleted || chapterData.chapterRecapCompleted) {
+        setChapterRecapDone(true);
+      } else {
+        const email = chapterData.userEmail || userEmail;
+        const recapKey = `ksai_chapter_recap_${email}_python_${chapterData.currentChapter?.id}`;
+        if (typeof window !== "undefined" && sessionStorage.getItem(recapKey) === "done") {
+          setChapterRecapDone(true);
+        }
+      }
 
       // 2. Fetch Quiz Questions to check if a quiz exists
       try {
@@ -2823,33 +2837,102 @@ const startMentorListening = () => {
   {renderMarkdown(currentChapter.content)}
 </article>
 
-                  {/* Complete Action at the bottom */}
-                  <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="text-sm text-slate-500">
-                      {isCompleted ? (
-                        <span className="flex items-center gap-1 text-emerald-600 font-bold font-mono">
-                          <CheckCircle2 size={15} /> Chapter Passed &amp; Completed!
-                        </span>
-                      ) : (
-                        <span>Please read the notes carefully before starting the assessment.</span>
-                      )}
+                  {/* Chapter Completion Gates & Actions */}
+                  <div className="pt-6 border-t border-slate-200 space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                          <Award size={13} className="text-blue-600" />
+                          <span>Chapter {chapterOrder} Completion Requirements</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+                              chapterRecapDone
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}
+                          >
+                            {chapterRecapDone ? <CheckCircle2 size={13} /> : <Sparkles size={13} className="animate-pulse" />}
+                            Recap &amp; Check: {chapterRecapDone ? "Completed" : "Pending"}
+                          </span>
+
+                          <span
+                            className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+                              (progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore ?? 0) >= 75
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-slate-50 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            {(progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore ?? 0) >= 75 ? (
+                              <CheckCircle2 size={13} />
+                            ) : (
+                              <HelpCircle size={13} />
+                            )}
+                            Quiz Assessment: {(progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore ?? 0) > 0 ? `${progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore}%` : "Not Taken"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Start Chapter Recap Button */}
+                        <button
+                          type="button"
+                          onClick={() => setChapterRecapOpen(true)}
+                          className={`px-4 py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer min-h-[44px] ${
+                            chapterRecapDone
+                              ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                              : "bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:brightness-110 text-white shadow-indigo-500/20"
+                          }`}
+                        >
+                          <Sparkles size={15} className={chapterRecapDone ? "text-slate-500" : "animate-pulse"} />
+                          <span>{chapterRecapDone ? "Review Chapter Recap" : "Start Chapter Recap"}</span>
+                        </button>
+
+                        {/* Quiz Button */}
+                        {quizQuestions.length > 0 ? (
+                          isQuizUnlocked(getLessons()) ? (
+                            <button
+                              onClick={() => router.push(`/courses/python/chapter/${chapterOrder}/quiz`)}
+                              className="px-5 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-sm cursor-pointer min-h-[44px]"
+                            >
+                              <HelpCircle size={15} /> Take Chapter Assessment Quiz
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => alert("🔒 Please complete and master all chapter topics with your AI Teacher before taking the Chapter Assessment Quiz.")}
+                              className="px-5 py-3 rounded-xl font-bold text-xs text-slate-400 bg-slate-100 border border-slate-200 hover:bg-slate-200 transition flex items-center justify-center gap-1.5 cursor-not-allowed min-h-[44px]"
+                              title="Complete and master all chapter topics to unlock the quiz"
+                            >
+                              <Lock size={15} className="text-slate-400" /> Chapter Assessment Locked
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            onClick={handleMarkChapterComplete}
+                            disabled={completing}
+                            className="px-5 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center justify-center gap-1.5 shadow-sm cursor-pointer min-h-[44px]"
+                          >
+                            <CheckCircle2 size={15} /> {completing ? "Completing..." : "Mark Chapter Complete"}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    {quizQuestions.length > 0 ? (
-                      <button
-                        onClick={() => router.push(`/courses/python/chapter/${chapterOrder}/quiz`)}
-                        className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/10 cursor-pointer min-h-[48px]"
-                      >
-                        <HelpCircle size={14} /> Take Chapter Assessment Quiz
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleMarkChapterComplete}
-                        disabled={completing}
-                        className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer min-h-[48px]"
-                      >
-                        <CheckCircle2 size={14} /> {completing ? "Completing..." : "Mark Chapter Complete"}
-                      </button>
+                    {/* Sequential Unlock Feedback Banner */}
+                    {chapterRecapDone && isCompleted && (
+                      <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                          <span>All Chapter {chapterOrder} requirements satisfied! Next chapter is unlocked.</span>
+                        </div>
+                        <button
+                          onClick={() => router.push(`/courses/python/chapter/${chapterOrder + 1}`)}
+                          className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shrink-0 cursor-pointer"
+                        >
+                          Proceed to Chapter {chapterOrder + 1} &rarr;
+                        </button>
+                      </div>
                     )}
                   </div>
 
@@ -2930,6 +3013,25 @@ const startMentorListening = () => {
             const idx = sections.indexOf(topics[0]);
             setCurrentLesson(topics[0]);
             if (idx >= 0) setCurrentLessonIndex(idx);
+          }
+        }}
+      />
+
+      {/* Chapter Recap Modal */}
+      <ChapterRecapModal
+        isOpen={chapterRecapOpen}
+        onClose={() => setChapterRecapOpen(false)}
+        language="python"
+        chapterOrder={chapterOrder}
+        chapterTitle={currentChapter?.title}
+        courseId={courseId || "python"}
+        chapterId={currentChapter?.id}
+        userEmail={userEmail}
+        isAlreadyCompleted={chapterRecapDone}
+        onRecapCompleted={(result) => {
+          setChapterRecapDone(true);
+          if (result.isCompleted) {
+            void loadPageData();
           }
         }}
       />

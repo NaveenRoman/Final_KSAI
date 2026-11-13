@@ -16,15 +16,17 @@ from typing import Dict, List, Tuple, Any, Optional
 
 def normalize_java_topic(project: str) -> str:
     p = (project or "").lower().strip()
+    if any(term in p for term in ["jvm", "jdk", "environment", "platform info", "hello world", "console output", "print"]):
+        return "dynamic_topic"
     if "stack" in p: return "stack"
-    if "array" in p and "list" not in p and "2d" not in p and "matrix" not in p: return "array"
-    if "loop" in p or "for" in p or "while" in p or "iteration" in p: return "loop"
+    if "queue" in p: return "queue"
     if "linked" in p and "list" in p: return "linked_list"
-    if any(term in p for term in ["oop", "object", "class", "inherit", "polymorph", "abstract", "encapsul"]): return "oop"
+    if any(term in p for term in ["loop", "for loop", "while", "do-while", "iteration"]) or bool(re.search(r"\b(for\s+loop|for)\b", p)): return "loop"
+    if "array" in p and "list" not in p and "2d" not in p and "matrix" not in p: return "array"
+    if any(term in p for term in ["oop", "inherit", "polymorph", "abstract", "encapsul"]) or bool(re.search(r"\b(classes|objects?)\b", p)): return "oop"
     if any(term in p for term in ["exception", "error", "try", "catch"]): return "exception_handling"
     if any(term in p for term in ["thread", "concurren", "async", "runnable"]): return "multithreading"
     if "file" in p or "stream" in p or "reader" in p or "writer" in p or "i/o" in p or bool(re.search(r"\bio\b", p)): return "file_handling"
-    if "queue" in p: return "queue"
     if "recursi" in p: return "recursion"
     if any(term in p for term in ["hashmap", "map", "dict"]): return "hashmap"
     if any(term in p for term in ["arraylist", "list", "collection"]): return "collections"

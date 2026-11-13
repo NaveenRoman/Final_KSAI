@@ -70,6 +70,22 @@ export async function GET(
       chapterOrder: orderNum,
     });
 
+    // Strictly enforce that chapter quiz must be passed before accessing coding challenges
+    if (!progression.isChapterQuizPassed) {
+      return NextResponse.json(
+        {
+          error: `Sequential Gate Locked: You must pass the Chapter ${orderNum} Assessment Quiz (score >= 75%) before accessing coding challenges.`,
+          locked: true,
+          lockReason: "QUIZ_NOT_PASSED",
+          isChapterQuizPassed: false,
+          totalChallenges: progression.totalChallenges,
+          passedChallenges: progression.passedChallenges,
+          challenges: [],
+        },
+        { status: 403 }
+      );
+    }
+
     // If a specific challengeId was requested, validate it belongs to this chapter
     if (requestedChallengeId) {
       const match = progression.challenges.find((c) => c.id === requestedChallengeId);

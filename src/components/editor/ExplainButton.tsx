@@ -9,11 +9,13 @@ import { useTabs } from "./tabs/TabContext";
 import { useAIResult } from "./AIResultContext";
 import { useLanguage } from "./languages/LanguageContext";
 import { useEditor } from "./EditorContext";
+import { useChallenge } from "./challenge/ChallengeContext";
 
 export default function ExplainButton() {
     const { activeTab } = useTabs();
     const { language } = useLanguage();
     const { editor } = useEditor();
+    const { isChallengeMode, activeChallenge } = useChallenge();
 
     const {
         setResult,
@@ -79,6 +81,12 @@ export default function ExplainButton() {
                         language: langName,
                         code: codeToExplain,
                         isSelection,
+                        challenge: isChallengeMode && activeChallenge ? {
+                            id: activeChallenge.id,
+                            title: activeChallenge.title,
+                            objective: activeChallenge.objective,
+                            description: activeChallenge.description,
+                        } : undefined,
                     }),
                 }
             );

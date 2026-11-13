@@ -24,6 +24,7 @@ import { useEditorTheme } from "./EditorTheme";
 import { useAIResult } from "./AIResultContext";
 import { useLanguage } from "./languages/LanguageContext";
 import { useEditor } from "./EditorContext";
+import { useChallenge } from "./challenge/ChallengeContext";
 
 import {
     fetchDictatorPlan,
@@ -48,6 +49,7 @@ export default function AIResultPanel() {
     const { darkMode } = useEditorTheme();
     const { language } = useLanguage();
     const { editor } = useEditor();
+    const { isChallengeMode, activeChallenge, activeChallengeId } = useChallenge();
 
     const {
         result,
@@ -145,6 +147,23 @@ export default function AIResultPanel() {
         prevLangIdRef.current = language.id;
     }, [language.id, language.name, resetDictatorSession, setResult]);
 
+    // =========================================================
+    // CHALLENGE SYNCHRONIZATION DURING DICTATOR
+    // =========================================================
+    const prevChallengeIdRef = useRef<string | null>(null);
+    useEffect(() => {
+        if (isChallengeMode && activeChallenge) {
+            if (prevChallengeIdRef.current && prevChallengeIdRef.current !== activeChallenge.id) {
+                if (typeof window !== "undefined" && "speechSynthesis" in window) {
+                    window.speechSynthesis.cancel();
+                }
+                resetDictatorSession();
+            }
+            prevChallengeIdRef.current = activeChallenge.id;
+            setDictatorInput(activeChallenge.title);
+        }
+    }, [isChallengeMode, activeChallengeId, activeChallenge?.id, activeChallenge?.title, resetDictatorSession]);
+
     /*
      * Speak AI explanation
      */
@@ -216,7 +235,7 @@ export default function AIResultPanel() {
     }
 
     async function startDictator() {
-        const project = dictatorInput.trim();
+        const project = (isChallengeMode && activeChallenge ? activeChallenge.title : dictatorInput).trim();
         if (!project) {
             setResult(`Please enter what ${language.name} program you want to build.`);
             return;
@@ -239,7 +258,7 @@ export default function AIResultPanel() {
     ) {
         if (!project || !project.trim()) return;
 
-        const currentLang = language?.id || activeTab?.language || "python";
+        const currentLang = (isChallengeMode && activeChallenge) ? activeChallenge.course : (language?.id || activeTab?.language || "python");
         const cat = categoryOverride || dictatorCategory;
         const pLevel = practiceLevelOverride || dictatorPracticeLevel;
         const targetLevel = levelOverride || `${cat}_l${pLevel}`;
@@ -294,6 +313,18 @@ export default function AIResultPanel() {
         }
 
         try {
+            const challengeMetadata = (isChallengeMode && activeChallenge) ? {
+                id: activeChallenge.id,
+                title: activeChallenge.title,
+                objective: activeChallenge.objective,
+                description: activeChallenge.description,
+                starterCode: activeChallenge.starterCode,
+                referenceSolution: activeChallenge.referenceSolution,
+                constraints: activeChallenge.constraints,
+                course: activeChallenge.course,
+                chapterOrder: activeChallenge.chapterOrder,
+            } : undefined;
+
             // Fetch plan (from AI or verified local synthesizer) with full active file & multi-file context
             const planRes = await fetchDictatorPlan(
                 project,
@@ -306,7 +337,8 @@ export default function AIResultPanel() {
                 tabs.map((t) => ({ name: t.name, path: t.path, language: t.language })),
                 cat,
                 pLevel,
-                currentAttempt
+                currentAttempt,
+                challengeMetadata
             );
 
             // Discard stale response if a newer session was started during fetch
@@ -1300,6 +1332,32 @@ export default function AIResultPanel() {
                                 </div>
                             </div>
 
+                            {/* Challenge Mode Synchronized Banner */}
+                            {isChallengeMode && activeChallenge && (
+                                <div
+                                    className={`p-3.5 rounded-2xl border mb-5 space-y-1.5 transition-all ${
+                                        darkMode
+                                            ? "bg-blue-950/40 border-blue-500/30 text-blue-200"
+                                            : "bg-blue-50 border-blue-200 text-blue-900"
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                                            Practice Gate Synchronized
+                                        </span>
+                                        <span className="text-[10px] font-mono text-slate-400">
+                                            ID: {activeChallenge.id}
+                                        </span>
+                                    </div>
+                                    <h4 className="text-sm font-bold text-slate-100">
+                                        {activeChallenge.title}
+                                    </h4>
+                                    <p className="text-xs text-slate-300 leading-relaxed">
+                                        {activeChallenge.objective}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Program Input */}
                             <label
                                 className={`block text-sm font-medium mb-2 ${
@@ -1432,7 +1490,7 @@ export default function AIResultPanel() {
                                 onClick={startDictator}
                                 className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-600 hover:opacity-90 transition text-white font-semibold shadow-md"
                             >
-                                🎙 Start {language.name} Dictator
+                                🎙 Start {isChallengeMode && activeChallenge ? "Challenge" : language.name} Dictator
                             </button>
                         </div>
                     )}

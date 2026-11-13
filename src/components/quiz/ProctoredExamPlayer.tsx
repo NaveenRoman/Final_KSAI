@@ -64,6 +64,7 @@ interface ProctoredExamPlayerProps {
   onSubmitQuiz: (answers: Record<number, number>, timeTakenMs: number, warningsCount: number) => Promise<ExamResult | null>;
   onBackToLesson: () => void;
   onNextChapter?: () => void;
+  nextChapterUnlocked?: boolean;
   onStartCodingRound?: () => void;
   minPassingScore?: number;
   themeColor?: "amber" | "indigo" | "emerald" | "blue" | "purple";
@@ -78,6 +79,7 @@ export function ProctoredExamPlayer({
   onSubmitQuiz,
   onBackToLesson,
   onNextChapter,
+  nextChapterUnlocked = false,
   onStartCodingRound,
   minPassingScore = 75,
   themeColor = "blue",
@@ -392,58 +394,74 @@ export function ProctoredExamPlayer({
             </ul>
           </div>
 
-          {/* Previous Attempt & Fast Track Status Card */}
+          {/* Previous Attempt Status Card (No Skip Buttons Allowed) */}
           {previousResult && previousResult.hasTaken && (
-            <div className="p-4 sm:p-5 rounded-2xl bg-emerald-50/70 border border-emerald-200 space-y-3.5 shadow-sm">
+            <div className={`p-4 sm:p-5 rounded-2xl border space-y-3.5 shadow-sm ${
+              previousResult.passed
+                ? "bg-emerald-50/70 border-emerald-200"
+                : "bg-amber-50/80 border-amber-200"
+            }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-black text-xs shadow-xs">
-                    ✓
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs shadow-xs ${
+                    previousResult.passed ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"
+                  }`}>
+                    {previousResult.passed ? "✓" : "!"}
                   </div>
                   <div>
-                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-800 block">
-                      Quiz Record Found
+                    <span className={`text-[10px] font-mono font-bold uppercase tracking-wider block ${
+                      previousResult.passed ? "text-emerald-800" : "text-amber-800"
+                    }`}>
+                      Assessment Record
                     </span>
                     <h4 className="text-sm font-black text-slate-900">
                       {previousResult.passed
-                        ? `🎉 Exam Passed (Score: ${previousResult.score}%)`
-                        : `⚠️ Attempted (Best Score: ${previousResult.score}%)`}
+                        ? `🎉 Exam Passed (Best Score: ${previousResult.score}%)`
+                        : `⚠️ Attempted (Best Score: ${previousResult.score}% — Passing is ${minPassingScore}%)`}
                     </h4>
                   </div>
                 </div>
 
-                <div className="px-3 py-1 rounded-xl bg-white border border-emerald-200 text-emerald-900 text-xs font-mono font-bold shadow-2xs">
+                <div className={`px-3 py-1 rounded-xl bg-white text-xs font-mono font-bold shadow-2xs border ${
+                  previousResult.passed ? "border-emerald-200 text-emerald-900" : "border-amber-200 text-amber-900"
+                }`}>
                   Attempts: <strong>{previousResult.attempts || 1}</strong>
                 </div>
               </div>
 
-              {/* Fast-Track Actions */}
-              <div className="space-y-2 pt-1">
-                <button
-                  onClick={() => {
-                    if (onStartCodingRound) {
-                      onStartCodingRound();
-                    } else {
-                      router.push(`/editor?language=${courseLanguage.toLowerCase()}&chapter=${chapterOrder}`);
-                    }
-                  }}
-                  className="w-full py-3.5 rounded-xl font-black text-xs text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Code2 size={16} />
-                  <span>Skip Quiz &amp; Proceed to Chapter {chapterOrder} Coding Round</span>
-                  <ArrowRight size={16} />
-                </button>
-
-                {onNextChapter && (
+              {/* Earned Progression Actions for Passed Students, or Prerequisite Requirement for Failed */}
+              {previousResult.passed ? (
+                <div className="space-y-2 pt-1">
                   <button
-                    onClick={onNextChapter}
-                    className="w-full py-3 rounded-xl font-bold text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                    onClick={() => {
+                      if (onStartCodingRound) {
+                        onStartCodingRound();
+                      } else {
+                        router.push(`/editor?language=${courseLanguage.toLowerCase()}&chapter=${chapterOrder}`);
+                      }
+                    }}
+                    className="w-full py-3.5 rounded-xl font-black text-xs text-white bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 transition-all shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>Skip Quiz &amp; Go to Chapter {chapterOrder + 1}</span>
-                    <ArrowRight size={14} />
+                    <Code2 size={16} />
+                    <span>Proceed to Chapter {chapterOrder} Coding Round</span>
+                    <ArrowRight size={16} />
                   </button>
-                )}
-              </div>
+
+                  {onNextChapter && nextChapterUnlocked && (
+                    <button
+                      onClick={onNextChapter}
+                      className="w-full py-3 rounded-xl font-bold text-xs bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <span>Go to Chapter {chapterOrder + 1}</span>
+                      <ArrowRight size={14} />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-amber-100/60 border border-amber-200 text-amber-900 text-xs leading-relaxed font-medium">
+                  A score of <strong>{minPassingScore}%</strong> or higher is required to pass this assessment and unlock the coding challenges. Review your chapter notes and retake the exam below.
+                </div>
+              )}
             </div>
           )}
 
@@ -452,15 +470,24 @@ export function ProctoredExamPlayer({
             onClick={handleStartExam}
             className={`w-full py-4 rounded-2xl font-black text-sm text-white transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] ${
               previousResult && previousResult.hasTaken
-                ? "bg-slate-800 hover:bg-slate-900 text-white shadow-slate-900/10 border border-slate-700"
+                ? previousResult.passed
+                  ? "bg-slate-800 hover:bg-slate-900 text-white shadow-slate-900/10 border border-slate-700"
+                  : "bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 hover:from-amber-700 hover:to-orange-700 shadow-amber-600/25"
                 : "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-700 shadow-blue-600/25"
             }`}
           >
             {previousResult && previousResult.hasTaken ? (
-              <>
-                <RotateCcw size={18} />
-                <span>Retake Chapter Exam (Optional)</span>
-              </>
+              previousResult.passed ? (
+                <>
+                  <RotateCcw size={18} />
+                  <span>Retake Chapter Exam (Optional Practice)</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={18} />
+                  <span>Retake Chapter Exam (Passing Score Required)</span>
+                </>
+              )
             ) : (
               <>
                 <Play size={18} className="fill-current" />
@@ -809,7 +836,7 @@ export function ProctoredExamPlayer({
                       <ArrowRight size={16} />
                     </button>
 
-                    {onNextChapter && (
+                    {onNextChapter && nextChapterUnlocked && (
                       <button
                         onClick={onNextChapter}
                         className="min-h-[44px] px-5 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] touch-manipulation"
@@ -909,7 +936,7 @@ export function ProctoredExamPlayer({
                       <ArrowRight size={18} />
                     </button>
 
-                    {onNextChapter && (
+                    {onNextChapter && nextChapterUnlocked && (
                       <button
                         onClick={onNextChapter}
                         className="w-full sm:w-auto min-h-[44px] px-6 py-3 rounded-xl sm:rounded-2xl font-bold text-xs bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.99] touch-manipulation"

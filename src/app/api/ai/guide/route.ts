@@ -167,7 +167,7 @@ function getPythonRuntimeFix(type: string): string {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json().catch(() => ({}));
-        const { language = "java", code = "", errors = [], output = "", fileName = "", learningLevel = "beginner" } = body;
+        const { language = "java", code = "", errors = [], output = "", fileName = "", learningLevel = "beginner", challenge = null } = body;
 
         // Ensure errors list is populated
         let errorList = Array.isArray(errors) ? errors : [];
@@ -193,9 +193,17 @@ export async function POST(request: NextRequest) {
             ).join("\n")
             : "No compiler errors reported.";
 
+        const challengeSection = challenge ? `
+Active Challenge: ${challenge.title || challenge.id}
+Challenge Objective: ${challenge.objective || 'Complete the task according to specifications'}
+Challenge Description: ${challenge.description || ''}
+${challenge.constraints && Array.isArray(challenge.constraints) ? `Constraints: ${challenge.constraints.join(', ')}` : ''}
+Guide the student specifically towards solving this challenge correctly!` : '';
+
         const prompt = `You are Codenthra AI Guide, an expert programming mentor and debugger.
 The student is writing in ${language.toUpperCase()}.
 Learning Level: ${learningLevel.toUpperCase()}
+${challengeSection}
 
 Active File: ${fileName || 'Source Code'}
 Current Code:
@@ -250,8 +258,13 @@ INSTRUCTIONS:
             );
         }
 
+        const guideChallengeHeader = challenge
+            ? `🎯 **Active Challenge:** ${challenge.title || challenge.id}\n${challenge.objective ? `**Objective:** ${challenge.objective}\n\n` : "\n"}`
+            : "";
+
         if (geminiResult.success && geminiResult.text) {
-            const answer = geminiResult.text.trim();
+            const rawAnswer = geminiResult.text.trim();
+            const answer = guideChallengeHeader ? `${guideChallengeHeader}${rawAnswer}` : rawAnswer;
             return NextResponse.json({
                 success: true,
                 response: answer,
@@ -281,9 +294,13 @@ INSTRUCTIONS:
                 backendHeaders["X-Internal-Secret"] = process.env.INTERNAL_API_SECRET;
             }
 
+            const guideController = new AbortController();
+            const guideTimeoutId = setTimeout(() => guideController.abort(), 8000);
+
             const djangoRes = await fetch(djangoGuideUrl, {
                 method: "POST",
                 headers: backendHeaders,
+                signal: guideController.signal,
                 body: JSON.stringify({
                     language,
                     code,
@@ -291,12 +308,17 @@ INSTRUCTIONS:
                     output,
                     file_name: fileName,
                     learning_level: learningLevel,
+                    challenge: challenge || undefined,
                 }),
             });
+            clearTimeout(guideTimeoutId);
 
             if (djangoRes.ok) {
                 const data = await djangoRes.json();
                 if (data.success && (data.response || data.data?.response || data.data?.guide?.explanation)) {
+                    if (guideChallengeHeader && data.response) {
+                        data.response = `${guideChallengeHeader}${data.response}`;
+                    }
                     return NextResponse.json(data);
                 }
             }
@@ -311,7 +333,11 @@ INSTRUCTIONS:
         const runtimeCrash = detectRuntimeException(output, language);
 
         if (errorList.length === 0 && !runtimeCrash) {
-            guideExplanation = `✅ **No errors detected!**\n\nYour ${language} code compiles cleanly with no syntax or runtime errors. Click **Run** in the bottom dock to execute your program.`;
+            if (challenge) {
+                guideExplanation = `✅ **No errors detected!**\n\nYour ${language} code compiles cleanly with no syntax errors.\n\n🎯 **Active Challenge Goal:** ${challenge.title || challenge.id}\n${challenge.objective || ""}\n\nClick **Run** to test your program output against the challenge test cases!`;
+            } else {
+                guideExplanation = `✅ **No errors detected!**\n\nYour ${language} code compiles cleanly with no syntax or runtime errors. Click **Run** in the bottom dock to execute your program.`;
+            }
         } else if (runtimeCrash && errorList.length === 0) {
             guideExplanation = `⚡ **Runtime Crash Detected:**\nYour code compiled successfully, but crashed during execution with a runtime error:\n\n` +
                 `### ⚠️ ${runtimeCrash.type}${runtimeCrash.line ? ` (near Line ${runtimeCrash.line})` : ""}\n` +

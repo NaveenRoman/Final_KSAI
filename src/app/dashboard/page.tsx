@@ -36,19 +36,6 @@ export default function DashboardPage() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
 
-  // Force Light Mode on Mount
-  useEffect(() => {
-    document.documentElement.classList.add("light");
-    document.body.classList.add("light");
-    return () => {
-      const savedTheme = localStorage.getItem("theme");
-      if (savedTheme !== "light") {
-        document.documentElement.classList.remove("light");
-        document.body.classList.remove("light");
-      }
-    };
-  }, []);
-
   // Dashboard state
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);

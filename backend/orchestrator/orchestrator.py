@@ -571,6 +571,11 @@ Rules:
         student_category: str = "",
         practice_level: str = "",
         iteration: int = 1,
+        challenge_id: str = "",
+        reference_solution: str = "",
+        starter_code: str = "",
+        challenge_objective: str = "",
+        challenge_description: str = "",
     ):
         norm_lang = (language or "java").lower().strip()
         if norm_lang == "java":
@@ -583,6 +588,7 @@ Rules:
             print("========== JAVA DICTATOR ENGINE ==========")
             print("Language      :", language)
             print("Topic         :", project)
+            print("Challenge ID  :", challenge_id)
             print("Learning Group:", cat.upper())
             print("Practice Level:", sub)
             print("Program ID    :", program_id)
@@ -594,6 +600,11 @@ Rules:
                 student_category=student_category,
                 practice_level=practice_level,
                 iteration=iteration,
+                reference_solution=reference_solution,
+                starter_code=starter_code,
+                challenge_objective=challenge_objective,
+                challenge_description=challenge_description,
+                challenge_id=challenge_id,
             )
             return {
                 "intent": "dictate",
@@ -621,6 +632,7 @@ Rules:
             print("========== PYTHON DICTATOR ENGINE ==========")
             print("Language      :", language)
             print("Topic         :", project)
+            print("Challenge ID  :", challenge_id)
             print("Learning Group:", cat.upper())
             print("Practice Level:", sub)
             print("Program ID    :", program_id)
@@ -632,6 +644,11 @@ Rules:
                 student_category=student_category,
                 practice_level=practice_level,
                 iteration=iteration,
+                reference_solution=reference_solution,
+                starter_code=starter_code,
+                challenge_objective=challenge_objective,
+                challenge_description=challenge_description,
+                challenge_id=challenge_id,
             )
             return {
                 "intent": "dictate",
@@ -659,6 +676,7 @@ Rules:
             print("========== C DICTATOR ENGINE ==========")
             print("Language      :", language)
             print("Topic         :", project)
+            print("Challenge ID  :", challenge_id)
             print("Learning Group:", cat.upper())
             print("Practice Level:", sub)
             print("Program ID    :", program_id)
@@ -670,6 +688,11 @@ Rules:
                 student_category=student_category,
                 practice_level=practice_level,
                 iteration=iteration,
+                reference_solution=reference_solution,
+                starter_code=starter_code,
+                challenge_objective=challenge_objective,
+                challenge_description=challenge_description,
+                challenge_id=challenge_id,
             )
             return {
                 "intent": "dictate",
@@ -697,6 +720,7 @@ Rules:
             print("========== C++ DICTATOR ENGINE ==========")
             print("Language      :", language)
             print("Topic         :", project)
+            print("Challenge ID  :", challenge_id)
             print("Learning Group:", cat.upper())
             print("Practice Level:", sub)
             print("Program ID    :", program_id)
@@ -708,6 +732,11 @@ Rules:
                 student_category=student_category,
                 practice_level=practice_level,
                 iteration=iteration,
+                reference_solution=reference_solution,
+                starter_code=starter_code,
+                challenge_objective=challenge_objective,
+                challenge_description=challenge_description,
+                challenge_id=challenge_id,
             )
             return {
                 "intent": "dictate",

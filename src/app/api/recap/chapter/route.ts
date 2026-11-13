@@ -450,9 +450,33 @@ export async function POST(request: NextRequest) {
       saveEvent: true,
     });
 
+    // Authoritatively synchronize ChapterRecap completion and re-evaluate unlock gates
+    let isCompleted = false;
+    try {
+      const { recordChapterRecapCompletion, checkChapterCompletion } = await import(
+        "@/lib/adaptive/unlock-service"
+      );
+      await recordChapterRecapCompletion({
+        userId: user.id,
+        courseId,
+        chapterId,
+        summaryText: summary,
+      });
+
+      const gateResult = await checkChapterCompletion({
+        userId: user.id,
+        courseId,
+        chapterId,
+      });
+      isCompleted = gateResult.isCompleted;
+    } catch (gateErr) {
+      console.warn("Gate evaluation sync notice in POST /api/recap/chapter:", gateErr);
+    }
+
     return NextResponse.json({
       success: true,
       recap,
+      chapterCompleted: isCompleted,
     });
   } catch (error) {
     console.error("POST /api/recap/chapter error:", error);

@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { db } from "@/lib/db";
 import { logAiTelemetry } from "@/lib/ai/gemini-client";
+import { getChallengeById } from "@/lib/challenges/challenge-bank";
+import { buildChallengeDictatorPlan } from "@/lib/challenges/challenge-dictator-builder";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -12,6 +14,23 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
+
+    // 0. Authoritative Programming Challenge Check
+    const challengeLookupId =
+      body.challengeId ||
+      body.challenge_id ||
+      (typeof body.project === "string" && body.project.includes("_") ? body.project : "") ||
+      (typeof body.topic === "string" && body.topic.includes("_") ? body.topic : "");
+
+    const challenge = challengeLookupId ? getChallengeById(challengeLookupId) : null;
+    if (challenge) {
+      const challengePlan = buildChallengeDictatorPlan(challenge);
+      return NextResponse.json({
+        success: true,
+        data: challengePlan,
+        ...challengePlan,
+      });
+    }
 
     // Optionally enrich with student's active learning memory if authenticated
     if (!body.learningMemory) {

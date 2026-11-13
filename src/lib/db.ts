@@ -11,11 +11,7 @@ const isCloudDeployment =
   Boolean(process.env.FLY_APP_NAME) ||
   process.env.NETLIFY === "true";
 
-// In local dev with generated SQLite client, normalize DATABASE_URL to SQLite before PrismaClient initializes
-if (process.env.NODE_ENV !== "production" && !isCloudDeployment && process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith("file:")) {
-  process.env.DATABASE_URL = "file:./dev.db";
-}
-
+// In local dev, preserve PostgreSQL URL if present, or fallback to file:./dev.db for SQLite
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function getDatabaseUrl(): string {
@@ -33,12 +29,6 @@ function getDatabaseUrl(): string {
       );
     }
     return url!;
-  }
-
-  // If running in local development and client was generated for SQLite, fallback to local SQLite database
-  if (isPostgresUrl && !isCloudDeployment) {
-    process.env.DATABASE_URL = "file:./dev.db";
-    return "file:./dev.db";
   }
 
   return url || "file:./dev.db";

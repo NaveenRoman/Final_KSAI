@@ -59,7 +59,7 @@ export function SuperAdminDashboardClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased flex flex-col">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans antialiased flex flex-col">
       {/* 1. Left Fixed Dark Navy Sidebar */}
       <AdminSidebar
         isMobileOpen={isMobileSidebarOpen}

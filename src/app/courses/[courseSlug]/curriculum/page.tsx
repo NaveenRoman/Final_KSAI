@@ -135,22 +135,22 @@ export default function CourseCurriculumPage() {
     : completedChaptersCount;
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-white flex flex-col selection:bg-cyan-500 selection:text-black">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500 selection:text-black">
       {/* Custom Top Bar */}
-      <header className="w-full border-b border-white/10 bg-[#09090D] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+      <header className="w-full border-b border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-6 py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center font-black text-white text-sm shadow-md">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[var(--brand-blue)] to-[var(--brand-cyan)] flex items-center justify-center font-black text-white text-sm shadow-md">
             KS
           </div>
           <div>
             <span className="text-[10px] text-cyan-400 font-mono font-bold tracking-wider block">LEARNING STUDIO</span>
-            <span className="text-sm font-extrabold text-white">KnowledgeStream AI &bull; {courseSlug === "cpp" ? "C++" : courseSlug === "java" ? "Java" : isC ? "C" : "Python"} Course</span>
+            <span className="text-sm font-extrabold text-[var(--text-primary)]">KnowledgeStream AI &bull; {courseSlug === "cpp" ? "C++" : courseSlug === "java" ? "Java" : isC ? "C" : "Python"} Course</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.push("/dashboard")}
-            className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs font-bold transition-all flex items-center gap-1.5"
           >
             <ArrowLeft size={14} /> Back to Dashboard
           </button>
@@ -161,17 +161,17 @@ export default function CourseCurriculumPage() {
       <main data-lenis-prevent className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto w-full overflow-y-auto">
         {/* Breadcrumbs & Navigation */}
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
             <button
               onClick={() => router.push("/dashboard")}
-              className="hover:text-white transition-colors"
+              className="hover:text-[var(--text-primary)] transition-colors"
             >
               My Courses
             </button>
             <span>&bull;</span>
             <button
               onClick={() => router.push(`/courses/${courseSlug}`)}
-              className="hover:text-white transition-colors"
+              className="hover:text-[var(--text-primary)] transition-colors"
             >
               Course
             </button>
@@ -181,7 +181,7 @@ export default function CourseCurriculumPage() {
 
           <button
             onClick={() => router.push(`/courses/${courseSlug}`)}
-            className="px-4 py-2 rounded-xl glass-panel text-slate-300 hover:text-white text-[11px] font-bold flex items-center gap-1.5 hover:border-cyan-400/50 transition-all"
+            className="px-4 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-[11px] font-bold flex items-center gap-1.5 hover:border-cyan-400/50 transition-all"
           >
             <ArrowLeft size={13} /> Back to Course Overview
           </button>
@@ -190,15 +190,15 @@ export default function CourseCurriculumPage() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-4">
             <div className="w-12 h-12 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin" />
-            <div className="text-slate-400 text-xs font-mono">Loading Curriculum...</div>
+            <div className="text-[var(--text-muted)] text-xs font-mono">Loading Curriculum...</div>
           </div>
         ) : error ? (
-          <div className="glass-panel p-10 rounded-3xl border border-red-500/30 text-center space-y-4 max-w-md mx-auto">
-            <h3 className="text-base font-bold text-white">Error</h3>
-            <p className="text-xs text-slate-400">{error}</p>
+          <div className="p-10 rounded-3xl border border-red-500/30 bg-[var(--bg-card)] text-center space-y-4 max-w-md mx-auto">
+            <h3 className="text-base font-bold text-[var(--text-primary)]">Error</h3>
+            <p className="text-xs text-[var(--text-muted)]">{error}</p>
             <button
               onClick={loadCurriculumData}
-              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-white/5 hover:bg-white/10 border border-white/10"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-[var(--bg-secondary)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)]"
             >
               Retry
             </button>
@@ -206,13 +206,13 @@ export default function CourseCurriculumPage() {
         ) : (
           <div className="space-y-6 animate-fade-in">
             {/* Header curriculum title */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-white/10 pb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-[var(--border-subtle)] pb-4">
               <div>
-                <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-2">
+                <h1 className="text-2xl font-black text-[var(--text-primary)] tracking-tight flex items-center gap-2">
                   <GraduationCap className="text-cyan-400" size={24} />
                   Curriculum Syllabus
                 </h1>
-                <p className="text-xs text-slate-400 mt-1">
+                <p className="text-xs text-[var(--text-muted)] mt-1">
                   {courseSlug === "cpp" ? "C++ Course" : courseSlug === "java" ? "Java Course" : isC ? "C Course" : "Python AI Course"} &bull; {completedChaptersCount} of {totalChaptersCount} Chapters Passed ({progressPercentage}%)
                 </p>
               </div>
@@ -221,7 +221,7 @@ export default function CourseCurriculumPage() {
               {!isEnrolled && (
                 <button
                   onClick={handleBuyCourse}
-                  className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-xl shadow-blue-500/10 cursor-pointer active:scale-[0.98]"
+                  className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-[var(--brand-blue)] via-purple-600 to-[var(--brand-cyan)] hover:opacity-95 transition-opacity flex items-center gap-1.5 shadow-xl shadow-blue-500/10 cursor-pointer active:scale-[0.98]"
                 >
                   <Sparkles size={14} className="animate-pulse" />
                   Subscribe to Unlock All (₹{coursePrice}/month)
@@ -236,17 +236,17 @@ export default function CourseCurriculumPage() {
                 const isCompleted = !!progresses.find((p) => p.chapterId === chapter.id)?.isCompleted;
                 const active = chapter.orderNumber === activeChapterOrder;
 
-                let cardStyle = "glass-panel border-white/10 bg-[#09090D] hover:border-cyan-500/50 hover:bg-white/5";
+                let cardStyle = "border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-cyan-500/50 hover:bg-[var(--bg-elevated)]";
                 let lockIcon = <Unlock size={16} className="text-cyan-400" />;
                 let statusLabel = "Active & Unlocked";
 
                 if (isCompleted) {
-                  cardStyle = "glass-panel border-emerald-500/30 bg-emerald-950/5 hover:border-emerald-500/50 hover:bg-emerald-950/10";
+                  cardStyle = "border-emerald-500/30 bg-emerald-950/20 hover:border-emerald-500/50 hover:bg-emerald-950/30";
                   lockIcon = <CheckCircle2 size={18} className="text-emerald-400" />;
                   statusLabel = "Completed";
                 } else if (!unlocked) {
-                  cardStyle = "bg-white/5 border-white/5 opacity-60 cursor-not-allowed";
-                  lockIcon = <Lock size={16} className="text-slate-500" />;
+                  cardStyle = "bg-[var(--bg-secondary)] border-[var(--border-subtle)] opacity-60 cursor-not-allowed";
+                  lockIcon = <Lock size={16} className="text-[var(--text-muted)]" />;
 
                   const freeLimit = courseSlug === "python" ? 0 : 1;
                   if (!isEnrolled && chapter.orderNumber > freeLimit) {

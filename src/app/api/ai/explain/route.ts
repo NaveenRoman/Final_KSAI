@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     const code = (body.code || "").trim();
     const language = body.language || "Java";
     const isSelection = Boolean(body.isSelection);
+    const challenge = body.challenge || null;
 
     // 1. Guard against empty code
     if (!code) {
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
           language,
           code,
           isSelection,
+          challenge: challenge || undefined,
         }),
       });
 
@@ -88,13 +90,16 @@ export async function POST(request: Request) {
           "";
 
         if (explainText && typeof explainText === "string" && explainText.trim().length > 0) {
+          const challengeHeader = challenge
+            ? `🎯 **Active Challenge:** ${challenge.title || challenge.id}\n**Challenge Goal:** ${challenge.objective || "Follow challenge specifications"}\n\n`
+            : "";
           const label = isSelection
             ? "🔍 **Explaining Selected Code Snippet:**\n\n"
             : "📄 **Explaining Full Program:**\n\n";
           const formatted =
             explainText.includes("Explaining Selected Code Snippet") || explainText.includes("Explaining Full Program")
-              ? explainText
-              : label + explainText;
+              ? challengeHeader + explainText
+              : challengeHeader + label + explainText;
 
           return NextResponse.json({
             success: true,
@@ -146,7 +151,7 @@ export async function POST(request: Request) {
     }
 
     // 3. Guaranteed Structured Fallback (Topic, What it does, Step-by-step, Concepts, I/O, Improvements)
-    const fallbackText = generateStructuredExplanation(code, language, isSelection);
+    const fallbackText = generateStructuredExplanation(code, language, isSelection, challenge);
 
     return NextResponse.json({
       success: true,
@@ -167,7 +172,12 @@ export async function POST(request: Request) {
   }
 }
 
-function generateStructuredExplanation(code: string, language: string, isSelection: boolean = false): string {
+function generateStructuredExplanation(
+  code: string,
+  language: string,
+  isSelection: boolean = false,
+  challenge: { id?: string; title?: string; objective?: string } | null = null
+): string {
   const lines = code.split("\n").filter((l) => l.trim().length > 0);
   const hasLoops = /for\s*\(|while\s*\(|for\s+\w+\s+in/i.test(code);
   const hasConditionals = /if\s*\(|if\s+\w+|else/i.test(code);
@@ -187,7 +197,7 @@ function generateStructuredExplanation(code: string, language: string, isSelecti
 
   return `### 📌 1. Topic & Purpose ${isSelection ? "(Selected Code Snippet)" : "(Full Program)"}
 **Language:** ${language}
-**Overview:** ${summary}
+${challenge ? `**Active Challenge:** ${challenge.title || challenge.id}\n**Challenge Goal:** ${challenge.objective || "Solve challenge requirements"}\n` : ""}**Overview:** ${summary}
 
 ### 📝 2. What the Code Does
 The ${isSelection ? "selected code snippet" : "program"} establishes necessary data structures and logic flow to execute operations:

@@ -190,7 +190,12 @@ def build_fallback_dictator_plan(
     level: str = "beginner",
     student_category: str = "",
     practice_level: str = "",
-    iteration: int = 1
+    iteration: int = 1,
+    reference_solution: str = "",
+    starter_code: str = "",
+    challenge_objective: str = "",
+    challenge_description: str = "",
+    challenge_id: str = ""
 ) -> dict:
     norm = (language or "java").lower().strip()
     if norm in ["cpp", "c++"]: norm = "cpp"
@@ -268,6 +273,99 @@ def build_fallback_dictator_plan(
             "totalSteps": len(steps),
             "steps": steps,
         }
+
+    # Authoritative Challenge-Driven Synthesis
+    if reference_solution and reference_solution.strip():
+        lines = [l for l in reference_solution.split("\n") if l.strip()]
+        steps_data = []
+        block_stack = []
+        for idx, raw_line in enumerate(lines):
+            line = raw_line.strip()
+            if (norm != "python" and line.startswith("//")) or (norm == "python" and line.startswith("#")):
+                continue
+            token = line
+            title = f"Step {len(steps_data) + 1}"
+            instruction = f"Write: {line}"
+            explanation = challenge_objective or f"Step in {proj} solution."
+            if norm == "java":
+                if line.startswith("import "):
+                    title = "Import Declaration"
+                    instruction = f"Import package: {line}"
+                elif line.startswith("public class ") or line.startswith("class "):
+                    token = line.split("{")[0].strip()
+                    parts = token.split()
+                    class_name = parts[-1] if len(parts) >= 2 else "Main"
+                    block_stack.append(f"{class_name} class")
+                    title = "Class Structure"
+                    instruction = f"Declare class: {token}"
+                elif "public static void main" in line:
+                    token = line.split("{")[0].strip()
+                    block_stack.append("main method")
+                    title = "Main Method Entry Point"
+                    instruction = "Define main method entry point: public static void main(String[] args)"
+                elif "System.out.print" in line:
+                    title = "Formatted Console Output"
+                    instruction = f"Print output: {line}"
+                elif line in ["}", "};"]:
+                    closed = block_stack.pop() if block_stack else "code block"
+                    if closed == "main method":
+                        title = "Close Main Method"
+                        instruction = "Close the main method."
+                    elif closed.endswith("class"):
+                        c_name = closed.split()[0]
+                        title = f"Close {c_name} Class"
+                        instruction = f"Close the {c_name} class."
+                    else:
+                        title = "Scope Closure"
+                        instruction = f"Close the {closed}."
+                    token = "}"
+            elif norm in ["c", "cpp"]:
+                if line.startswith("#include"):
+                    title = "Header Inclusion"
+                    instruction = f"Include library: {line}"
+                elif "int main" in line:
+                    token = line.split("{")[0].strip()
+                    block_stack.append("main function")
+                    title = "Main Function"
+                    instruction = f"Define main function: {token}"
+                elif any(k in line for k in ["printf", "cout"]):
+                    title = "Formatted Output"
+                    instruction = f"Print formatted output: {line}"
+                elif line in ["return 0;", "return 0"]:
+                    title = "Exit Status"
+                    instruction = "Return status 0 to indicate successful termination."
+                elif line in ["}", "};"]:
+                    closed = block_stack.pop() if block_stack else "function block"
+                    title = "Close Main Function" if closed == "main function" else "Scope Closure"
+                    instruction = "Close the main function." if closed == "main function" else f"Close the {closed}."
+                    token = "}"
+            else:
+                if line.startswith("import ") or line.startswith("from "):
+                    title = "Module Import"
+                    instruction = f"Import library: {line}"
+                elif line.startswith("def "):
+                    token = line.split(":")[0].strip()
+                    title = "Function Definition"
+                    instruction = f"Define function: {token}:"
+                elif "print(" in line:
+                    title = "Console Output"
+                    instruction = f"Print output: {line}"
+
+            steps_data.append({
+                "token": token,
+                "insert": raw_line + "\n",
+                "title": title,
+                "concept": title,
+                "instruction": instruction,
+                "explanation": explanation,
+                "why": challenge_objective or "Mandatory challenge requirement.",
+                "hint": f"Type: {token}",
+                "type": "statement"
+            })
+
+        reqs = [challenge_objective] if challenge_objective else []
+        reqs.append("Pass all automated test cases")
+        return make_plan(norm.capitalize() if norm != "cpp" else "C++", reqs, steps_data)
 
     if norm == "java":
         from prompts.java_catalog import get_java_dictator_program

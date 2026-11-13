@@ -13,6 +13,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useLanguage } from "../languages/LanguageContext";
 import { useTabs } from "../tabs/TabContext";
 import { useTerminal } from "../terminal/TerminalContext";
+import { useAIResult } from "../AIResultContext";
 
 export interface ChallengeItem {
   id: string;
@@ -36,6 +37,7 @@ export interface ChallengeItem {
   isPassed: boolean;
   score: number;
   hints: string[];
+  referenceSolution?: string;
 }
 
 export interface EvaluationResult {
@@ -117,6 +119,7 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
   const { setLanguage } = useLanguage();
   const { openTab, activeTab, updateTabContent } = useTabs();
   const { setOutput, setShowTerminal, setActivePanel } = useTerminal();
+  const aiResult = useAIResult();
 
   const rawCourse =
     searchParams?.get("course") ||
@@ -247,6 +250,15 @@ export function ChallengeProvider({ children }: { children: ReactNode }) {
     setEvalResult(null);
     setTestOutput(null);
     setHintIndex(0);
+
+    // Cancel speech and flush any stale dictator session
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    if (aiResult) {
+      aiResult.resetDictatorSession();
+      aiResult.clearResult();
+    }
 
     const fileName = getDefaultFileName(target.course);
     const initialCode = codeBuffers[target.id] || target.starterCode;

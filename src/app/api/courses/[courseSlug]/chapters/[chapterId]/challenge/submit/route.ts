@@ -126,6 +126,17 @@ export async function POST(
       );
     }
 
+    if (!progression.isChapterQuizPassed) {
+      return NextResponse.json(
+        {
+          error: `Sequential Gate Locked: You must pass the Chapter ${orderNum} Assessment Quiz (score >= 75%) before submitting coding challenges.`,
+          isUnlocked: false,
+          lockReason: "QUIZ_NOT_PASSED",
+        },
+        { status: 403 }
+      );
+    }
+
     if (!targetItem.isUnlocked) {
       return NextResponse.json(
         {

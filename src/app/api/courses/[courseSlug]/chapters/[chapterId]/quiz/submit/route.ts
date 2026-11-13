@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { parseSessionToken } from "@/lib/auth-cookie";
 import { XP_CONFIG } from "@/lib/xp-config";
 import { awardXpAndStreak } from "@/lib/xp-service";
-import { logUserActivity } from "@/lib/progression";
+import { logUserActivity, getAuthoritativeProgression } from "@/lib/progression";
 import {
   getChapterUnlockStatus,
   checkChapterCompletion,
@@ -114,6 +114,27 @@ export async function POST(
           locked: true,
           lockReason: unlockStatus.lockReason,
           previousChapter: unlockStatus.previousChapter,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 3. Authoritatively enforce topic completion prerequisite on submission
+    const progression = await getAuthoritativeProgression(
+      user.id,
+      courseSlug,
+      orderNum
+    );
+    const quizEligibility = progression.currentChapter?.quizEligibility;
+
+    if (!quizEligibility?.isEligible && !quizEligibility?.passed) {
+      return NextResponse.json(
+        {
+          error:
+            quizEligibility?.reason ||
+            "Unauthorized submission: All chapter topics must be completed and mastered before submitting the quiz.",
+          locked: true,
+          lockReason: "TOPICS_INCOMPLETE",
         },
         { status: 403 }
       );

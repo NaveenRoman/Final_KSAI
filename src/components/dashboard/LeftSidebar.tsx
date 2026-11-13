@@ -286,11 +286,7 @@ export function LeftSidebar({
   return (
     <>
       <aside
-        className={`hidden md:flex flex-col justify-between transition-all duration-300 z-30 select-none border-r-0 md:border-r shrink-0 ${
-        isLight
-          ? "bg-white border-slate-200/80 text-slate-700"
-          : "dark-sidebar bg-[#09090B]/90 border-white/10 backdrop-blur-xl text-white"
-      } ${
+        className={`hidden md:flex flex-col justify-between transition-all duration-300 z-30 select-none border-r shrink-0 bg-[var(--bg-secondary)] border-[var(--border-subtle)] text-[var(--text-primary)] ${
         fullHeight
           ? "h-screen sticky top-0"
           : "h-[calc(100vh-4rem)] sticky top-16"
@@ -300,28 +296,20 @@ export function LeftSidebar({
     >
       {/* Brand Logo Header if fullHeight */}
       {fullHeight && (
-        <div className={`p-3 border-b flex items-center justify-between ${
-          isLight ? "border-slate-100 bg-white" : "border-white/10 bg-[#060609]"
-        }`}>
+        <div className="p-3 border-b flex items-center justify-between border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
           {!collapsed ? (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-purple-600 to-cyan-400 p-[1px] shadow-lg flex items-center justify-center overflow-hidden">
                 <img src="/logo.png" alt="KnowledgeStream AI Logo" className="w-full h-full object-cover rounded-[10px]" />
               </div>
               <div className="flex flex-col leading-none">
-                <span className={`font-black text-xs tracking-tight flex items-center gap-1 ${
-                  isLight ? "text-[#0F172A]" : "text-white"
-                }`}>
+                <span className="font-bold text-xs tracking-tight flex items-center gap-1 text-[var(--text-primary)]">
                   KnowledgeStream
-                  <span className={`text-[8px] px-1 py-0.5 rounded font-mono font-bold border ${
-                    isLight
-                      ? "bg-blue-50 border-blue-200 text-blue-600"
-                      : "bg-blue-500/20 border-cyan-500/30 text-cyan-300"
-                  }`}>
+                  <span className="text-[8px] px-1 py-0.5 rounded font-mono font-bold border bg-blue-500/20 border-cyan-500/30 text-cyan-400">
                     AI OS
                   </span>
                 </span>
-                <span className="text-[9px] text-slate-400 font-semibold mt-0.5">
+                <span className="text-[9px] text-[var(--text-muted)] font-medium mt-0.5">
                   Teach to Code. Not to Copy.
                 </span>
               </div>
@@ -395,36 +383,30 @@ export function LeftSidebar({
                 }
               }}
               title={collapsed ? item.label : undefined}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-extrabold transition-all group relative cursor-pointer ${
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all group relative cursor-pointer ${
                 isActive
-                  ? isLight
-                    ? "bg-[#EEF2FF] text-[#4F46E5] border-r-4 border-[#4F46E5] shadow-sm shadow-[#4F46E5]/10"
-                    : "bg-gradient-to-r from-blue-600/30 to-purple-600/20 border border-blue-500/60 text-white shadow-lg shadow-blue-500/10"
-                  : isLight
-                    ? "text-slate-600 hover:text-[#0F172A] hover:bg-slate-50"
-                    : "text-slate-300 hover:text-white hover:bg-white/5"
+                  ? "bg-gradient-to-r from-blue-600/25 to-cyan-500/15 border border-[var(--brand-blue)]/50 text-[var(--text-primary)] shadow-sm shadow-blue-500/10"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]"
               }`}
             >
               <Icon
                 size={16}
                 className={`shrink-0 transition-transform group-hover:scale-110 ${
                   isActive
-                    ? isLight ? "text-[#4F46E5]" : "text-cyan-400"
-                    : isLight ? "text-slate-500 group-hover:text-slate-800" : "text-slate-400 group-hover:text-cyan-300"
+                    ? "text-[var(--brand-cyan)]"
+                    : "text-[var(--text-muted)] group-hover:text-[var(--brand-cyan)]"
                 }`}
               />
               {!collapsed && (
                 <span className="truncate">{item.label}</span>
               )}
               {isLocked ? (
-                <span className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-black border border-purple-500/30 shrink-0">
+                <span className="ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-purple-500/20 text-purple-300 text-[9px] font-bold border border-purple-500/30 shrink-0">
                   <Lock size={10} className="text-purple-300" /> Pro
                 </span>
               ) : (
                 isActive && !collapsed && (
-                  <span className={`w-1.5 h-1.5 rounded-full ml-auto animate-pulse ${
-                    isLight ? "bg-[#4F46E5]" : "bg-cyan-400"
-                  }`} />
+                  <span className="w-1.5 h-1.5 rounded-full ml-auto animate-pulse bg-[var(--brand-cyan)]" />
                 )
               )}
             </button>
@@ -433,27 +415,19 @@ export function LeftSidebar({
       </div>
 
       {/* Footer Controls & User Profile Widget */}
-      <div className={`p-2 border-t space-y-2 ${
-        isLight ? "border-slate-100 bg-[#F8FAFC]" : "border-white/10 bg-[#060609]"
-      }`}>
+      <div className="p-2 border-t space-y-2 border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
         {!collapsed && (
           <>
             {/* Live Subscription Status Widget */}
             {!isPro ? (
-              <div className={`p-2.5 rounded-xl border flex flex-col gap-1.5 ${
-                isLight
-                  ? "bg-[#EEF2FF]/60 border-purple-100"
-                  : "glass-panel border-purple-500/30 bg-gradient-to-br from-purple-950/20 to-blue-950/15"
-              }`}>
+              <div className="p-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] flex flex-col gap-1.5">
                 <div className="flex items-center justify-between w-full">
-                  <span className={`text-[10px] font-black flex items-center gap-1 ${
-                    isLight ? "text-[#0F172A]" : "text-white"
-                  }`}>
+                  <span className="text-[10px] font-bold flex items-center gap-1 text-[var(--text-primary)]">
                     {isBasic ? `⚡ Basic (${subscription?.subscription?.daysRemaining ?? 0}d)` : "⚡ Codexa Plans"}
                   </span>
                   <button
                     onClick={() => router.push(isBasic ? "/plans/duration?plan=pro" : "/plans")}
-                    className="px-2.5 py-1 rounded-lg text-[9px] font-black text-white bg-[#4F46E5] hover:bg-[#4338CA] transition-all cursor-pointer shadow-md shrink-0"
+                    className="px-2.5 py-1 rounded-lg text-[9px] font-bold text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 transition-all cursor-pointer shadow-md shrink-0"
                   >
                     {isBasic ? "Upgrade Pro" : "Subscribe"}
                   </button>
@@ -461,7 +435,7 @@ export function LeftSidebar({
               </div>
             ) : (
               <div className="p-2 rounded-xl bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 flex items-center justify-between">
-                <span className="text-[10px] font-black text-purple-300 flex items-center gap-1">
+                <span className="text-[10px] font-bold text-purple-300 flex items-center gap-1">
                   👑 Pro Member
                 </span>
                 <span className="text-[9px] font-mono text-slate-400 font-bold">
@@ -472,9 +446,7 @@ export function LeftSidebar({
 
             {/* Sidebar Profile Widget */}
             {activeProfile && (
-              <div className={`p-2 rounded-xl border flex flex-col gap-1.5 ${
-                isLight ? "bg-white border-slate-200" : "glass-panel border-white/10 bg-white/5"
-              }`}>
+              <div className="p-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] flex flex-col gap-1.5">
                 <div className="flex items-center gap-2">
                   {activeProfile.image ? (
                     <img
@@ -483,15 +455,15 @@ export function LeftSidebar({
                       className="w-6 h-6 rounded-full border border-slate-200/50 object-cover shrink-0"
                     />
                   ) : (
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center font-black text-white text-[9px] border border-white/20 shrink-0">
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center font-bold text-white text-[9px] border border-white/20 shrink-0">
                       {(activeProfile.name || "S").charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0 flex-1 leading-none">
-                    <div className={`text-[11px] font-extrabold truncate ${isLight ? "text-[#0F172A]" : "text-white"}`}>
+                    <div className="text-[11px] font-bold truncate text-[var(--text-primary)]">
                       {activeProfile.name || "Student"}
                     </div>
-                    <div className={`text-[9px] font-mono font-bold mt-0.5 ${isLight ? "text-[#4F46E5]" : "text-cyan-400"}`}>
+                    <div className="text-[9px] font-mono font-bold mt-0.5 text-[var(--brand-cyan)]">
                       Level {activeProfile.level ?? 0}
                     </div>
                   </div>
@@ -505,19 +477,13 @@ export function LeftSidebar({
 
                   return (
                     <div className="flex items-center gap-1.5" title={`Lifetime Cumulative XP: ${activeProfile.xp ?? 0}`}>
-                      <div className={`flex-1 h-1 rounded-full overflow-hidden ${
-                        isLight ? "bg-slate-100" : "bg-white/10"
-                      }`}>
+                      <div className="flex-1 h-1 rounded-full overflow-hidden bg-[var(--bg-elevated)]">
                         <div
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            isLight ? "bg-gradient-to-r from-blue-500 to-[#4F46E5]" : "bg-gradient-to-r from-blue-500 to-cyan-400"
-                          }`}
+                          className="h-full rounded-full transition-all duration-500 bg-gradient-to-r from-blue-500 to-cyan-400"
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
-                      <div className={`text-[8px] font-mono font-bold shrink-0 ${
-                        isLight ? "text-slate-500" : "text-slate-400"
-                      }`}>
+                      <div className="text-[8px] font-mono font-bold shrink-0 text-[var(--text-muted)]">
                         {currentProgressXp}/{targetXp} XP
                       </div>
                     </div>
@@ -538,11 +504,7 @@ export function LeftSidebar({
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className={`w-full flex items-center justify-center p-1.5 rounded-xl transition-all border ${
-            isLight
-              ? "text-slate-500 hover:text-[#0F172A] border-slate-200 bg-white"
-              : "text-slate-400 hover:text-white border-white/10 bg-[#060609]"
-          }`}
+          className="w-full flex items-center justify-center p-1.5 rounded-xl transition-all border text-[var(--text-muted)] hover:text-[var(--text-primary)] border-[var(--border-subtle)] bg-[var(--bg-card)]"
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -566,7 +528,7 @@ export function LeftSidebar({
     {/* Mobile Bottom Navigation Bar (< 768px) */}
     <nav
       aria-label="Mobile Navigation"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#09090B]/95 backdrop-blur-2xl border-t border-white/10 px-2 py-1 pb-safe shadow-[0_-4px_25px_rgba(0,0,0,0.5)] select-none"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[var(--bg-secondary)]/95 backdrop-blur-2xl border-t border-[var(--border-subtle)] px-2 py-1 pb-safe shadow-[0_-4px_25px_rgba(0,0,0,0.5)] select-none"
     >
       <div className="flex items-center justify-around h-14 max-w-md mx-auto">
         {/* 1. Dashboard */}

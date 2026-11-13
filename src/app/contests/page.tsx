@@ -100,7 +100,7 @@ export default function StudentContestsPage() {
   };
 
   return (
-    <div className="h-screen bg-[#F8FAFC] text-[#0F172A] flex flex-col selection:bg-cyan-500 selection:text-black overflow-hidden font-sans">
+    <div className="h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col selection:bg-cyan-500 selection:text-black overflow-hidden font-sans">
       <TopNavbar userName={user?.name || "Student"} userRole={user?.role || "Student"} />
 
       <div className="flex-1 flex w-full overflow-hidden">
@@ -111,28 +111,28 @@ export default function StudentContestsPage() {
           className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full custom-scrollbar"
         >
           {/* Header Banner */}
-          <div className="glass-panel p-6 rounded-3xl border border-slate-200 space-y-2 bg-white shadow-xs">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 text-amber-600 text-xs font-semibold border border-amber-200">
-              <Trophy size={14} className="text-amber-500" /> Competitive Programming Arena
+          <div className="p-6 rounded-3xl border border-[var(--border-subtle)] space-y-2 bg-[var(--bg-card)] shadow-xs">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 text-amber-400 text-xs font-semibold border border-amber-500/25">
+              <Trophy size={14} className="text-amber-400" /> Competitive Programming Arena
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-2xl sm:text-4xl font-black text-[var(--text-primary)] tracking-tight">
               Active Code Contests 🏆
             </h1>
-            <p className="text-slate-500 text-xs sm:text-sm">
+            <p className="text-[var(--text-muted)] text-xs sm:text-sm">
               Participate in live algorithmic challenges. Write real code, execute against hidden test cases, and earn XP.
             </p>
           </div>
 
           {loading ? (
             <div className="py-20 text-center space-y-3">
-              <Loader2 size={32} className="animate-spin text-blue-600 mx-auto" />
-              <p className="text-xs text-slate-400 font-semibold">Loading available contests...</p>
+              <Loader2 size={32} className="animate-spin text-[var(--brand-blue)] mx-auto" />
+              <p className="text-xs text-[var(--text-muted)] font-semibold">Loading available contests...</p>
             </div>
           ) : contests.length === 0 ? (
-            <div className="glass-panel p-12 rounded-3xl border border-slate-200 bg-white text-center space-y-4 max-w-md mx-auto py-16 shadow-xs">
-              <Trophy size={40} className="text-slate-300 mx-auto" />
-              <h3 className="text-base font-extrabold text-slate-900">No Published Contests Right Now</h3>
-              <p className="text-xs text-slate-500">
+            <div className="p-12 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-center space-y-4 max-w-md mx-auto py-16 shadow-xs">
+              <Trophy size={40} className="text-[var(--text-muted)] mx-auto" />
+              <h3 className="text-base font-extrabold text-[var(--text-primary)]">No Published Contests Right Now</h3>
+              <p className="text-xs text-[var(--text-muted)]">
                 Check back soon! New competitive programming contests will be published shortly by your instructors.
               </p>
             </div>
@@ -141,31 +141,31 @@ export default function StudentContestsPage() {
               {contests.map((contest) => (
                 <div
                   key={contest.id}
-                  className="glass-panel p-6 rounded-3xl border border-slate-200 bg-white hover:border-blue-400 hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                  className="p-6 rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-blue-400/50 hover:shadow-lg transition-all flex flex-col justify-between space-y-4"
                 >
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-700 inline-flex items-center gap-1">
+                      <span className="px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-flex items-center gap-1">
                         <CheckCircle2 size={12} /> {contest.status}
                       </span>
-                      <span className="text-[11px] text-slate-400 font-mono flex items-center gap-1">
+                      <span className="text-[11px] text-[var(--text-muted)] font-mono flex items-center gap-1">
                         <Calendar size={12} /> {new Date(contest.startTime).toLocaleDateString()}
                       </span>
                     </div>
 
-                    <h2 className="text-lg font-black text-slate-900 leading-snug">{contest.title}</h2>
-                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{contest.description}</p>
+                    <h2 className="text-lg font-black text-[var(--text-primary)] leading-snug">{contest.title}</h2>
+                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2 leading-relaxed">{contest.description}</p>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
-                      <Code2 size={15} className="text-blue-500" />
+                  <div className="pt-4 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] font-semibold">
+                      <Code2 size={15} className="text-blue-400" />
                       <span>{contest.challenges.length} Challenges</span>
                     </div>
 
                     <button
                       onClick={() => router.push(`/contests/${contest.id}`)}
-                      className="px-5 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-95 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                      className="px-5 py-2.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-[var(--brand-blue)] to-[var(--brand-cyan)] hover:opacity-90 shadow-lg shadow-blue-500/20 transition-all flex items-center gap-1.5 cursor-pointer"
                     >
                       Enter Contest <ArrowRight size={14} />
                     </button>

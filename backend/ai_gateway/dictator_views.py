@@ -30,8 +30,13 @@ def dictate(request):
         active_file_content = data.get("activeFileContent", "")
         project_files = data.get("projectFiles", [])
         learning_memory = data.get("learningMemory", "")
+        challenge_id = data.get("challengeId", "") or data.get("challenge_id", "")
+        reference_solution = data.get("referenceSolution", "") or data.get("reference_solution", "")
+        starter_code = data.get("starterCode", "") or data.get("starter_code", "")
+        challenge_objective = data.get("challengeObjective", "") or data.get("challenge_objective", "")
+        challenge_description = data.get("challengeDescription", "") or data.get("challenge_description", "")
 
-        print(f"[DICTATOR API] Request: Language={language} | Topic={project} | LearningGroup={student_category} | PracticeLevel={practice_level}")
+        print(f"[DICTATOR API] Request: Language={language} | Topic={project} | ChallengeId={challenge_id} | LearningGroup={student_category} | PracticeLevel={practice_level}")
 
         if not project.strip():
             return JsonResponse(
@@ -54,6 +59,11 @@ def dictate(request):
             student_category=student_category,
             practice_level=practice_level,
             iteration=int(iteration) if str(iteration).isdigit() else 1,
+            challenge_id=challenge_id,
+            reference_solution=reference_solution,
+            starter_code=starter_code,
+            challenge_objective=challenge_objective,
+            challenge_description=challenge_description,
         )
 
         return JsonResponse(

@@ -210,7 +210,7 @@ export default function ExploreCoursesCatalogPage() {
   };
 
   return (
-    <div className="h-screen bg-[#F8FAFC] text-[#0F172A] flex overflow-hidden font-sans antialiased">
+    <div className="h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex overflow-hidden font-sans antialiased">
       {/* Left Sidebar Menu */}
       <LeftSidebar
         activeTab={activeTab}
@@ -221,10 +221,10 @@ export default function ExploreCoursesCatalogPage() {
       />
 
       {/* Center Main Workspace Content Area */}
-      <main data-lenis-prevent className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 w-full custom-scrollbar bg-slate-50">
+      <main data-lenis-prevent className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 w-full custom-scrollbar bg-[var(--bg-primary)]">
 
         {/* Welcome Header */}
-        <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white shadow-xs flex-shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="p-3.5 sm:p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] shadow-lg shadow-black/20 flex-shrink-0 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">
             {/* Mobile Global Navigation Toggle */}
             <button
@@ -235,18 +235,18 @@ export default function ExploreCoursesCatalogPage() {
                 }
               }}
               aria-label="Open navigation menu"
-              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--brand-cyan)] active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
             >
               <Menu size={20} />
             </button>
             <div className="space-y-1 min-w-0">
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 text-[11px] font-semibold border border-blue-500/30">
                 <Sparkles size={12} /> Professional Paths &bull; Browse Catalog
               </div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight">
                 Explore Available Courses 🚀
               </h1>
-              <p className="text-slate-500 text-xs font-medium">
+              <p className="text-[var(--text-muted)] text-xs font-medium">
                 Unlock access to interactive curricula, Sandbox coding workspaces, speech modules, and AI Mentor tutoring.
               </p>
             </div>
@@ -257,10 +257,10 @@ export default function ExploreCoursesCatalogPage() {
               <button
                 type="button"
                 onClick={handlePreviewPurchaseAnimation}
-                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-black text-amber-900 bg-gradient-to-r from-amber-100 via-amber-50 to-amber-100 border border-amber-300 hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 hover:border-amber-500/50 hover:shadow-xs transition-all cursor-pointer"
                 title="Preview the purchase success animation and confirmation modal without modifying enrollments"
               >
-                <Sparkles size={13} className="text-amber-600 animate-pulse" />
+                <Sparkles size={13} className="text-amber-400 animate-pulse" />
                 <span>Preview Purchase Animation</span>
               </button>
             </div>
@@ -271,26 +271,26 @@ export default function ExploreCoursesCatalogPage() {
           /* Loading Grid */
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 py-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white space-y-3 animate-pulse">
-                <div className="h-24 bg-slate-200 rounded-xl w-full" />
-                <div className="h-3 bg-slate-200 rounded w-1/4" />
-                <div className="h-5 bg-slate-200 rounded w-3/4" />
-                <div className="h-3 bg-slate-200 rounded w-5/6" />
+              <div key={i} className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-3 animate-pulse">
+                <div className="h-24 bg-[var(--bg-elevated)] rounded-xl w-full" />
+                <div className="h-3 bg-[var(--bg-elevated)] rounded w-1/4" />
+                <div className="h-5 bg-[var(--bg-elevated)] rounded w-3/4" />
+                <div className="h-3 bg-[var(--bg-elevated)] rounded w-5/6" />
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="text-center py-8 text-slate-500 text-xs font-medium">{error}</div>
+          <div className="text-center py-8 text-[var(--text-muted)] text-xs font-medium">{error}</div>
         ) : (
           /* Courses Grid */
           <div className="space-y-8">
             {/* Active Available Courses */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <BookOpen size={16} className="text-indigo-600" /> Active Enrolment Courses ({courses.length})
+                <h2 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                  <BookOpen size={16} className="text-cyan-400" /> Active Enrolment Courses ({courses.length})
                 </h2>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                   Instant Access Ready
                 </span>
               </div>
@@ -302,7 +302,7 @@ export default function ExploreCoursesCatalogPage() {
                   return (
                     <div
                       key={course.id}
-                      className="glass-panel rounded-2xl border border-slate-200/90 bg-white hover:border-[#4F46E5]/50 transition-all duration-300 shadow-xs flex flex-col justify-between overflow-hidden group hover:shadow-md"
+                      className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-blue-500/50 transition-all duration-300 shadow-lg shadow-black/20 flex flex-col justify-between overflow-hidden group hover:shadow-xl"
                     >
                       <div
                         onClick={() => {
@@ -325,10 +325,10 @@ export default function ExploreCoursesCatalogPage() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                           <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
-                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20 uppercase">
+                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 uppercase">
                               {course.level}
                             </span>
-                            <div className="flex items-center gap-1 text-[11px] text-amber-400 font-extrabold bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-full">
+                            <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full">
                               <Star size={11} className="fill-amber-400 text-amber-400" />
                               <span>{course.rating}</span>
                             </div>
@@ -337,29 +337,29 @@ export default function ExploreCoursesCatalogPage() {
 
                         {/* Body Content */}
                         <div className="p-3.5 space-y-1">
-                          <span className="text-[9px] font-mono font-black text-[#4F46E5] uppercase tracking-wider block">
+                          <span className="text-[9px] font-mono font-bold text-cyan-400 uppercase tracking-wider block">
                             {course.category}
                           </span>
-                          <h3 className="text-sm font-extrabold text-slate-900 leading-snug group-hover:text-[#4F46E5] transition-colors truncate">
+                          <h3 className="text-sm font-bold text-[var(--text-primary)] leading-snug group-hover:text-cyan-400 transition-colors truncate">
                             {course.title}
                           </h3>
-                          <p className="text-[11px] text-slate-500 line-clamp-2 leading-snug font-medium">
+                          <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-snug font-medium">
                             {course.description}
                           </p>
                         </div>
                       </div>
 
                       {/* Footer specs & purchase triggers */}
-                      <div className="px-3.5 py-2 border-t border-slate-100 flex items-center justify-between bg-slate-50/60">
-                        <div className="flex flex-col text-[9px] text-slate-500 font-mono leading-tight">
+                      <div className="px-3.5 py-2 border-t border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-secondary)]">
+                        <div className="flex flex-col text-[9px] text-[var(--text-muted)] font-mono leading-tight">
                           <span className="flex items-center gap-1 font-bold">
-                            <Clock size={11} className="text-slate-400" /> {course.lessons} Lessons
+                            <Clock size={11} className="text-[var(--text-muted)]" /> {course.lessons} Lessons
                           </span>
                           <span className="truncate max-w-[120px]">By {course.instructor}</span>
                         </div>
 
                         <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-black text-slate-900 font-mono">
+                          <span className="text-xs font-bold text-[var(--text-primary)] font-mono">
                             ₹{basicMonthlyRate}/month
                           </span>
 
@@ -370,7 +370,7 @@ export default function ExploreCoursesCatalogPage() {
                                 const targetSlug = langClean === "c++" || langClean === "cpp" ? "cpp" : langClean === "c" ? "c" : langClean === "java" ? "java" : "python";
                                 router.push(`/courses/${targetSlug}`);
                               }}
-                              className="px-3 py-1.5 rounded-xl text-xs font-extrabold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95 shadow-xs flex items-center gap-1 transition-all cursor-pointer"
+                              className="px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95 shadow-xs flex items-center gap-1 transition-all cursor-pointer"
                             >
                               <CheckCircle size={12} />
                               View Course
@@ -381,7 +381,7 @@ export default function ExploreCoursesCatalogPage() {
                                 e.stopPropagation();
                                 handleSubscribeCourse(course);
                               }}
-                              className="px-4 py-2 rounded-xl text-xs font-black text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 shadow-md shadow-blue-500/15 flex items-center gap-1 cursor-pointer transition-all active:scale-[0.98]"
+                              className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 shadow-md shadow-blue-500/15 flex items-center gap-1 cursor-pointer transition-all active:scale-[0.98]"
                             >
                               <Sparkles size={12} className="animate-pulse" />
                               Subscribe
@@ -395,18 +395,18 @@ export default function ExploreCoursesCatalogPage() {
               </div>
             </div>
 
-            {/* UPCOMING COURSES SECTION - EXACT COLOR GRADING & CARD STYLING */}
-            <div className="space-y-3 pt-6 border-t border-slate-200">
+            {/* UPCOMING COURSES SECTION */}
+            <div className="space-y-3 pt-6 border-t border-[var(--border-subtle)]">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 text-[11px] font-semibold border border-blue-500/30">
                     <Sparkles size={12} /> Next-Gen Curriculum &bull; Coming Soon
                   </div>
-                  <h2 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                  <h2 className="text-lg sm:text-xl font-bold text-[var(--text-primary)] tracking-tight flex items-center gap-2">
                     Upcoming Specialization Paths ⏳
                   </h2>
                 </div>
-                <span className="text-xs font-bold text-slate-500 hidden sm:inline">
+                <span className="text-xs font-semibold text-[var(--text-muted)] hidden sm:inline">
                   Pre-register for early launch access
                 </span>
               </div>
@@ -466,10 +466,10 @@ export default function ExploreCoursesCatalogPage() {
                   return (
                     <div
                       key={item.id}
-                      className="glass-panel rounded-2xl border border-slate-200/90 bg-white hover:border-[#4F46E5]/50 transition-all duration-300 shadow-xs flex flex-col justify-between overflow-hidden group hover:shadow-md"
+                      className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-blue-500/50 transition-all duration-300 shadow-lg shadow-black/20 flex flex-col justify-between overflow-hidden group hover:shadow-xl"
                     >
                       <div>
-                        {/* Thumbnail Banner - Identical to active cards */}
+                        {/* Thumbnail Banner */}
                         <div className="relative h-28 w-full overflow-hidden">
                           <Image
                             src={item.thumbnail}
@@ -480,41 +480,41 @@ export default function ExploreCoursesCatalogPage() {
                           />
                           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                           <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
-                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-md text-white border border-white/20 uppercase">
+                            <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-white border border-white/20 uppercase">
                               {item.level}
                             </span>
-                            <div className="flex items-center gap-1 text-[11px] text-amber-400 font-extrabold bg-black/50 backdrop-blur-md px-2 py-0.5 rounded-full">
+                            <div className="flex items-center gap-1 text-[11px] text-amber-400 font-bold bg-black/60 backdrop-blur-md px-2 py-0.5 rounded-full">
                               <Star size={11} className="fill-amber-400 text-amber-400" />
                               <span>{item.rating}</span>
                             </div>
                           </div>
                         </div>
 
-                        {/* Body Content - Identical fonts & colors */}
+                        {/* Body Content */}
                         <div className="p-3.5 space-y-1">
-                          <span className="text-[9px] font-mono font-black text-[#4F46E5] uppercase tracking-wider block">
+                          <span className="text-[9px] font-mono font-bold text-cyan-400 uppercase tracking-wider block">
                             {item.category}
                           </span>
-                          <h3 className="text-sm font-extrabold text-slate-900 leading-snug group-hover:text-[#4F46E5] transition-colors truncate">
+                          <h3 className="text-sm font-bold text-[var(--text-primary)] leading-snug group-hover:text-cyan-400 transition-colors truncate">
                             {item.title}
                           </h3>
-                          <p className="text-[11px] text-slate-500 line-clamp-2 leading-snug font-medium">
+                          <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-snug font-medium">
                             {item.description}
                           </p>
                         </div>
                       </div>
 
-                      {/* Footer specs & purchase triggers - Identical colors & buttons */}
-                      <div className="px-3.5 py-2 border-t border-slate-100 flex items-center justify-between bg-slate-50/60">
-                        <div className="flex flex-col text-[9px] text-slate-500 font-mono leading-tight">
+                      {/* Footer specs & purchase triggers */}
+                      <div className="px-3.5 py-2 border-t border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-secondary)]">
+                        <div className="flex flex-col text-[9px] text-[var(--text-muted)] font-mono leading-tight">
                           <span className="flex items-center gap-1 font-bold">
-                            <Clock size={11} className="text-slate-400" /> {item.lessons} Lessons
+                            <Clock size={11} className="text-[var(--text-muted)]" /> {item.lessons} Lessons
                           </span>
                           <span className="truncate max-w-[120px]">By {item.instructor}</span>
                         </div>
 
                         <div className="flex items-center gap-2.5">
-                          <span className="text-xs font-black text-slate-900">
+                          <span className="text-xs font-bold text-[var(--text-secondary)] font-mono">
                             {item.price}
                           </span>
 
@@ -527,7 +527,7 @@ export default function ExploreCoursesCatalogPage() {
                                 return next;
                               });
                             }}
-                            className={`px-4 py-2 rounded-xl text-xs font-black text-white transition-all shadow-md shadow-blue-500/15 flex items-center gap-1 cursor-pointer ${
+                            className={`px-4 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-md shadow-blue-500/15 flex items-center gap-1 cursor-pointer ${
                               isNotified
                                 ? "bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-95"
                                 : "bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95"
@@ -561,17 +561,17 @@ export default function ExploreCoursesCatalogPage() {
 
       {/* Subscription Success Modal Overlay */}
       {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full border border-slate-200 text-center space-y-6 shadow-2xl animate-fade-in">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 mx-auto animate-bounce">
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md z-[9999] flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-secondary)] rounded-3xl p-8 max-w-md w-full border border-[var(--border-subtle)] text-center space-y-6 shadow-2xl animate-fade-in">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto animate-bounce">
               <ShieldCheck size={36} />
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight">
                 Subscription Confirmed! 🎉
               </h2>
-              <p className="text-xs text-slate-500 leading-relaxed">
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
                 Subscribed! You now have access to this course. Your sandbox workspace, notes, chatbot, and exams are fully unlocked.
               </p>
             </div>
@@ -588,7 +588,7 @@ export default function ExploreCoursesCatalogPage() {
               </button>
               <button
                 onClick={() => setShowSuccessModal(false)}
-                className="w-full py-3 rounded-xl font-bold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+                className="w-full py-3 rounded-xl font-bold text-xs text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] transition-colors"
               >
                 Return to Explore Courses
               </button>
@@ -640,7 +640,7 @@ export default function ExploreCoursesCatalogPage() {
           `}</style>
 
           <div
-            className="relative w-full max-w-md sm:max-w-lg rounded-3xl bg-white border border-slate-200/90 shadow-2xl overflow-hidden p-6 sm:p-8 text-center space-y-5 animate-ksai-modal"
+            className="relative w-full max-w-md sm:max-w-lg rounded-3xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] shadow-2xl overflow-hidden p-6 sm:p-8 text-center space-y-5 animate-ksai-modal"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Ambient Background Glow */}
@@ -671,7 +671,7 @@ export default function ExploreCoursesCatalogPage() {
               type="button"
               onClick={() => setShowDemoSuccessModal(false)}
               aria-label="Close"
-              className="absolute top-4 right-4 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer z-10"
+              className="absolute top-4 right-4 p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition-colors cursor-pointer z-10"
             >
               <X size={18} />
             </button>
@@ -679,7 +679,7 @@ export default function ExploreCoursesCatalogPage() {
             {/* Success Checkmark Animation with Ambient Pulse */}
             <div className="relative mx-auto w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center pt-1">
               <div className="absolute inset-0 rounded-full bg-emerald-400/20 animate-ping pointer-events-none" />
-              <div className="absolute inset-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 shadow-inner" />
+              <div className="absolute inset-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 shadow-inner" />
               <svg
                 className="relative w-16 h-16 sm:w-20 sm:h-20"
                 viewBox="0 0 80 80"
@@ -690,7 +690,7 @@ export default function ExploreCoursesCatalogPage() {
                   cx="40"
                   cy="40"
                   r="34"
-                  stroke="#D1FAE5"
+                  stroke="rgba(16, 185, 129, 0.2)"
                   strokeWidth="5"
                 />
                 {/* Animated Emerald Ring */}
@@ -708,7 +708,7 @@ export default function ExploreCoursesCatalogPage() {
                 {/* Animated Checkmark */}
                 <path
                   d="M26 41 L36 51 L55 31"
-                  stroke="#059669"
+                  stroke="#10B981"
                   strokeWidth="5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -721,22 +721,22 @@ export default function ExploreCoursesCatalogPage() {
 
             {/* Primary Header & Message */}
             <div className="space-y-1.5 relative z-10">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200/70">
-                <Sparkles size={13} className="text-emerald-500 animate-pulse" />
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                <Sparkles size={13} className="text-emerald-400 animate-pulse" />
                 <span>Subscription Confirmed</span>
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight">
                 You have successfully purchased this course!
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-sm mx-auto">
+              <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed max-w-sm mx-auto">
                 Your enrollment is ready. Dive straight into interactive AI guidance, sandbox exercises, and full course lessons.
               </p>
             </div>
 
             {/* Course Summary Card */}
             {demoSuccessCourse && (
-              <div className="relative z-10 rounded-2xl bg-slate-50 border border-slate-200/90 p-3 sm:p-4 flex items-center gap-3.5 text-left shadow-xs">
-                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100">
+              <div className="relative z-10 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] p-3 sm:p-4 flex items-center gap-3.5 text-left shadow-xs">
+                <div className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border border-[var(--border-subtle)] bg-[var(--bg-elevated)]">
                   <Image
                     src={demoSuccessCourse.thumbnail}
                     alt={demoSuccessCourse.title}
@@ -746,24 +746,24 @@ export default function ExploreCoursesCatalogPage() {
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px] font-mono font-black text-[#4F46E5] uppercase tracking-wider block truncate">
+                  <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider block truncate">
                     {demoSuccessCourse.category}
                   </span>
-                  <h4 className="text-sm font-extrabold text-slate-900 truncate">
+                  <h4 className="text-sm font-bold text-[var(--text-primary)] truncate">
                     {demoSuccessCourse.title}
                   </h4>
-                  <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500 font-medium">
+                  <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[var(--text-muted)] font-medium">
                     <span>{demoSuccessCourse.lessons} Lessons</span>
                     <span>&bull;</span>
-                    <span className="font-bold text-emerald-600">Lifetime Access</span>
+                    <span className="font-bold text-emerald-400">Lifetime Access</span>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Demo Mode Notice Badge */}
-            <div className="relative z-10 inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-amber-50/90 border border-amber-200/70 text-amber-800 text-[11px] font-semibold">
-              <ShieldCheck size={13} className="text-amber-600 shrink-0" />
+            <div className="relative z-10 inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] font-semibold">
+              <ShieldCheck size={13} className="text-amber-400 shrink-0" />
               <span>Demo Simulation &bull; No charge was processed</span>
             </div>
 
@@ -794,7 +794,7 @@ export default function ExploreCoursesCatalogPage() {
               <button
                 type="button"
                 onClick={() => setShowDemoSuccessModal(false)}
-                className="w-full sm:w-auto py-3 px-5 rounded-xl font-bold text-xs sm:text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                className="w-full sm:w-auto py-3 px-5 rounded-xl font-bold text-xs sm:text-sm text-[var(--text-secondary)] bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] transition-colors cursor-pointer"
               >
                 Close
               </button>

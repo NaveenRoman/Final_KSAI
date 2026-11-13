@@ -11,7 +11,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#09090B" },
+    { media: "(prefers-color-scheme: dark)", color: "#080D1A" },
     { media: "(prefers-color-scheme: light)", color: "#F8FAFC" },
   ],
 };
@@ -42,7 +42,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark scroll-smooth">
-      <body className="bg-[#09090B] text-white antialiased selection:bg-blue-500 selection:text-white">
+      <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] antialiased selection:bg-cyan-500 selection:text-black">
         <Providers>
           <ThemeManager />
 

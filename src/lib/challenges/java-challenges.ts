@@ -9,7 +9,7 @@ export const JAVA_CHALLENGES: ProgrammingChallenge[] = [
     programIndex: 0,
     title: "JVM Environment & Platform Info",
     difficulty: "EASY",
-    objective: "Verify JDK class structure, JVM property inspection, and basic formatted console output.",
+    objective: "Verify JDK class structure and basic formatted console output to confirm the JVM environment is ready.",
     description: "Write a canonical Java class named `Main` that prints: `KnowledgeStream Java Environment Ready` to standard output.",
     starterCode: `public class Main {
     public static void main(String[] args) {

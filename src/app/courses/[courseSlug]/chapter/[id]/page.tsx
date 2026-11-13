@@ -24,6 +24,7 @@ import { VisionAttachment } from "@/components/learning/VisionAttachment";
 
 import {
   AlertCircle,
+  Award,
   Clock,
   ArrowLeft,
   GraduationCap,
@@ -47,6 +48,7 @@ import {
 import { CheckpointEvaluation, parseCheckpointEvaluation } from "@/types/teaching-types";
 import { ChapterLearningAnalysis } from "@/lib/adaptive/types";
 import { LockedChapterCard } from "@/components/learning/LockedChapterCard";
+import { ChapterRecapModal } from "@/components/learning/ChapterRecapModal";
 
 interface ChapterItem {
   id: string;
@@ -196,6 +198,10 @@ export default function CourseChapterPage() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Chapter Recap Modal
+  const [chapterRecapOpen, setChapterRecapOpen] = useState(false);
+  const [chapterRecapDone, setChapterRecapDone] = useState(false);
 
   // Floating panel tabs state
   const [leftSidebarExpanded, setLeftSidebarExpanded] = useState(true);
@@ -1185,6 +1191,23 @@ const saveLessonProgress = async (
       setCurrentChapter(chapterData.currentChapter);
       setChapters(chapterData.chapters);
       setProgresses(chapterData.progresses);
+
+      // Check recap completion status
+      if (typeof chapterData.chapterRecapCompleted === "boolean") {
+        setChapterRecapDone(chapterData.chapterRecapCompleted);
+      } else {
+        try {
+          const recapRes = await fetch(
+            `/api/adaptive/chapter-unlock?course=${courseSlug}&chapterId=${chapterOrder}`
+          );
+          if (recapRes.ok) {
+            const recapJson = await safeJson(recapRes);
+            if (recapJson?.requirements?.chapterRecapCompleted) {
+              setChapterRecapDone(true);
+            }
+          }
+        } catch {}
+      }
 
       // 2. Fetch Quiz Questions to check if a quiz exists
       try {
@@ -2732,45 +2755,113 @@ const startMentorListening = () => {
                     {renderMarkdown(currentChapter.content)}
                   </article>
 
-                  {/* Complete Action at the bottom */}
-                  <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="text-sm text-slate-500">
-                      {isCompleted ? (
-                        <span className="flex items-center gap-1 text-emerald-600 font-bold font-mono">
-                          <CheckCircle2 size={15} /> Chapter Passed &amp; Completed!
-                        </span>
-                      ) : (
-                        <span>Please read the notes carefully before starting the assessment.</span>
-                      )}
+                  {/* Chapter Completion Gates & Actions */}
+                  <div className="pt-6 border-t border-slate-200 space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <div className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500 mb-1.5 flex items-center gap-1.5">
+                          <Award size={13} className="text-blue-600" />
+                          <span>Chapter {chapterOrder} Completion Requirements</span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+                              chapterRecapDone
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}
+                          >
+                            {chapterRecapDone ? <CheckCircle2 size={13} /> : <Sparkles size={13} className="animate-pulse" />}
+                            Recap &amp; Check: {chapterRecapDone ? "Completed" : "Pending"}
+                          </span>
+
+                          <span
+                            className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-lg border ${
+                              (progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore ?? 0) >= 75
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : "bg-slate-50 text-slate-600 border-slate-200"
+                            }`}
+                          >
+                            {(progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore ?? 0) >= 75 ? (
+                              <CheckCircle2 size={13} />
+                            ) : (
+                              <HelpCircle size={13} />
+                            )}
+                            Quiz Assessment: {(progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore ?? 0) > 0 ? `${progresses.find((p) => p.chapterId === currentChapter?.id)?.quizScore}%` : "Not Taken"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        {/* Start Chapter Recap Button */}
+                        <button
+                          type="button"
+                          onClick={() => setChapterRecapOpen(true)}
+                          className={`px-4 py-3 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5 shadow-sm cursor-pointer min-h-[44px] ${
+                            chapterRecapDone
+                              ? "bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300"
+                              : "bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 hover:brightness-110 text-white shadow-indigo-500/20"
+                          }`}
+                        >
+                          <Sparkles size={15} className={chapterRecapDone ? "text-slate-500" : "animate-pulse"} />
+                          <span>{chapterRecapDone ? "Review Chapter Recap" : "Start Chapter Recap"}</span>
+                        </button>
+
+                        {/* Quiz Button */}
+                        {quizQuestions.length > 0 ? (
+                          isQuizUnlocked(getLessons()) ? (
+                            <button
+                              onClick={() => router.push(`/courses/${courseSlug}/chapter/${chapterOrder}/quiz`)}
+                              className="px-5 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-sm cursor-pointer min-h-[44px]"
+                            >
+                              <HelpCircle size={15} /> Take Chapter Assessment Quiz
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => alert("🔒 Please complete and master all chapter topics with your AI Teacher before taking the Chapter Assessment Quiz.")}
+                              className="px-5 py-3 rounded-xl font-bold text-xs text-slate-400 bg-slate-100 border border-slate-200 hover:bg-slate-200 transition flex items-center justify-center gap-1.5 cursor-not-allowed min-h-[44px]"
+                              title="Complete and master all chapter topics to unlock the quiz"
+                            >
+                              <Lock size={15} className="text-slate-400" /> Chapter Assessment Locked
+                            </button>
+                          )
+                        ) : null}
+
+                        {/* Programming Challenges Gate Button */}
+                        <button
+                          onClick={() => router.push(`/editor?course=${courseSlug}&chapter=${chapterOrder}`)}
+                          className="px-4 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-sm cursor-pointer min-h-[44px]"
+                        >
+                          <Code2 size={14} /> Programming Challenges Gate
+                        </button>
+
+                        {quizQuestions.length === 0 && (
+                          <button
+                            onClick={handleMarkChapterComplete}
+                            disabled={completing}
+                            className="px-5 py-3 rounded-xl font-extrabold text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center justify-center gap-1.5 shadow-sm cursor-pointer min-h-[44px]"
+                          >
+                            <CheckCircle2 size={15} /> {completing ? "Completing..." : "Mark Chapter Complete"}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto">
-                      {quizQuestions.length > 0 && (
+                    {/* Sequential Unlock Feedback Banner */}
+                    {chapterRecapDone && isCompleted && (
+                      <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in">
+                        <div className="flex items-center gap-2 font-semibold">
+                          <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                          <span>All Chapter {chapterOrder} requirements satisfied! Next chapter is unlocked.</span>
+                        </div>
                         <button
-                          onClick={() => router.push(`/courses/${courseSlug}/chapter/${chapterOrder}/quiz`)}
-                          className="w-full sm:w-auto px-5 py-3.5 min-h-[48px] rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/10 cursor-pointer"
+                          onClick={() => router.push(`/courses/${courseSlug}/chapter/${chapterOrder + 1}`)}
+                          className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition shrink-0 cursor-pointer"
                         >
-                          <HelpCircle size={14} /> Take Chapter Assessment Quiz
+                          Proceed to Chapter {chapterOrder + 1} &rarr;
                         </button>
-                      )}
-
-                      <button
-                        onClick={() => router.push(`/editor?course=${courseSlug}&chapter=${chapterOrder}`)}
-                        className="w-full sm:w-auto px-5 py-3.5 min-h-[48px] rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:opacity-95 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
-                      >
-                        <Code2 size={14} /> Programming Challenges Gate
-                      </button>
-
-                      {quizQuestions.length === 0 && (
-                        <button
-                          onClick={handleMarkChapterComplete}
-                          disabled={completing}
-                          className="w-full sm:w-auto px-5 py-3.5 min-h-[48px] rounded-xl font-extrabold text-sm text-white bg-gradient-to-r from-emerald-600 to-teal-500 hover:opacity-95 disabled:opacity-55 transition-opacity flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/10 cursor-pointer"
-                        >
-                          <CheckCircle2 size={14} /> {completing ? "Completing..." : "Mark Chapter Complete"}
-                        </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
 
                 </div>
@@ -2819,8 +2910,26 @@ const startMentorListening = () => {
     </div>
   )}
 </aside>
-
       </div>
+
+      {/* Chapter Recap Modal */}
+      <ChapterRecapModal
+        isOpen={chapterRecapOpen}
+        onClose={() => setChapterRecapOpen(false)}
+        language={courseSlug}
+        chapterOrder={chapterOrder}
+        chapterTitle={currentChapter?.title}
+        courseId={courseId || courseSlug}
+        chapterId={currentChapter?.id}
+        userEmail={userEmail}
+        isAlreadyCompleted={chapterRecapDone}
+        onRecapCompleted={(result) => {
+          setChapterRecapDone(true);
+          if (result.isCompleted) {
+            void loadPageData();
+          }
+        }}
+      />
     </div>
   );
 }

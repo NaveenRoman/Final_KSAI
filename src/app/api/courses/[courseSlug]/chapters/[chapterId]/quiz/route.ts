@@ -115,13 +115,33 @@ export async function GET(
     );
 
     const quizEligibility = progression.currentChapter?.quizEligibility || {
-      isEligible: true,
+      isEligible: false,
+      reason: "Chapter progression data unavailable.",
       passed: false,
       bestScore: 0,
       minPassingScore: 75,
     };
 
-    // Parse quiz questions
+    // Strictly enforce topic completion prerequisite on the server
+    if (!quizEligibility.isEligible && !quizEligibility.passed) {
+      return NextResponse.json(
+        {
+          error:
+            quizEligibility.reason ||
+            "Please complete and master all chapter topics before taking the Chapter Assessment Quiz.",
+          locked: true,
+          lockReason: "TOPICS_INCOMPLETE",
+          quizEligibility,
+          questions: [],
+          chapterTitle: chapter.title,
+          orderNumber: chapter.orderNumber,
+          currentChapterProgression: progression.currentChapter,
+        },
+        { status: 403 }
+      );
+    }
+
+    // Parse quiz questions only after prerequisite authorization succeeds
     let questions = [];
     if (chapter.quizData) {
       const allQuestions = JSON.parse(chapter.quizData);

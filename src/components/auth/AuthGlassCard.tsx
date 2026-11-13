@@ -108,7 +108,7 @@ export function AuthGlassCard({ onAuthSuccess }: AuthGlassCardProps) {
         <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-purple-500/20 blur-3xl pointer-events-none" />
 
         {activeTab === "login" && (
-          <div className="text-center mb-4 space-y-1">
+          <div className="text-center mb-4 space-y-2.5">
             <h2 className="text-2xl xs:text-3xl sm:text-4xl font-black text-white tracking-tight">
               Welcome Back 👋
             </h2>

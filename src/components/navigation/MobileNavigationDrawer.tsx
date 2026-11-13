@@ -290,10 +290,10 @@ export function MobileNavigationDrawer({
         role="dialog"
         aria-modal="true"
         aria-label="Mobile Navigation Menu"
-        className="relative w-72 max-w-[85vw] sm:max-w-xs h-full bg-[#09090B] border-r border-white/15 flex flex-col justify-between text-white z-10 shadow-2xl overflow-hidden animate-in slide-in-from-left duration-200 pl-safe pt-safe pb-safe"
+        className="relative w-72 max-w-[85vw] sm:max-w-xs h-full bg-[var(--bg-secondary)] border-r border-[var(--border-subtle)] flex flex-col justify-between text-[var(--text-primary)] z-10 shadow-2xl overflow-hidden animate-in slide-in-from-left duration-200 pl-safe pt-safe pb-safe"
       >
         {/* Drawer Header */}
-        <div className="p-3.5 border-b border-white/10 flex items-center justify-between bg-[#060609] shrink-0">
+        <div className="p-3.5 border-b border-[var(--border-subtle)] flex items-center justify-between bg-[var(--bg-card)] shrink-0">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 via-purple-600 to-cyan-400 p-[1px] shadow-lg flex items-center justify-center overflow-hidden shrink-0">
               <Image

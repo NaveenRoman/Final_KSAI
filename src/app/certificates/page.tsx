@@ -236,70 +236,70 @@ function CertificatesContent() {
       <div className="grid grid-cols-3 gap-2">
         <button
           onClick={handlePrint}
-          className="py-2.5 px-2 sm:px-3 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 shadow-2xs min-h-[44px]"
+          className="py-2.5 px-2 sm:px-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 shadow-md shadow-blue-500/20 min-h-[44px]"
         >
           <Download size={13} /> <span>Download</span>
         </button>
         <button
           onClick={handleCopyLink}
-          className="py-2.5 px-2 sm:px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 min-h-[44px]"
+          className="py-2.5 px-2 sm:px-3 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 min-h-[44px]"
         >
           <Share2 size={13} /> <span>Share</span>
         </button>
         <button
           onClick={handleVerifyCert}
-          className="py-2.5 px-2 sm:px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 min-h-[44px]"
+          className="py-2.5 px-2 sm:px-3 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 min-h-[44px]"
         >
           <CheckCircle2 size={13} /> <span>Verify URL</span>
         </button>
       </div>
 
-      {/* CERTIFICATE DETAILS SECTION - HIGH CONTRAST */}
-      <div className="space-y-2.5 pt-2 border-t border-slate-100 text-xs">
-        <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-700">CERTIFICATE DETAILS</h4>
+      {/* CERTIFICATE DETAILS SECTION */}
+      <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)] text-xs">
+        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">CERTIFICATE DETAILS</h4>
 
-        <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2">
-          <span className="text-slate-700 font-bold shrink-0">Course Name</span>
-          <span className="font-black text-slate-900 truncate text-right">{previewCourseTitle}</span>
+        <div className="flex justify-between items-center py-1 border-b border-[var(--border-subtle)] gap-2">
+          <span className="text-[var(--text-secondary)] font-medium shrink-0">Course Name</span>
+          <span className="font-bold text-[var(--text-primary)] truncate text-right">{previewCourseTitle}</span>
         </div>
 
-        <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2">
-          <span className="text-slate-700 font-bold shrink-0">Issued On</span>
-          <span className="font-black text-slate-900 truncate text-right">{previewIssueDate}</span>
+        <div className="flex justify-between items-center py-1 border-b border-[var(--border-subtle)] gap-2">
+          <span className="text-[var(--text-secondary)] font-medium shrink-0">Issued On</span>
+          <span className="font-bold text-[var(--text-primary)] truncate text-right">{previewIssueDate}</span>
         </div>
 
-        <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2">
-          <span className="text-slate-700 font-bold shrink-0">Certificate ID</span>
-          <span className="font-mono font-black text-indigo-700 truncate text-right">{previewCertId}</span>
+        <div className="flex justify-between items-center py-1 border-b border-[var(--border-subtle)] gap-2">
+          <span className="text-[var(--text-secondary)] font-medium shrink-0">Certificate ID</span>
+          <span className="font-mono font-bold text-cyan-400 truncate text-right">{previewCertId}</span>
         </div>
 
-        <div className="flex justify-between items-center py-1 border-b border-slate-100 gap-2">
-          <span className="text-slate-700 font-bold shrink-0">Credential Type</span>
-          <span className="font-black text-slate-900 truncate text-right">Course Completion (Sample)</span>
+        <div className="flex justify-between items-center py-1 border-b border-[var(--border-subtle)] gap-2">
+          <span className="text-[var(--text-secondary)] font-medium shrink-0">Credential Type</span>
+          <span className="font-bold text-[var(--text-primary)] truncate text-right">Course Completion (Sample)</span>
         </div>
 
         <div className="flex justify-between items-center py-1 gap-2">
-          <span className="text-slate-700 font-bold shrink-0">Verification Status</span>
-          <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-black shrink-0">
+          <span className="text-[var(--text-secondary)] font-medium shrink-0">Verification Status</span>
+          <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[10px] font-bold shrink-0">
             PREVIEW ONLY
           </span>
         </div>
       </div>
 
       {/* VERIFY CERTIFICATE ID BOX */}
-      <div className="space-y-2 pt-2 border-t border-slate-100">
-        <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-700">VERIFY CERTIFICATE ID</h4>
+      <div className="space-y-2 pt-2 border-t border-[var(--border-subtle)]">
+        <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-muted)]">VERIFY CERTIFICATE ID</h4>
         <div className="flex gap-2">
           <input
             type="text"
             placeholder="Enter Certificate ID"
             value={verifyInput}
             onChange={(e) => setVerifyInput(e.target.value)}
-            className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[44px]"
+            className="flex-1 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl text-xs text-[var(--text-primary)] font-semibold placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] min-h-[44px]"
           />
           <button
             onClick={handleVerifyCert}
-            className="px-4 py-2 bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0 min-h-[44px] flex items-center justify-center"
+            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold rounded-xl transition cursor-pointer shrink-0 min-h-[44px] flex items-center justify-center shadow-md shadow-blue-500/20"
           >
             Verify
           </button>
@@ -307,17 +307,17 @@ function CertificatesContent() {
       </div>
 
       {/* QR CODE VERIFICATION BOX */}
-      <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-        <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700">QR CODE VERIFICATION</h4>
+      <div className="p-3.5 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] space-y-2">
+        <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">QR CODE VERIFICATION</h4>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white rounded-xl border border-slate-200 shrink-0">
-            <QrCode size={36} className="text-slate-800" />
+          <div className="p-2 bg-[var(--bg-elevated)] rounded-xl border border-[var(--border-subtle)] shrink-0">
+            <QrCode size={36} className="text-[var(--text-primary)]" />
           </div>
           <div className="space-y-0.5 min-w-0">
-            <p className="text-[11px] font-black text-slate-900 flex items-center gap-1">
-              <QrCode size={12} className="text-indigo-600" /> Scan QR Code
+            <p className="text-[11px] font-bold text-[var(--text-primary)] flex items-center gap-1">
+              <QrCode size={12} className="text-cyan-400" /> Scan QR Code
             </p>
-            <p className="text-[10px] text-slate-700 font-medium leading-tight">
+            <p className="text-[10px] text-[var(--text-secondary)] font-medium leading-tight">
               This is a sample certificate QR code. Visual preview reference only.
             </p>
           </div>
@@ -326,15 +326,15 @@ function CertificatesContent() {
 
       {/* PUBLIC VERIFICATION LINK BOX */}
       <div className="space-y-1.5 pt-1">
-        <h4 className="text-[10px] font-black uppercase tracking-wider text-slate-700">PUBLIC VERIFICATION LINK</h4>
-        <div className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[11px] text-slate-800 font-bold min-h-[44px]">
+        <h4 className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">PUBLIC VERIFICATION LINK</h4>
+        <div className="flex items-center justify-between p-2.5 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl text-[11px] text-[var(--text-secondary)] font-medium min-h-[44px]">
           <span className="truncate pr-2">Not Applicable (Sample Preview)</span>
           <button
             onClick={handleCopyLink}
             aria-label="Copy public verification link"
-            className="p-2 hover:bg-slate-200 text-slate-700 rounded-lg transition cursor-pointer shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
+            className="p-2 hover:bg-[var(--bg-elevated)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition cursor-pointer shrink-0 min-h-[36px] min-w-[36px] flex items-center justify-center"
           >
-            {copiedLink ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+            {copiedLink ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
           </button>
         </div>
       </div>
@@ -342,7 +342,7 @@ function CertificatesContent() {
   );
 
   return (
-    <div className="h-screen bg-[#F8FAFC] text-slate-800 flex overflow-hidden font-sans antialiased">
+    <div className="h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex overflow-hidden font-sans antialiased">
       {/* Unified Left Sidebar */}
       <LeftSidebar
         activeTab="Certificates"
@@ -365,29 +365,29 @@ function CertificatesContent() {
                   }
                 }}
                 aria-label="Open navigation menu"
-                className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0"
+                className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--brand-cyan)] active:scale-95 transition-all cursor-pointer shrink-0"
               >
                 <Menu size={20} />
               </button>
               <div className="min-w-0">
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Certificates</h1>
-                <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 truncate">Your achievements. Your proof. Your future.</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight">Certificates</h1>
+                <p className="text-[11px] sm:text-xs text-[var(--text-muted)] font-medium mt-0.5 truncate">Your achievements. Your proof. Your future.</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <button
                 onClick={handleCopyLink}
-                className="px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-2xs min-h-[44px]"
+                className="px-3 sm:px-3.5 py-2 sm:py-1.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shadow-xs min-h-[44px]"
               >
-                <Share2 size={14} className="text-slate-500" />
+                <Share2 size={14} className="text-cyan-400" />
                 <span className="hidden sm:inline">Share Achievements</span>
                 <span className="sm:hidden">Share</span>
               </button>
               <div className="relative">
-                <button className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition cursor-pointer">
+                <button className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-full bg-[var(--bg-card)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--bg-elevated)] transition cursor-pointer">
                   <Bell size={16} />
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center border-2 border-white">
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center border-2 border-[var(--bg-card)]">
                     1
                   </span>
                 </button>
@@ -395,59 +395,59 @@ function CertificatesContent() {
             </div>
           </div>
 
-          {/* TOP 4 STATS CARDS ROW - RESPONSIVE 2-COLUMN GRID ON MOBILE */}
+          {/* TOP 4 STATS CARDS ROW */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
             {/* Card 1: Total Certificates */}
-            <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between min-w-0">
+            <div className="p-3 sm:p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-lg shadow-black/20 flex items-center justify-between min-w-0">
               <div className="min-w-0 pr-1">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600 truncate">Total Certs</p>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{completedCount.toString().padStart(2, "0")}</h3>
-                <p className="text-[9px] sm:text-[10px] font-bold text-emerald-600 mt-0.5 sm:mt-1 truncate">0 new this month</p>
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] truncate">Total Certs</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mt-0.5 sm:mt-1">{completedCount.toString().padStart(2, "0")}</h3>
+                <p className="text-[9px] sm:text-[10px] font-semibold text-emerald-400 mt-0.5 sm:mt-1 truncate">0 new this month</p>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 text-cyan-400 flex items-center justify-center shrink-0 border border-blue-500/20">
                 <Award size={18} />
               </div>
             </div>
 
             {/* Card 2: Courses Completed */}
-            <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between min-w-0">
+            <div className="p-3 sm:p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-lg shadow-black/20 flex items-center justify-between min-w-0">
               <div className="min-w-0 pr-1">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600 truncate">Completed</p>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{completedCount.toString().padStart(2, "0")}</h3>
-                <p className="text-[9px] sm:text-[10px] font-bold text-emerald-600 mt-0.5 sm:mt-1 truncate">0 new this month</p>
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] truncate">Completed</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mt-0.5 sm:mt-1">{completedCount.toString().padStart(2, "0")}</h3>
+                <p className="text-[9px] sm:text-[10px] font-semibold text-emerald-400 mt-0.5 sm:mt-1 truncate">0 new this month</p>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
                 <CheckCircle2 size={18} />
               </div>
             </div>
 
             {/* Card 3: XP Earned */}
-            <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between min-w-0">
+            <div className="p-3 sm:p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-lg shadow-black/20 flex items-center justify-between min-w-0">
               <div className="min-w-0 pr-1">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600 truncate">XP Earned</p>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{totalXp.toString().padStart(2, "0")}</h3>
-                <p className="text-[9px] sm:text-[10px] font-bold text-slate-500 mt-0.5 sm:mt-1 truncate">From completed</p>
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] truncate">XP Earned</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mt-0.5 sm:mt-1">{totalXp.toString().padStart(2, "0")}</h3>
+                <p className="text-[9px] sm:text-[10px] font-semibold text-[var(--text-muted)] mt-0.5 sm:mt-1 truncate">From completed</p>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/20">
                 <TrendingUp size={18} />
               </div>
             </div>
 
             {/* Card 4: Verified Certificates */}
-            <div className="p-3 sm:p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between min-w-0">
+            <div className="p-3 sm:p-4 rounded-2xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shadow-lg shadow-black/20 flex items-center justify-between min-w-0">
               <div className="min-w-0 pr-1">
-                <p className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-slate-600 truncate">Verified</p>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 mt-0.5 sm:mt-1">{completedCount.toString().padStart(2, "0")}</h3>
-                <p className="text-[9px] sm:text-[10px] font-bold text-cyan-600 mt-0.5 sm:mt-1 truncate">100% Secure</p>
+                <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] truncate">Verified</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] mt-0.5 sm:mt-1">{completedCount.toString().padStart(2, "0")}</h3>
+                <p className="text-[9px] sm:text-[10px] font-semibold text-cyan-400 mt-0.5 sm:mt-1 truncate">100% Secure</p>
               </div>
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center shrink-0 border border-cyan-500/20">
                 <ShieldCheck size={18} />
               </div>
             </div>
           </div>
 
-          {/* PROGRESS TRACKER MILESTONE BANNER - LIGHT HIGH CONTRAST CARD */}
-          <div className="rounded-2xl bg-white border border-slate-200 p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+          {/* PROGRESS TRACKER MILESTONE BANNER */}
+          <div className="rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] p-4 sm:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
             <div className="flex items-center gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-black shrink-0">
                 <Sparkles size={20} />
@@ -523,10 +523,10 @@ function CertificatesContent() {
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 sm:pb-0 w-full sm:w-auto custom-scrollbar">
               <button
                 onClick={() => setActiveTab("all")}
-                className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer shrink-0 min-h-[44px] sm:min-h-0 flex items-center ${
+                className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 min-h-[44px] sm:min-h-0 flex items-center ${
                   activeTab === "all"
-                    ? "bg-[#4F46E5] text-white shadow-xs"
-                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-xs"
+                    : "bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
                 }`}
               >
                 All Certificates
@@ -534,10 +534,10 @@ function CertificatesContent() {
 
               <button
                 onClick={() => setActiveTab("completion")}
-                className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer shrink-0 min-h-[44px] sm:min-h-0 flex items-center ${
+                className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 min-h-[44px] sm:min-h-0 flex items-center ${
                   activeTab === "completion"
-                    ? "bg-[#4F46E5] text-white shadow-xs"
-                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
+                    ? "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-xs"
+                    : "bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)]"
                 }`}
               >
                 Course Completion
@@ -545,47 +545,47 @@ function CertificatesContent() {
 
               <button
                 onClick={() => setActiveTab("skill")}
-                className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shrink-0 min-h-[44px] sm:min-h-0"
+                className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition cursor-pointer flex items-center gap-1.5 shrink-0 min-h-[44px] sm:min-h-0"
               >
-                Skill Certificates <Lock size={12} className="text-slate-500" />
+                Skill Certificates <Lock size={12} className="text-[var(--text-muted)]" />
               </button>
 
               <button
                 onClick={() => setActiveTab("achievements")}
-                className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition cursor-pointer flex items-center gap-1.5 shrink-0 min-h-[44px] sm:min-h-0"
+                className="px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] transition cursor-pointer flex items-center gap-1.5 shrink-0 min-h-[44px] sm:min-h-0"
               >
-                Achievements <Lock size={12} className="text-slate-500" />
+                Achievements <Lock size={12} className="text-[var(--text-muted)]" />
               </button>
             </div>
 
             {/* Right Controls */}
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:w-48">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                 <input
                   type="text"
                   placeholder="Search certificates..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 sm:py-1.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 min-h-[44px] sm:min-h-0"
+                  className="w-full pl-8 pr-3 py-2 sm:py-1.5 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl text-xs text-[var(--text-primary)] font-semibold placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--brand-blue)] min-h-[44px] sm:min-h-0"
                 />
               </div>
 
               <select
                 value={sortOrder}
                 onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
-                className="px-3 py-2 sm:py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-h-[44px] sm:min-h-0"
+                className="px-3 py-2 sm:py-1.5 bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl text-xs font-bold text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-blue)] min-h-[44px] sm:min-h-0"
               >
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
               </select>
 
-              <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shrink-0">
+              <div className="flex items-center bg-[var(--bg-card)] border border-[var(--border-subtle)] rounded-xl p-0.5 shrink-0">
                 <button
                   onClick={() => setViewMode("grid")}
                   aria-label="Grid View"
                   className={`p-2 sm:p-1.5 rounded-lg text-xs transition cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
-                    viewMode === "grid" ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-500 hover:text-slate-700"
+                    viewMode === "grid" ? "bg-[var(--bg-elevated)] text-[var(--brand-cyan)] font-bold" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   }`}
                 >
                   <LayoutGrid size={15} />
@@ -594,7 +594,7 @@ function CertificatesContent() {
                   onClick={() => setViewMode("list")}
                   aria-label="List View"
                   className={`p-2 sm:p-1.5 rounded-lg text-xs transition cursor-pointer min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center ${
-                    viewMode === "list" ? "bg-slate-100 text-slate-900 font-bold" : "text-slate-500 hover:text-slate-700"
+                    viewMode === "list" ? "bg-[var(--bg-elevated)] text-[var(--brand-cyan)] font-bold" : "text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   }`}
                 >
                   <List size={15} />
@@ -606,34 +606,34 @@ function CertificatesContent() {
           {/* MAIN CERTIFICATES DISPLAY AREA */}
           <div className="flex-1 flex flex-col items-center justify-center min-h-[350px]">
             {loading ? (
-              <div className="text-xs font-mono font-bold text-slate-600 flex items-center gap-2">
-                <Sparkles size={16} className="animate-spin text-indigo-600" /> Loading your certificates...
+              <div className="text-xs font-mono font-bold text-[var(--text-muted)] flex items-center gap-2">
+                <Sparkles size={16} className="animate-spin text-cyan-400" /> Loading your certificates...
               </div>
             ) : completedCount === 0 ? (
-              /* EMPTY STATE CARD - HIGH CONTRAST TEXT */
-              <div className="w-full max-w-lg bg-white p-6 sm:p-10 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center my-auto">
-                <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shadow-2xs mb-4">
+              /* EMPTY STATE CARD */
+              <div className="w-full max-w-lg bg-[var(--bg-card)] p-6 sm:p-10 rounded-3xl border border-[var(--border-subtle)] shadow-xl shadow-black/20 flex flex-col items-center text-center my-auto">
+                <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center shadow-xs mb-4">
                   <Award size={32} />
                 </div>
 
-                <h3 className="text-base sm:text-lg font-black text-slate-900">You haven&apos;t earned a certificate yet</h3>
-                <p className="text-xs text-slate-600 mt-1 max-w-sm font-semibold leading-relaxed">
+                <h3 className="text-base sm:text-lg font-bold text-[var(--text-primary)]">You haven&apos;t earned a certificate yet</h3>
+                <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-sm font-medium leading-relaxed">
                   Complete 100% of the chapters in any course from the catalog to earn your verified credential!
                 </p>
 
                 {/* Inner Track Progress Box */}
-                <div className="w-full mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span className="flex items-center gap-1.5 text-amber-800 font-black">
+                <div className="w-full mt-6 p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-left space-y-2">
+                  <div className="flex items-center justify-between text-xs font-bold text-[var(--text-secondary)]">
+                    <span className="flex items-center gap-1.5 text-amber-400 font-bold">
                       <TrendingUp size={14} /> Track Progress:
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-xs font-black text-slate-900">
+                  <div className="flex items-center justify-between text-xs font-bold text-[var(--text-primary)]">
                     <span className="truncate max-w-[240px]">{sampleTrackCourse.courseTitle}</span>
-                    <span className="text-[11px] text-slate-700 font-extrabold">{sampleTrackCourse.completedChapters}/{sampleTrackCourse.totalChapters} chapters ({sampleTrackCourse.progress}%)</span>
+                    <span className="text-[11px] text-[var(--text-secondary)] font-semibold">{sampleTrackCourse.completedChapters}/{sampleTrackCourse.totalChapters} chapters ({sampleTrackCourse.progress}%)</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${sampleTrackCourse.progress}%` }} />
+                  <div className="h-2 w-full bg-[var(--bg-elevated)] rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full" style={{ width: `${sampleTrackCourse.progress}%` }} />
                   </div>
                 </div>
 
@@ -646,13 +646,13 @@ function CertificatesContent() {
                         setMobilePreviewOpen(true);
                       }
                     }}
-                    className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]"
+                    className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-[var(--text-primary)] hover:bg-[var(--bg-elevated)] text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px]"
                   >
-                    <Sparkles size={14} className="text-indigo-600" /> See what you&apos;ll earn
+                    <Sparkles size={14} className="text-cyan-400" /> See what you&apos;ll earn
                   </button>
                   <button
                     onClick={() => router.push("/courses/catalog")}
-                    className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-extrabold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs min-h-[44px]"
+                    className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-blue-500/20 min-h-[44px]"
                   >
                     Explore Courses Catalog <ArrowRight size={14} />
                   </button>
@@ -673,32 +673,32 @@ function CertificatesContent() {
                         }}
                         className={`p-4 sm:p-5 rounded-2xl border transition duration-200 cursor-pointer ${
                           selectedCert?.courseId === cert.courseId
-                            ? "bg-indigo-50/70 border-indigo-500 ring-2 ring-indigo-500/20 shadow-sm"
-                            : "bg-white border-slate-200 hover:border-slate-300 shadow-2xs"
+                            ? "bg-blue-600/15 border-blue-500 ring-2 ring-blue-500/30 shadow-sm"
+                            : "bg-[var(--bg-card)] border-[var(--border-subtle)] hover:border-blue-500/50 shadow-md shadow-black/20"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="space-y-1 min-w-0">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-black bg-indigo-100 text-indigo-900 uppercase">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-cyan-400 uppercase border border-blue-500/20">
                               {cert.courseLanguage}
                             </span>
-                            <h4 className="text-sm sm:text-base font-black text-slate-900 mt-1 truncate">{cert.courseTitle}</h4>
-                            <p className="text-xs text-slate-600 font-bold truncate">Issued to {cert.studentName}</p>
+                            <h4 className="text-sm sm:text-base font-bold text-[var(--text-primary)] mt-1 truncate">{cert.courseTitle}</h4>
+                            <p className="text-xs text-[var(--text-secondary)] font-medium truncate">Issued to {cert.studentName}</p>
                           </div>
-                          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
                             <Award size={22} />
                           </div>
                         </div>
 
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <span className="text-slate-600 font-mono font-bold truncate">{cert.certificateId}</span>
-                          <span className="text-emerald-600 font-extrabold flex items-center gap-1 shrink-0">
+                        <div className="mt-4 pt-3 border-t border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="text-[var(--text-muted)] font-mono font-bold truncate">{cert.certificateId}</span>
+                          <span className="text-emerald-400 font-bold flex items-center gap-1 shrink-0">
                             <CheckCircle2 size={14} /> Unlocked &amp; Verified
                           </span>
                         </div>
 
                         {/* Mobile Dedicated Preview Action Button (< 768px) */}
-                        <div className="md:hidden mt-3 pt-2 border-t border-slate-100">
+                        <div className="md:hidden mt-3 pt-2 border-t border-[var(--border-subtle)]">
                           <button
                             type="button"
                             onClick={(e) => {
@@ -706,7 +706,7 @@ function CertificatesContent() {
                               setSelectedCert(cert);
                               setMobilePreviewOpen(true);
                             }}
-                            className="w-full py-2.5 px-3 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-black transition cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px] shadow-xs active:scale-[0.98]"
+                            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 min-h-[44px] shadow-xs active:scale-[0.98]"
                           >
                             <Eye size={15} /> View Certificate Preview
                           </button>
@@ -718,18 +718,18 @@ function CertificatesContent() {
             )}
           </div>
 
-          {/* BOTTOM BANNER - VIBRANT INDIGO GRADIENT WITH 100% WHITE TEXT */}
-          <div className="rounded-2xl bg-gradient-to-r from-[#4F46E5] via-[#4338CA] to-[#3730A3] text-white p-4 sm:p-5 flex items-center justify-between gap-4 shadow-lg border border-indigo-400/30">
+          {/* BOTTOM BANNER */}
+          <div className="rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 text-white p-4 sm:p-5 flex items-center justify-between gap-4 shadow-lg border border-blue-400/30">
             <div>
-              <h4 className="text-sm font-black tracking-tight text-white drop-shadow-xs">Share your certified achievements!</h4>
-              <p className="text-xs text-indigo-100 mt-0.5 font-bold">
+              <h4 className="text-sm font-bold tracking-tight text-white drop-shadow-xs">Share your certified achievements!</h4>
+              <p className="text-xs text-blue-100 mt-0.5 font-medium">
                 You&apos;re doing great. Explore courses catalog and start engineering new certified credentials.
               </p>
             </div>
 
             <button
               onClick={() => router.push("/courses/catalog")}
-              className="px-5 py-2.5 rounded-xl bg-white text-indigo-950 hover:bg-slate-50 text-xs font-black transition cursor-pointer shrink-0 flex items-center gap-1.5 shadow-md hover:shadow-lg"
+              className="px-5 py-2.5 rounded-xl bg-white text-slate-900 hover:bg-slate-100 text-xs font-bold transition cursor-pointer shrink-0 flex items-center gap-1.5 shadow-md hover:shadow-lg"
             >
               Explore Courses <ArrowRight size={14} />
             </button>
@@ -737,7 +737,7 @@ function CertificatesContent() {
         </main>
 
         {/* RIGHT SIDEBAR: CERTIFICATE PREVIEW PANEL (Desktop >= 768px) */}
-        <aside className="hidden md:flex md:w-[360px] lg:w-[420px] bg-white border-l border-slate-200 h-full flex-col shrink-0 overflow-y-auto custom-scrollbar p-5">
+        <aside className="hidden md:flex md:w-[360px] lg:w-[420px] bg-[var(--bg-secondary)] border-l border-[var(--border-subtle)] h-full flex-col shrink-0 overflow-y-auto custom-scrollbar p-5">
           {renderPreviewContent(false)}
         </aside>
       </div>
@@ -748,30 +748,30 @@ function CertificatesContent() {
           role="dialog"
           aria-modal="true"
           aria-label="Certificate Preview"
-          className="md:hidden fixed inset-0 z-50 bg-[#F8FAFC] flex flex-col overflow-y-auto custom-scrollbar animate-in fade-in duration-200"
+          className="md:hidden fixed inset-0 z-50 bg-[var(--bg-primary)] flex flex-col overflow-y-auto custom-scrollbar animate-in fade-in duration-200"
         >
           {/* Mobile Modal Sticky Top Bar */}
-          <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3 shadow-xs">
+          <div className="sticky top-0 z-10 bg-[var(--bg-secondary)]/95 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 py-3 flex items-center justify-between gap-3 shadow-xs">
             <button
               type="button"
               onClick={() => setMobilePreviewOpen(false)}
-              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
               aria-label="Back to certificates list"
             >
               <ArrowLeft size={16} /> Back
             </button>
             <div className="min-w-0 text-center flex-1">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900 truncate">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)] truncate">
                 Certificate Preview
               </h3>
-              <p className="text-[10px] text-slate-500 font-semibold truncate">
+              <p className="text-[10px] text-[var(--text-muted)] font-semibold truncate">
                 {previewCourseTitle}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setMobilePreviewOpen(false)}
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center transition-colors cursor-pointer shrink-0"
               aria-label="Close Preview"
             >
               <X size={18} />

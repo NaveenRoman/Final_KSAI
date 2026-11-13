@@ -60,7 +60,7 @@ export function AdminHeader({
   const adminRole = "Founder & Director";
 
   return (
-    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+    <header className="sticky top-0 z-30 bg-[var(--bg-secondary)] backdrop-blur-md border-b border-[var(--border-subtle)] shadow-xs">
       <div className="w-full px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between gap-4">
         {/* Left Section: Hamburger + Title */}
         <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -68,7 +68,7 @@ export function AdminHeader({
             <button
               type="button"
               onClick={onToggleSidebar}
-              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
+              className="p-2 rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-colors cursor-pointer shrink-0"
               title="Toggle Sidebar"
             >
               <Menu size={20} />
@@ -81,10 +81,10 @@ export function AdminHeader({
               <Crown size={20} className="fill-amber-400 text-amber-500" />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight leading-tight truncate">
+              <h1 className="text-base sm:text-lg font-black text-[var(--text-primary)] tracking-tight leading-tight truncate">
                 Admin Dashboard
               </h1>
-              <p className="text-[11px] text-slate-500 font-medium truncate">
+              <p className="text-[11px] text-[var(--text-muted)] font-medium truncate">
                 System Overview and Management
               </p>
             </div>
@@ -97,13 +97,13 @@ export function AdminHeader({
             <button
               type="button"
               onClick={onOpenSearch}
-              className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-slate-100/80 hover:bg-slate-100 border border-slate-200/80 text-xs text-slate-500 hover:text-slate-700 transition-all cursor-pointer shadow-2xs group"
+              className="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-[var(--bg-card)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-2xs group"
             >
               <span className="flex items-center gap-2">
-                <Search size={14} className="text-slate-400 group-hover:text-blue-600 transition-colors" />
+                <Search size={14} className="text-[var(--text-muted)] group-hover:text-[var(--brand-cyan)] transition-colors" />
                 <span>Search students, colleges, courses...</span>
               </span>
-              <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-mono text-slate-400 shadow-2xs">
+              <kbd className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-[10px] font-mono text-[var(--text-muted)] shadow-2xs">
                 ⌘K
               </kbd>
             </button>

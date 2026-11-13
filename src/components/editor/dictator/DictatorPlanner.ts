@@ -1,4 +1,6 @@
 import { synthesizeUniversalProgram, DictatorTeachingUnit } from "./DictatorTokenizer";
+import { buildChallengeDictatorPlan } from "@/lib/challenges/challenge-dictator-builder";
+import { normalizeCourseSlug } from "@/lib/challenges/challenge-bank";
 
 export interface DictatorStep {
     step: number;
@@ -33,8 +35,39 @@ export function createDictatorPlan(
     language: string = "python",
     level: string = "beginner",
     studentCategory?: string,
-    practiceLevel?: string | number
+    practiceLevel?: string | number,
+    challengeMetadata?: {
+        id?: string;
+        title?: string;
+        objective?: string;
+        description?: string;
+        starterCode?: string;
+        referenceSolution?: string;
+        constraints?: string[];
+        course?: string;
+        chapterOrder?: number;
+    }
 ): DictatorStep[] {
+    if (challengeMetadata?.id && challengeMetadata?.referenceSolution) {
+        const plan = buildChallengeDictatorPlan({
+            id: challengeMetadata.id,
+            course: normalizeCourseSlug(challengeMetadata.course || language),
+            chapterOrder: challengeMetadata.chapterOrder || 1,
+            programIndex: 0,
+            title: challengeMetadata.title || project,
+            difficulty: "EASY",
+            objective: challengeMetadata.objective || project,
+            description: challengeMetadata.description || project,
+            starterCode: challengeMetadata.starterCode || "",
+            constraints: challengeMetadata.constraints || [],
+            examples: [],
+            testCases: [],
+            referenceSolution: challengeMetadata.referenceSolution,
+            hints: [],
+        });
+        return plan.steps;
+    }
+
     const units = synthesizeUniversalProgram(project, language, level, studentCategory, practiceLevel);
     return units.map((u, idx) => ({
         step: u.partOfStep || idx + 1,
@@ -67,7 +100,18 @@ export async function fetchDictatorPlan(
     projectFiles?: Array<{ name: string; path: string; language?: string }>,
     studentCategory?: string,
     practiceLevel?: string | number,
-    iteration?: number
+    iteration?: number,
+    challengeMetadata?: {
+        id?: string;
+        title?: string;
+        objective?: string;
+        description?: string;
+        starterCode?: string;
+        referenceSolution?: string;
+        constraints?: string[];
+        course?: string;
+        chapterOrder?: number;
+    }
 ): Promise<{
     steps: DictatorStep[];
     requirements: string[];
@@ -86,6 +130,12 @@ export async function fetchDictatorPlan(
             practiceLevel: String(practiceLevel || "1"),
             iteration: iteration || 1,
             sessionId,
+            challengeId: challengeMetadata?.id,
+            challengeObjective: challengeMetadata?.objective,
+            challengeDescription: challengeMetadata?.description,
+            starterCode: challengeMetadata?.starterCode,
+            referenceSolution: challengeMetadata?.referenceSolution,
+            constraints: challengeMetadata?.constraints,
             activeFileName: activeFileName || (language.toLowerCase() === "java" ? "Main.java" : language.toLowerCase() === "c" ? "main.c" : (language.toLowerCase() === "cpp" || language.toLowerCase() === "c++") ? "main.cpp" : "main.py"),
             activeFilePath: activeFilePath || activeFileName || (language.toLowerCase() === "java" ? "Main.java" : language.toLowerCase() === "c" ? "main.c" : (language.toLowerCase() === "cpp" || language.toLowerCase() === "c++") ? "main.cpp" : "main.py"),
             activeFileContent: activeFileContent || "",
@@ -95,6 +145,7 @@ export async function fetchDictatorPlan(
         console.log("[DICTATOR FRONTEND] Sending API Request:", {
             Language: payload.language,
             Topic: payload.topic,
+            ChallengeId: payload.challengeId,
             LearningGroup: payload.learningGroup,
             PracticeLevel: payload.practiceLevel,
         });
@@ -144,15 +195,25 @@ export async function fetchDictatorPlan(
         console.warn("Could not fetch remote dictator plan, using verified local synthesizer:", err);
     }
 
-    const fallbackSteps = createDictatorPlan(project, language, level, studentCategory, practiceLevel);
-    return {
-        steps: fallbackSteps,
-        requirements: [
+    const fallbackSteps = createDictatorPlan(
+        project,
+        language,
+        level,
+        studentCategory,
+        practiceLevel,
+        challengeMetadata
+    );
+    const challengeReqs = challengeMetadata?.objective
+        ? [challengeMetadata.objective, ...(challengeMetadata.constraints || [])]
+        : [
             "Program structure & headers",
             "Data declarations",
             "Core algorithm & logic",
             "Output formatting"
-        ],
+        ];
+    return {
+        steps: fallbackSteps,
+        requirements: challengeReqs,
         primaryFile: activeFileName || (language.toLowerCase() === "java" ? "Main.java" : language.toLowerCase() === "c" ? "main.c" : (language.toLowerCase() === "cpp" || language.toLowerCase() === "c++") ? "main.cpp" : "main.py"),
         files: [],
     };

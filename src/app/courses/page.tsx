@@ -159,7 +159,7 @@ export default function MyCoursesPage() {
   };
 
   return (
-    <div className="h-screen bg-[#F8FAFC] text-slate-800 flex overflow-hidden font-sans antialiased">
+    <div className="h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex overflow-hidden font-sans antialiased">
       {/* Left Sidebar */}
       <LeftSidebar
         activeTab="Courses"
@@ -172,7 +172,7 @@ export default function MyCoursesPage() {
       {/* Center Main Workspace Content Area */}
       <main data-lenis-prevent className="flex-1 overflow-y-auto h-full p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto w-full custom-scrollbar">
           {/* Welcome Header */}
-          <div className="glass-panel p-3.5 sm:p-4 rounded-2xl border border-slate-200 bg-white shadow-xs space-y-1 flex-shrink-0">
+          <div className="p-3.5 sm:p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] shadow-lg shadow-black/20 space-y-1 shrink-0">
             <div className="flex items-start gap-3 min-w-0">
               {/* Mobile Global Navigation Toggle */}
               <button
@@ -183,18 +183,18 @@ export default function MyCoursesPage() {
                   }
                 }}
                 aria-label="Open navigation menu"
-                className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
+                className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--brand-cyan)] active:scale-95 transition-all cursor-pointer shrink-0 mt-0.5"
               >
                 <Menu size={20} />
               </button>
               <div className="space-y-1 min-w-0">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 text-[11px] font-semibold border border-blue-100">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 text-[11px] font-semibold border border-blue-500/30">
                   <Sparkles size={12} /> Learning Path &bull; My Space
                 </div>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-bold text-[var(--text-primary)] tracking-tight">
                   My Enrolled Courses 🎓
                 </h1>
-                <p className="text-slate-500 text-xs font-medium">
+                <p className="text-[var(--text-muted)] text-xs font-medium">
                   Your registered pathways. Track your subscription validity, purchase date, and remaining days left.
                 </p>
               </div>
@@ -205,35 +205,35 @@ export default function MyCoursesPage() {
             /* Loading Skeleton */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 py-3">
               {[1, 2].map((i) => (
-                <div key={i} className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white space-y-3 animate-pulse">
+                <div key={i} className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-3 animate-pulse">
                   <div className="flex justify-between items-center">
-                    <div className="h-3 bg-slate-200 rounded-full w-24" />
-                    <div className="h-3 bg-slate-200 rounded-full w-10" />
+                    <div className="h-3 bg-[var(--bg-elevated)] rounded-full w-24" />
+                    <div className="h-3 bg-[var(--bg-elevated)] rounded-full w-10" />
                   </div>
-                  <div className="h-5 bg-slate-200 rounded w-3/4" />
+                  <div className="h-5 bg-[var(--bg-elevated)] rounded w-3/4" />
                   <div className="space-y-1.5">
-                    <div className="h-3 bg-slate-200 rounded w-full" />
-                    <div className="h-3 bg-slate-200 rounded w-5/6" />
+                    <div className="h-3 bg-[var(--bg-elevated)] rounded w-full" />
+                    <div className="h-3 bg-[var(--bg-elevated)] rounded w-5/6" />
                   </div>
-                  <div className="h-16 bg-slate-100 rounded-xl w-full" />
+                  <div className="h-16 bg-[var(--bg-elevated)] rounded-xl w-full" />
                 </div>
               ))}
             </div>
           ) : enrollments.length === 0 ? (
             /* Empty State */
-            <div className="glass-panel p-6 rounded-2xl border border-slate-200 bg-white text-center space-y-3 max-w-md mx-auto py-10 shadow-xs">
-              <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-500 mx-auto">
+            <div className="p-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-center space-y-3 max-w-md mx-auto py-10 shadow-xl shadow-black/20">
+              <div className="w-12 h-12 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-cyan-400 mx-auto">
                 <Compass size={24} />
               </div>
               <div className="space-y-1">
-                <h3 className="text-base font-black text-slate-950">You haven't enrolled in any courses yet</h3>
-                <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
+                <h3 className="text-base font-bold text-[var(--text-primary)]">You haven&apos;t enrolled in any courses yet</h3>
+                <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-xs mx-auto">
                   Start your learning journey by browsing our high-quality paths!
                 </p>
               </div>
               <button
                 onClick={() => router.push("/courses/catalog")}
-                className="px-4 py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-95 transition-opacity inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                className="px-4 py-2 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 transition-all inline-flex items-center gap-1 shadow-md shadow-blue-500/20 cursor-pointer"
               >
                 Browse Available Courses <ArrowRight size={13} />
               </button>
@@ -250,74 +250,74 @@ export default function MyCoursesPage() {
                 return (
                   <div
                     key={item.id}
-                    className="glass-panel p-4 rounded-2xl border border-slate-200 bg-white hover:border-blue-500/50 hover:shadow-md transition-all space-y-3 shadow-xs flex flex-col justify-between"
+                    className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-blue-500/50 hover:shadow-xl transition-all space-y-3 shadow-lg shadow-black/20 flex flex-col justify-between"
                   >
                     {/* Card Header & Title */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 uppercase truncate">
+                        <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-cyan-400 border border-blue-500/30 uppercase truncate">
                           {c.category} &bull; Enrolled
                         </span>
 
                         {/* Validity Status Badge */}
                         {validity.isExpired ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/30 shrink-0">
                             <AlertCircle size={11} /> Access Expired
                           </span>
                         ) : validity.isExpiringSoon ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0 animate-pulse">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 shrink-0 animate-pulse">
                             <Clock size={11} /> {validity.daysLeft} Days Left
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0">
                             <ShieldCheck size={11} /> {validity.daysLeft} Days Left
                           </span>
                         )}
                       </div>
 
-                      <h3 className="text-sm font-extrabold text-slate-900 leading-snug">
+                      <h3 className="text-sm font-bold text-[var(--text-primary)] leading-snug">
                         {c.title}
                       </h3>
-                      <p className="text-[11px] text-slate-500 line-clamp-2 leading-snug font-medium">
+                      <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 leading-snug font-medium">
                         {c.description}
                       </p>
                     </div>
 
                     {/* Subscription Validity Meta Block */}
-                    <div className="p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-2">
-                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600 font-medium">
+                    <div className="p-3 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] space-y-2">
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-[var(--text-secondary)] font-medium">
                         <div className="flex items-center gap-1.5">
-                          <Calendar size={13} className="text-blue-500 shrink-0" />
+                          <Calendar size={13} className="text-cyan-400 shrink-0" />
                           <div>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Purchased On</p>
-                            <p className="font-extrabold text-slate-800">{validity.purchaseDateStr}</p>
+                            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-wider">Purchased On</p>
+                            <p className="font-bold text-[var(--text-primary)]">{validity.purchaseDateStr}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 border-l border-slate-200/80 pl-2">
-                          <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
+                        <div className="flex items-center gap-1.5 border-l border-[var(--border-subtle)] pl-2">
+                          <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
                           <div>
-                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Valid Until</p>
-                            <p className="font-extrabold text-slate-800">{validity.endDateStr}</p>
+                            <p className="text-[9px] text-[var(--text-muted)] font-bold uppercase tracking-wider">Valid Until</p>
+                            <p className="font-bold text-[var(--text-primary)]">{validity.endDateStr}</p>
                           </div>
                         </div>
                       </div>
 
                       {/* Validity Time Bar */}
                       <div className="space-y-1 pt-0.5">
-                        <div className="flex items-center justify-between text-[9px] font-mono text-slate-400 font-bold">
+                        <div className="flex items-center justify-between text-[9px] font-mono text-[var(--text-muted)] font-bold">
                           <span>Validity Bar</span>
-                          <span className={validity.isExpired ? "text-rose-500" : validity.isExpiringSoon ? "text-amber-600" : "text-emerald-600"}>
+                          <span className={validity.isExpired ? "text-rose-400" : validity.isExpiringSoon ? "text-amber-400" : "text-emerald-400"}>
                             {validity.daysLeft} of {validity.totalDays} Days Remaining
                           </span>
                         </div>
-                        <div className="w-full h-1.5 bg-slate-200/80 rounded-full overflow-hidden">
+                        <div className="w-full h-1.5 bg-[var(--bg-elevated)] rounded-full overflow-hidden">
                           <div
                             className={`h-full rounded-full transition-all duration-500 ${
                               validity.isExpired
                                 ? "bg-rose-500"
                                 : validity.isExpiringSoon
                                 ? "bg-amber-500"
-                                : "bg-gradient-to-r from-blue-500 to-emerald-500"
+                                : "bg-gradient-to-r from-blue-500 to-cyan-400"
                             }`}
                             style={{ width: `${validity.percentRemaining}%` }}
                           />
@@ -326,18 +326,18 @@ export default function MyCoursesPage() {
                     </div>
 
                     {/* Footer Action */}
-                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[9px] text-slate-400 font-mono font-semibold">
+                    <div className="pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between">
+                      <span className="text-[9px] text-[var(--text-muted)] font-mono font-medium">
                         Instructor: {c.instructor || "Codenthra AI"}
                       </span>
 
                       <button
                         onClick={() => handleStartLearning(c)}
                         disabled={validity.isExpired}
-                        className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold text-white transition-all flex items-center gap-1 cursor-pointer ${
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold text-white transition-all flex items-center gap-1 cursor-pointer ${
                           validity.isExpired
-                            ? "bg-slate-300 cursor-not-allowed opacity-60"
-                            : "bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 shadow-xs"
+                            ? "bg-[var(--bg-elevated)] text-[var(--text-muted)] cursor-not-allowed opacity-60"
+                            : "bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 hover:opacity-95 shadow-md shadow-blue-500/15"
                         }`}
                       >
                         {validity.isExpired ? "Access Expired" : "Continue Learning"} <ArrowRight size={12} />

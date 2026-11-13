@@ -12,7 +12,8 @@ function generateContextualFallbackResponse(
   code: string,
   language: string,
   learningLevel: string = "beginner",
-  userName?: string | null
+  userName?: string | null,
+  challenge?: any
 ): string {
   // Check trained Knowledge Base first
   const trainedAns = findTrainedAnswer(question, userName);
@@ -20,6 +21,11 @@ function generateContextualFallbackResponse(
 
   const qLower = question.toLowerCase().trim();
   const codeLines = code.split(/\r?\n/);
+
+  // 0. Active challenge query
+  if (challenge && (qLower.includes("goal") || qLower.includes("task") || qLower.includes("challenge") || qLower.includes("objective") || qLower.includes("what should i do") || qLower.includes("instructions"))) {
+    return `### 🎯 Active Challenge: ${challenge.title || challenge.id}\n\n**Objective:** ${challenge.objective || ""}\n\n${challenge.description || ""}\n\n${challenge.constraints && Array.isArray(challenge.constraints) ? `**Constraints:**\n${challenge.constraints.map((c: string) => `• ${c}`).join("\n")}` : ""}`;
+  }
 
   // 1. Check for specific variables or values in the code
   const tokens = question.match(/[a-zA-Z_]\w*/g) || [];
@@ -115,6 +121,7 @@ export async function POST(request: NextRequest) {
     const fileName = body.fileName || "Main.java";
     const learningLevel = body.learningLevel || body.level || "beginner";
     const history = Array.isArray(body.history) ? body.history : [];
+    const challenge = body.challenge || null;
 
     console.log("[AI CHAT] Request received for user:", userName || "Anonymous");
     console.log(`[AI CHAT] Language: ${language}, Level: ${learningLevel}, Code length: ${code.length}`);
@@ -155,12 +162,20 @@ export async function POST(request: NextRequest) {
         : "Provide a friendly, simple, easy-to-understand explanation avoiding unnecessary jargon, explaining beginner concepts clearly.";
 
     const studentContext = userName ? `STUDENT NAME: ${userName}\n` : "";
+    const challengeSection = challenge ? `
+ACTIVE CHALLENGE: ${challenge.title || challenge.id}
+CHALLENGE OBJECTIVE: ${challenge.objective || "Follow challenge specifications"}
+CHALLENGE DESCRIPTION: ${challenge.description || ""}
+${challenge.constraints && Array.isArray(challenge.constraints) ? `CONSTRAINTS: ${challenge.constraints.join(", ")}` : ""}
+If the user asks about solving, debugging, or meeting challenge criteria, guide them towards fulfilling the challenge requirements!
+` : "";
+
     const prompt = `You are Codenthra AI, an intelligent programming mentor.
 
 ${studentContext}LEARNING LEVEL: ${learningLevel.toUpperCase()} (${levelGuidance})
 LANGUAGE: ${language}
 CURRENT FILE: ${fileName}
-
+${challengeSection}
 CURRENT EDITOR CODE:
 \`\`\`${language.toLowerCase()}
 ${code || "// (No code currently in editor)"}
@@ -224,6 +239,7 @@ INSTRUCTIONS:
           history,
           learningLevel,
           fileName,
+          challenge: challenge || undefined,
         }),
       });
 
@@ -250,7 +266,8 @@ INSTRUCTIONS:
       code,
       language,
       learningLevel,
-      userName
+      userName,
+      challenge
     );
 
     return NextResponse.json({

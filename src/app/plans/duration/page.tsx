@@ -394,9 +394,9 @@ function DurationContent() {
 
 export default function DurationPage() {
   return (
-    <div className="min-h-screen bg-[#09090B] text-white selection:bg-cyan-500 selection:text-black">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] selection:bg-cyan-500 selection:text-black">
       <Navbar />
-      <Suspense fallback={<div className="pt-40 text-center text-slate-400">Loading duration options...</div>}>
+      <Suspense fallback={<div className="pt-40 text-center text-[var(--text-muted)]">Loading duration options...</div>}>
         <DurationContent />
       </Suspense>
     </div>

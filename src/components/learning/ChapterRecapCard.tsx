@@ -233,11 +233,6 @@ Provide:
     }
   };
 
-  useEffect(() => {
-    if (courseId && chapterId && !saved) {
-      void handleSaveToNotes();
-    }
-  }, [courseId, chapterId]);
 
   return (
     <div className="rounded-3xl border-2 border-slate-800/90 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl overflow-hidden transition-all duration-300">

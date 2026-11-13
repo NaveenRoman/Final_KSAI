@@ -27,8 +27,8 @@ export function AdminPageLayout({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased flex flex-col">
-      {/* Fixed Dark Navy Sidebar */}
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans antialiased flex flex-col">
+      {/* Fixed Sidebar */}
       <AdminSidebar
         isMobileOpen={isMobileSidebarOpen}
         onMobileClose={() => setIsMobileSidebarOpen(false)}
@@ -57,12 +57,12 @@ export function AdminPageLayout({
 
         {/* Page Content */}
         <main className="flex-1 w-full max-w-[1600px] mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-          <div className="border-b border-slate-200/80 pb-4">
-            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <div className="border-b border-[var(--border-subtle)] pb-4">
+            <h1 className="ks-heading-page">
               {title}
             </h1>
             {subtitle && (
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1 font-medium">
                 {subtitle}
               </p>
             )}

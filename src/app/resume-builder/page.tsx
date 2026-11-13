@@ -337,7 +337,7 @@ export default function ProfessionalResumeStudio() {
   };
 
   return (
-    <div className="h-screen bg-[#F8FAFC] text-slate-800 flex overflow-hidden font-sans antialiased">
+    <div className="h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex overflow-hidden font-sans antialiased">
       <style jsx global>{`
         @media print {
           body {
@@ -377,9 +377,9 @@ export default function ProfessionalResumeStudio() {
       />
 
       {/* Main Container */}
-      <main data-lenis-prevent className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-[#F8FAFC]">
+      <main data-lenis-prevent className="flex-1 flex flex-col h-full overflow-hidden min-w-0 bg-[var(--bg-primary)]">
         {/* Top Professional Pipeline Navigation Bar */}
-        <div className="px-6 py-3.5 bg-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-xs no-print">
+        <div className="px-6 py-3.5 bg-[var(--bg-card)] border-b border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-xs no-print">
           <div className="flex items-center gap-3 min-w-0">
             {/* Mobile Global Navigation Toggle (< 768px) */}
             <button
@@ -390,7 +390,7 @@ export default function ProfessionalResumeStudio() {
                 }
               }}
               aria-label="Open navigation menu"
-              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center justify-center text-slate-700 hover:text-indigo-600 hover:border-indigo-200 active:scale-95 transition-all cursor-pointer shrink-0"
+              className="md:hidden w-11 h-11 min-w-[44px] min-h-[44px] rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] shadow-2xs flex items-center justify-center text-[var(--text-secondary)] hover:text-blue-400 hover:border-blue-500/30 active:scale-95 transition-all cursor-pointer shrink-0"
             >
               <Menu size={20} />
             </button>
@@ -398,10 +398,10 @@ export default function ProfessionalResumeStudio() {
               <Sparkles size={20} />
             </div>
             <div className="min-w-0">
-              <h1 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5 truncate">
+              <h1 className="text-base font-black text-[var(--text-primary)] tracking-tight flex items-center gap-1.5 truncate">
                 Codenthra AI Resume Builder Studio
               </h1>
-              <p className="text-[11px] text-slate-500 font-medium truncate">
+              <p className="text-[11px] text-[var(--text-muted)] font-medium truncate">
                 JD Upload ➔ Profile Entry ➔ AI Gap Analysis ➔ Interactive A4 Studio
               </p>
             </div>
@@ -409,46 +409,46 @@ export default function ProfessionalResumeStudio() {
 
           {/* Step Stepper Pills (Only visible when unlocked) */}
           {isUnlocked ? (
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 text-xs font-bold">
+            <div className="flex items-center gap-1.5 bg-[var(--bg-secondary)] p-1.5 rounded-2xl border border-[var(--border-subtle)] text-xs font-bold">
               <button
                 onClick={() => setStep(1)}
                 className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-                  step === 1 ? "bg-blue-600 text-white shadow-sm font-black" : "text-slate-600 hover:text-slate-900"
+                  step === 1 ? "bg-gradient-to-r from-[var(--brand-blue)] to-[var(--brand-cyan)] text-white shadow-sm font-black" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 <Upload size={13} /> 1. Upload JD
               </button>
-              <span className="text-slate-300 text-[10px]">➔</span>
+              <span className="text-[var(--text-muted)] text-[10px]">➔</span>
               <button
                 onClick={() => setStep(2)}
                 className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-                  step === 2 ? "bg-blue-600 text-white shadow-sm font-black" : "text-slate-600 hover:text-slate-900"
+                  step === 2 ? "bg-gradient-to-r from-[var(--brand-blue)] to-[var(--brand-cyan)] text-white shadow-sm font-black" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 <User size={13} /> 2. Enter Profile
               </button>
-              <span className="text-slate-300 text-[10px]">➔</span>
+              <span className="text-[var(--text-muted)] text-[10px]">➔</span>
               <button
                 onClick={() => setStep(3)}
                 className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-                  step === 3 ? "bg-blue-600 text-white shadow-sm font-black" : "text-slate-600 hover:text-slate-900"
+                  step === 3 ? "bg-gradient-to-r from-[var(--brand-blue)] to-[var(--brand-cyan)] text-white shadow-sm font-black" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 <Target size={13} /> 3. AI JD Match
               </button>
-              <span className="text-slate-300 text-[10px]">➔</span>
+              <span className="text-[var(--text-muted)] text-[10px]">➔</span>
               <button
                 onClick={() => setStep(4)}
                 className={`px-3 py-1.5 rounded-xl transition-all cursor-pointer flex items-center gap-1 ${
-                  step === 4 ? "bg-blue-600 text-white shadow-sm font-black" : "text-slate-600 hover:text-slate-900"
+                  step === 4 ? "bg-gradient-to-r from-[var(--brand-blue)] to-[var(--brand-cyan)] text-white shadow-sm font-black" : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 }`}
               >
                 <FileCheck size={13} /> 4. Resume Studio
               </button>
             </div>
           ) : (
-            <div className="px-3.5 py-1.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-black flex items-center gap-2 shadow-xs">
-              <Lock size={14} className="text-amber-600" /> Module Locked &bull; ₹1 Payment Required
+            <div className="px-3.5 py-1.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-black flex items-center gap-2 shadow-xs">
+              <Lock size={14} className="text-amber-400" /> Module Locked &bull; ₹1 Payment Required
             </div>
           )}
         </div>
@@ -456,47 +456,47 @@ export default function ProfessionalResumeStudio() {
         {/* Locked Module Screen / Full Pipeline */}
         {!isUnlocked ? (
           <div className="flex-1 overflow-y-auto p-6 sm:p-12 custom-scrollbar flex items-center justify-center">
-            <div className="max-w-xl w-full bg-white rounded-3xl border border-slate-200 shadow-2xl p-8 sm:p-10 space-y-6 text-center animate-in fade-in zoom-in-95">
+            <div className="max-w-xl w-full bg-[var(--bg-card)] rounded-3xl border border-[var(--border-subtle)] shadow-2xl p-8 sm:p-10 space-y-6 text-center animate-in fade-in zoom-in-95">
               <div className="w-20 h-20 rounded-3xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-blue-600 text-white flex items-center justify-center mx-auto shadow-xl">
                 <Lock size={36} />
               </div>
 
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-xs font-extrabold">
-                  <Sparkles size={13} className="text-purple-600" /> Premium Module &bull; Lifetime Access
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 text-xs font-extrabold">
+                  <Sparkles size={13} className="text-purple-400" /> Premium Module &bull; Lifetime Access
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
+                <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-primary)] tracking-tight">
                   Unlock Codenthra AI Resume Builder
                 </h2>
-                <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                <p className="text-xs text-[var(--text-muted)] font-medium leading-relaxed">
                   Engineered for FAANG & top tech roles. Build job-targeted resumes, scan JD PDFs natively, and get real-time ATS match scoring.
                 </p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-left space-y-2.5">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+              <div className="p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-left space-y-2.5">
+                <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-secondary)]">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                   <span>Native Base64 PDF Job Description Parser</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-secondary)]">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                   <span>FAANG ATS Keyword Gap & Match Evaluation</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-secondary)]">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                   <span>4 Professional A4 Templates (Modern, Executive, Creative, Classic)</span>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                  <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-secondary)]">
+                  <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
                   <span>1-Click High-Res Vector PDF Download</span>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 flex flex-col items-center gap-3">
+              <div className="pt-2 border-t border-[var(--border-subtle)] flex flex-col items-center gap-3">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-black text-slate-950 font-mono">₹70</span>
-                  <span className="text-xs font-bold text-slate-500">/ month</span>
-                  <span className="text-xs font-extrabold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">Included in Codexa Pro</span>
+                  <span className="text-3xl font-black text-[var(--text-primary)] font-mono">₹70</span>
+                  <span className="text-xs font-bold text-[var(--text-muted)]">/ month</span>
+                  <span className="text-xs font-extrabold text-purple-300 bg-purple-500/20 px-2.5 py-0.5 rounded-full border border-purple-500/30">Included in Codexa Pro</span>
                 </div>
 
                 <button
@@ -506,8 +506,8 @@ export default function ProfessionalResumeStudio() {
                   <ShieldCheck size={18} className="text-cyan-300" /> Upgrade to Codexa Pro (₹70/mo) ➔
                 </button>
 
-                <p className="text-[10.5px] text-slate-400 font-medium flex items-center gap-1">
-                  <ShieldCheck size={12} className="text-emerald-500" /> Includes AI Interview Preparation &amp; Resume Builder
+                <p className="text-[10.5px] text-[var(--text-muted)] font-medium flex items-center gap-1">
+                  <ShieldCheck size={12} className="text-emerald-400" /> Includes AI Interview Preparation &amp; Resume Builder
                 </p>
               </div>
             </div>

@@ -52,6 +52,7 @@ export default function BottomDock() {
     const { editor } = useEditor();
     const {
         isChallengeMode,
+        activeChallenge,
         testRunning,
         runTestCode,
         evaluating,
@@ -111,6 +112,13 @@ export default function BottomDock() {
                     errors: diagnostics,
                     output: terminalOutput || "",
                     fileName: activeTab.name || "Main",
+                    challenge: isChallengeMode && activeChallenge ? {
+                        id: activeChallenge.id,
+                        title: activeChallenge.title,
+                        objective: activeChallenge.objective,
+                        description: activeChallenge.description,
+                        constraints: activeChallenge.constraints,
+                    } : undefined,
                 }),
             });
 

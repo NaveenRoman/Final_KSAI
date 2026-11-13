@@ -5,7 +5,11 @@ import bcrypt from "bcryptjs";
 
 export const auth = betterAuth({
   database: prismaAdapter(db, {
-    provider: (process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV) || (process.env.NODE_ENV === "production" && process.env.DATABASE_URL?.startsWith("postgres")))
+    provider: (
+      process.env.VERCEL === "1" ||
+      Boolean(process.env.VERCEL_ENV) ||
+      Boolean(process.env.DATABASE_URL?.startsWith("postgres"))
+    )
       ? "postgresql"
       : "sqlite",
   }),
@@ -24,6 +28,15 @@ export const auth = betterAuth({
     google: {
       clientId: (process.env.GOOGLE_CLIENT_ID || "").trim().replace(/^["']|["']$/g, ""),
       clientSecret: (process.env.GOOGLE_CLIENT_SECRET || "").trim().replace(/^["']|["']$/g, ""),
+      mapProfileToUser: async (profile) => {
+        // Enforce verified email requirement: unverified Google emails must never be linked or used
+        if (!profile.email_verified) {
+          throw new Error("GOOGLE_EMAIL_NOT_VERIFIED: Only verified Google email accounts can be linked or used to sign in.");
+        }
+        return {
+          emailVerified: true,
+        };
+      },
     },
   },
   user: {
@@ -50,6 +63,24 @@ export const auth = betterAuth({
     accountLinking: {
       enabled: true,
       trustedProviders: ["google"],
+      requireLocalEmailVerified: false,
+    },
+  },
+  databaseHooks: {
+    user: {
+      update: {
+        before: async (user) => {
+          // Security safeguard: Never downgrade or alter user roles during OAuth linking/sync
+          if ("role" in user) {
+            delete user.role;
+          }
+          // Security safeguard: Never overwrite or clear existing passwords during OAuth linking/sync
+          if ("passwordHash" in user) {
+            delete user.passwordHash;
+          }
+          return { data: user };
+        },
+      },
     },
   },
   baseURL:

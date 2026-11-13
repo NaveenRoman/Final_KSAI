@@ -32,7 +32,7 @@ export default function PlansPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-white selection:bg-cyan-500 selection:text-black">
+    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] selection:bg-cyan-500 selection:text-black">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 pb-24 relative z-10">
@@ -44,10 +44,10 @@ export default function PlansPage() {
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-cyan-400 text-xs font-bold uppercase tracking-widest">
             <Sparkles size={14} className="text-cyan-400" /> Transparent Student Pricing
           </div>
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-[var(--text-primary)]">
             Choose Your <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">Codexa Plan</span>
           </h1>
-          <p className="text-slate-400 text-sm sm:text-base leading-relaxed">
+          <p className="text-[var(--text-muted)] text-sm sm:text-base leading-relaxed">
             All plans include our isolated compiler sandbox, curriculum, and AI mentor. Select your plan below to proceed to duration and order summary.
           </p>
 
@@ -65,35 +65,35 @@ export default function PlansPage() {
         {/* Two Plan Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto items-stretch">
           {/* BASIC PLAN CARD */}
-          <div className="rounded-3xl border border-white/10 bg-[#0E0E14]/90 p-8 sm:p-10 flex flex-col justify-between hover:border-white/20 transition-all duration-300 relative shadow-xl">
+          <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 sm:p-10 flex flex-col justify-between hover:border-blue-500/40 transition-all duration-300 relative shadow-xl">
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">Foundational Tier</span>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">Basic</h2>
+                  <span className="text-xs font-black uppercase tracking-wider text-[var(--text-muted)]">Foundational Tier</span>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] mt-1">Basic</h2>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold">
                   <Zap size={22} />
                 </div>
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-400">
+              <p className="text-xs sm:text-sm text-[var(--text-muted)]">
                 Core interactive coding suite, curated courses, live teacher dictation, and learning analytics.
               </p>
 
               <div className="pt-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl sm:text-5xl font-black text-white font-mono">₹50</span>
-                  <span className="text-slate-400 text-sm font-semibold">/ month</span>
+                  <span className="text-4xl sm:text-5xl font-black text-[var(--text-primary)] font-mono">₹50</span>
+                  <span className="text-[var(--text-muted)] text-sm font-semibold">/ month</span>
                 </div>
-                <p className="text-[11px] text-slate-400 font-medium mt-1">
+                <p className="text-[11px] text-[var(--text-muted)] font-medium mt-1">
                   Flexible options: 1 month (₹50 — 1 subject) · 4 months (₹150 — all 4 subjects)
                 </p>
               </div>
 
-              <div className="pt-6 border-t border-white/10 space-y-3.5">
-                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">Features Included:</span>
-                <ul className="space-y-3 text-xs sm:text-sm text-slate-300">
+              <div className="pt-6 border-t border-[var(--border-subtle)] space-y-3.5">
+                <span className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">Features Included:</span>
+                <ul className="space-y-3 text-xs sm:text-sm text-[var(--text-secondary)]">
                   <li className="flex items-start gap-2.5">
                     <Check size={16} className="text-cyan-400 shrink-0 mt-0.5" />
                     <span><strong>1. Courses:</strong> Full interactive curriculum &amp; challenges</span>
@@ -125,7 +125,7 @@ export default function PlansPage() {
             <div className="pt-8 mt-6">
               <button
                 onClick={() => router.push("/plans/duration?plan=basic")}
-                className="w-full py-4 rounded-2xl text-xs sm:text-sm font-extrabold text-white bg-slate-800 hover:bg-slate-700 border border-white/10 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
+                className="w-full py-4 rounded-2xl text-xs sm:text-sm font-extrabold text-[var(--text-primary)] bg-[var(--bg-secondary)] hover:bg-[var(--bg-elevated)] border border-[var(--border-subtle)] transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md"
               >
                 <span>Select Basic Plan</span>
                 <ArrowRight size={16} />
@@ -134,7 +134,7 @@ export default function PlansPage() {
           </div>
 
           {/* PRO PLAN CARD */}
-          <div className="rounded-3xl border-2 border-blue-500/80 bg-gradient-to-b from-blue-950/40 via-[#0F0F1E]/90 to-[#09090B] p-8 sm:p-10 flex flex-col justify-between relative shadow-2xl shadow-blue-500/20 hover:border-cyan-400 transition-all duration-300">
+          <div className="rounded-3xl border-2 border-[var(--brand-blue)] bg-gradient-to-b from-blue-950/40 via-[var(--bg-card)] to-[var(--bg-primary)] p-8 sm:p-10 flex flex-col justify-between relative shadow-2xl shadow-blue-500/20 hover:border-cyan-400 transition-all duration-300">
             {/* Popular Badge */}
             <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-400 text-white text-[10px] font-black uppercase tracking-wider shadow-lg flex items-center gap-1.5">
               <Sparkles size={12} /> RECOMMENDED FOR CAREER
@@ -144,30 +144,30 @@ export default function PlansPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <span className="text-xs font-black uppercase tracking-wider text-cyan-400">Career Acceleration</span>
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-white mt-1">Pro</h2>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] mt-1">Pro</h2>
                 </div>
                 <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/25">
                   <Sparkles size={22} />
                 </div>
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-300">
+              <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
                 Complete learning suite plus AI interview mock rounds and professional ATS resume studio.
               </p>
 
               <div className="pt-2">
                 <div className="flex items-baseline gap-2">
-                  <span className="text-4xl sm:text-5xl font-black text-white font-mono">₹70</span>
-                  <span className="text-slate-400 text-sm font-semibold">/ month</span>
+                  <span className="text-4xl sm:text-5xl font-black text-[var(--text-primary)] font-mono">₹70</span>
+                  <span className="text-[var(--text-muted)] text-sm font-semibold">/ month</span>
                 </div>
                 <p className="text-[11px] text-cyan-400/90 font-medium mt-1">
                   Flexible options: 1 month (₹70) · 4 months (₹200 — Best Value)
                 </p>
               </div>
 
-              <div className="pt-6 border-t border-white/10 space-y-3.5">
+              <div className="pt-6 border-t border-[var(--border-subtle)] space-y-3.5">
                 <span className="text-xs font-bold text-cyan-300 uppercase tracking-wider">Includes Every Basic Feature, Plus:</span>
-                <ul className="space-y-3 text-xs sm:text-sm text-slate-200">
+                <ul className="space-y-3 text-xs sm:text-sm text-[var(--text-secondary)]">
                   <li className="flex items-start gap-2.5">
                     <Check size={16} className="text-cyan-400 shrink-0 mt-0.5" />
                     <span><strong>1. AI Interview Preparation:</strong> Full technical &amp; HR mock rounds</span>
@@ -176,8 +176,8 @@ export default function PlansPage() {
                     <Check size={16} className="text-cyan-400 shrink-0 mt-0.5" />
                     <span><strong>2. Professional Resume Builder:</strong> ATS score analysis &amp; PDF export</span>
                   </li>
-                  <li className="flex items-start gap-2.5 text-slate-400">
-                    <Check size={16} className="text-slate-500 shrink-0 mt-0.5" />
+                  <li className="flex items-start gap-2.5 text-[var(--text-muted)]">
+                    <Check size={16} className="text-[var(--text-muted)] shrink-0 mt-0.5" />
                     <span>Includes Courses, Editor, Notes, Teaching, Monitoring &amp; Guidance</span>
                   </li>
                 </ul>
@@ -197,20 +197,20 @@ export default function PlansPage() {
         </div>
 
         {/* Feature Comparison Table */}
-        <div className="mt-20 max-w-4xl mx-auto rounded-3xl border border-white/10 bg-[#0E0E14]/80 p-6 sm:p-8">
-          <h3 className="text-base sm:text-lg font-black text-white mb-6 text-center">
+        <div className="mt-20 max-w-4xl mx-auto rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 sm:p-8">
+          <h3 className="text-base sm:text-lg font-black text-[var(--text-primary)] mb-6 text-center">
             Detailed Plan Comparison
           </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead>
-                <tr className="border-b border-white/10 text-slate-400">
+                <tr className="border-b border-[var(--border-subtle)] text-[var(--text-muted)]">
                   <th className="pb-4 font-bold">Feature</th>
                   <th className="pb-4 font-bold text-center">Basic (₹50/mo)</th>
                   <th className="pb-4 font-bold text-center text-cyan-400">Pro (₹70/mo)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5 text-slate-300">
+              <tbody className="divide-y divide-[var(--border-subtle)] text-[var(--text-secondary)]">
                 <tr>
                   <td className="py-3.5 font-medium">Full Course Curriculum</td>
                   <td className="py-3.5 text-center text-emerald-400">✓</td>
@@ -237,13 +237,13 @@ export default function PlansPage() {
                   <td className="py-3.5 text-center text-emerald-400 font-bold">✓</td>
                 </tr>
                 <tr className="bg-blue-500/5">
-                  <td className="py-3.5 font-bold text-white">AI Interview Preparation</td>
-                  <td className="py-3.5 text-center text-slate-500">—</td>
+                  <td className="py-3.5 font-bold text-[var(--text-primary)]">AI Interview Preparation</td>
+                  <td className="py-3.5 text-center text-[var(--text-muted)]">—</td>
                   <td className="py-3.5 text-center text-cyan-400 font-bold">✓ Included</td>
                 </tr>
                 <tr className="bg-blue-500/5">
-                  <td className="py-3.5 font-bold text-white">Resume Builder &amp; ATS Scanner</td>
-                  <td className="py-3.5 text-center text-slate-500">—</td>
+                  <td className="py-3.5 font-bold text-[var(--text-primary)]">Resume Builder &amp; ATS Scanner</td>
+                  <td className="py-3.5 text-center text-[var(--text-muted)]">—</td>
                   <td className="py-3.5 text-center text-cyan-400 font-bold">✓ Included</td>
                 </tr>
               </tbody>

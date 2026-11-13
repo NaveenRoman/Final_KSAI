@@ -97,7 +97,7 @@ export function OverviewStatCards({ stats }: OverviewStatCardsProps) {
           <Link
             key={c.id}
             href={c.href}
-            className={`group p-4 rounded-2xl bg-white border border-slate-200/90 shadow-2xs hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer ${c.accent}`}
+            className={`group p-4 rounded-2xl ks-card border border-[var(--border-subtle)] hover:border-[var(--brand-cyan)] shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between cursor-pointer`}
           >
             <div>
               <div className="flex items-center justify-between mb-2.5">
@@ -108,32 +108,32 @@ export function OverviewStatCards({ stats }: OverviewStatCardsProps) {
                 </div>
                 <ArrowUpRight
                   size={14}
-                  className="text-slate-300 group-hover:text-slate-600 transition-colors"
+                  className="text-[var(--text-muted)] group-hover:text-[var(--brand-cyan)] transition-colors"
                 />
               </div>
-              <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+              <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider block">
                 {c.title}
               </span>
-              <div className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+              <div className="text-2xl font-black text-[var(--text-primary)] tracking-tight mt-0.5">
                 {c.value}
               </div>
-              <span className="text-[10px] text-slate-500 font-medium block truncate mt-0.5">
+              <span className="text-[10px] text-[var(--text-muted)] font-medium block truncate mt-0.5">
                 {c.subLabel}
               </span>
             </div>
 
-            <div className="mt-3 pt-2 border-t border-slate-100/80 flex items-center justify-between text-[10px] font-medium">
+            <div className="mt-3 pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[10px] font-medium">
               <span
                 className={`inline-flex items-center gap-1 font-bold ${
                   c.isLive
-                    ? "text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200"
+                    ? "text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-full border border-emerald-500/30"
                     : c.trend === "No comparison data yet"
-                    ? "text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200"
-                    : "text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200"
+                    ? "text-[var(--text-muted)] bg-[var(--bg-secondary)] px-2 py-0.5 rounded-full border border-[var(--border-subtle)]"
+                    : "text-[var(--brand-cyan)] bg-blue-500/15 px-2 py-0.5 rounded-full border border-cyan-500/30"
                 }`}
               >
                 {c.isLive ? (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 ) : (
                   <TrendingUp size={10} />
                 )}

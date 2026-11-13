@@ -16,6 +16,7 @@ import {
 import { useEditorTheme } from "./EditorTheme";
 import { useTabs } from "./tabs/TabContext";
 import { useLanguage } from "./languages/LanguageContext";
+import { useChallenge } from "./challenge/ChallengeContext";
 
 interface ChatMessage {
   role: "user" | "assistant";
@@ -28,6 +29,7 @@ export default function AIChatPanel() {
   const { darkMode } = useEditorTheme();
   const { activeTab } = useTabs();
   const { language } = useLanguage();
+  const { isChallengeMode, activeChallenge } = useChallenge();
 
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -178,6 +180,14 @@ useEffect(() => {
           history: messages,
 
           question,
+
+          challenge: isChallengeMode && activeChallenge ? {
+            id: activeChallenge.id,
+            title: activeChallenge.title,
+            objective: activeChallenge.objective,
+            description: activeChallenge.description,
+            constraints: activeChallenge.constraints,
+          } : undefined,
         }),
       });
 

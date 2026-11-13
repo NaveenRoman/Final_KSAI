@@ -209,6 +209,9 @@ export async function GET(
         quizScore: p.quizScore,
       })),
       progression: progressionData,
+      requirements: unlockStatus.requirements,
+      isChapterCompleted: unlockStatus.isCompleted,
+      chapterRecapCompleted: unlockStatus.requirements.chapterRecapCompleted,
     });
   } catch (error) {
     console.error("GET Chapter Error:", error);
